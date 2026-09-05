@@ -1,0 +1,25 @@
+# Local execution and private inputs; generated data stays outside the checkout.
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
+.env
+.env.*
+data/
+private/
+models/
+evidence-local/
+*.sqlite*
+*.db*
+*.log
+*.mp4
+*.mkv
+*.webm
+*.mov
+*.avi
+*.wav
+*.mp3
+*.srt
+*.vtt
+*.safetensors
+*.gguf
