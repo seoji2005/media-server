@@ -17,6 +17,9 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import ClientDisconnect
 
+from .jobs import Jobs
+from .subtitles import MAX_SUBTITLE_BYTES
+
 from .storage import CHUNK, MediaError, Store, default_data_dir, safe_io, title_from_name
 
 
@@ -62,18 +65,22 @@ def byte_range(header: str | None, size: int) -> tuple[int, int, int]:
 
 def create_app(data_dir: Path | None = None) -> FastAPI:
     store = Store(data_dir if data_dir is not None else default_data_dir())
+    jobs = Jobs(store)
     token = secrets.token_urlsafe(32)
 
     @asynccontextmanager
     async def lifespan(app):
         store.start()
         try:
+            jobs.start()
             yield
         finally:
+            jobs.close()
             store.close()
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store = store
+    app.state.jobs = jobs
 
     @app.middleware("http")
     async def local_boundary(request: Request, call_next):
@@ -191,6 +198,33 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         if type(body) is not dict or set(body) != {"position"}:
             raise MediaError("invalid_request", 422)
         return await run_in_threadpool(store.save_position, item_id, body["position"])
+
+    @app.get("/api/library/{item_id}/subtitles")
+    def subtitles(item_id: str):
+        return jobs.status(item_id)
+
+    @app.post("/api/library/{item_id}/subtitles")
+    async def import_subtitles(item_id: str, request: Request):
+        data = bytearray()
+        async for chunk in request.stream():
+            if len(data) + len(chunk) > MAX_SUBTITLE_BYTES:
+                raise MediaError("subtitles_too_large", 413)
+            data.extend(chunk)
+        track_id = await run_in_threadpool(jobs.import_srt, item_id, bytes(data))
+        return JSONResponse({"id":track_id}, status_code=201)
+
+    @app.get("/api/library/{item_id}/subtitles/{track_id}.vtt")
+    def subtitle_content(item_id: str, track_id: str):
+        return Response(jobs.track(item_id, track_id), media_type="text/vtt; charset=utf-8")
+
+    @app.post("/api/library/{item_id}/subtitle-jobs")
+    def create_subtitle_job(item_id: str):
+        return JSONResponse({"id":jobs.enqueue(item_id)}, status_code=202)
+
+    @app.post("/api/subtitle-jobs/{job_id}/{action}")
+    def subtitle_job_action(job_id: str, action: str):
+        jobs.action(job_id, action)
+        return {"ok":True}
 
     @app.api_route("/api/media/{item_id}/content", methods=["GET", "HEAD"])
     def content(item_id: str, request: Request):

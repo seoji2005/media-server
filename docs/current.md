@@ -1,29 +1,46 @@
 # Current work
 
-- **Milestone:** simplify the harness; preserve the existing local import/play/resume app.
-- **Branch:** `harness/lean-work`, based on
-  `90b6d9c488e927d5f08e70d22ce8a323410d49f7`.
-  [PR #2](https://github.com/seoji2005/media-server/pull/2) merged into
-  `harness/initial-workflow`; [PR #1](https://github.com/seoji2005/media-server/pull/1)
-  targets main. Fetch live coordinates on resume; main is not the latest app checkout.
-- **Last verified product revision:** `90b6d9c488e927d5f08e70d22ce8a323410d49f7`;
-  its 24 file blobs/tree were matched before cleanup. Application, dependencies and
-  application regression files remain byte-identical in this change.
-- **Verified behavior:** prior PR #2 records report import, original/copy integrity,
-  library, HTTP ranges and 8.25-second resume after forced process restart; same-size
-  mutations rejected cold/warm and cache reuse probed on a 128 MiB fixture.
-  Evidence: **synthetic fixture**, not real-model quality. Those earlier process
-  probes were not repeated for documentation cleanup. This cleanup ran
-  `python scripts/harness.py run test`: **25 app tests passed** with pinned dependencies
-  on Python 3.12.13/Linux. Harness/link and diff checks passed (**contract only**);
-  a synthetic failing test retained its failure detail, skip count and exit 1 under
-  quiet mode. Doctor found FFmpeg/ffprobe. No model or browser run was performed.
-- **Open limits:** actual browser playback/seek/visual quality, Windows installation/
-  locking/codecs, target RTX and human quality remain unverified. ASR/translation/
-  enhancement/search/recommendations are not implemented. No token/cost saving measured.
-  This branch does not modify external schedules or stop other Work executions.
-- **Next action:** use the [short start prompt](start.md) in the sole implementation
-  Work to recover the live app and advance the first real Korean-subtitle viewing
-  slice; address related playback gaps with available tools. Existing development
-  event tasks must be paused before that Work takes ownership; retain the read-only
-  daily check. Final merge/release stays with the owner.
+- **Milestone:** Korean-subtitle viewing and resumable preparation — **in progress**.
+  Source import/library/playback/resume is preserved. No October feature is dropped.
+- **Branch:** `app/korean-subtitles-resume`, based on `harness/lean-work` at
+  `d3c7607f65759e24b0ae5147d07b5e05c6f12dd6`. Latest app is on this progress branch,
+  not main. PR #2 is merged into `harness/initial-workflow`; harness PR #3 and main
+  integration PR #1 remain unmerged. Fetch live Git/PR coordinates on resume.
+- **Implemented:** UTF-8 Korean SRT import, original uploaded bytes and caption
+  version preservation, escaped WebVTT/native-player track selection; background
+  local-only faster-whisper/MADLAD adapters; transactional ASR-stage/translation-cue
+  checkpoints, pause/resume and non-destructive restart with changed settings.
+  A kernel worker lock prevents overlapping inference after server death/native
+  stalls. Claimed attempt checks prevent stale checkpoint/publication writes.
+  Missing/changed provenance, media and subtitle corruption fail closed.
+- **Verification:** Python 3.12.13/Linux with existing pinned app dependencies.
+  At the repaired code checkpoint, `python -m unittest discover -s tests -q` passed
+  **36 tests**; the final focused `-p test_subtitles.py` run passed **12 tests**,
+  including one additional real FFmpeg audio-decode/ASR-interface test with a stub
+  model. `node tests/ui/player.cjs` and `node tests/ui/subtitles.cjs` passed
+  (**mocked DOM/media/HTTP**, not browser decoding). Harness and diff checks passed.
+  Actual HTTP/process probe: two caption versions survive forced server restart
+  byte-for-byte; **5.25 s** watch position restored, Range bytes exact, source hash
+  unchanged and no fixture title/path/caption in logs. Evidence: **synthetic fixture**.
+- **Independent review:** initial review found missing-config checkpoint reuse,
+  old/new worker overlap during a native GIL stall, and lost literal angle text.
+  All three resolved in limited rereview: 11 subtitle tests plus production CLI
+  crash/restart with a synthetic backend. Native-stall survivor blocks replacement;
+  after exit, resume reuses ASR/first translated cue and produces one track. Reviewer
+  observed zero-byte server logs and no unresolved BLOCKER/IMPORTANT. This is code
+  evidence, not model-quality or owner merge approval.
+- **Actual blockers/limits:** inference packages/weights could not be acquired
+  (network approval cancelled); real ASR/translation was **not executed**. Optional
+  model pins/setup are unverified candidates. Browser connected but localhost app
+  navigation returned `ERR_BLOCKED_BY_CLIENT`; no alternate route was attempted.
+  Actual subtitles/seek/visual quality, mixed-language accuracy, long-video runtime,
+  Windows/CUDA/12 GB RTX fit and human viewing quality remain unverified.
+  ASR interruption reruns that stage; translation resumes by saved cue. Crash input
+  copies remain in `processing/`; normal attempts remove their disposable copy.
+- **Operations:** old development/reviewer event tasks were already paused; the
+  read-only daily progress check remains enabled. This Work owns implementation.
+  Commit/push/Draft PR are authorized; final merge/release needs owner approval.
+- **Next action:** obtain permitted public model weights/runtime in an authorized
+  environment and execute a non-private speech sample through real ASR → Korean
+  translation → browser subtitles. Use [subtitle setup/recovery](subtitles.md).
+  Then inspect Japanese/English/mixed accuracy and target Windows/RTX behavior.

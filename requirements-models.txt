@@ -1,0 +1,6 @@
+# Provisional optional adapters. Real resolution/inference is an open environment gate.
+# Install the appropriate CPU/CUDA torch wheel first (docs/subtitles.md).
+torch==2.8.0
+faster-whisper==1.2.1
+transformers==4.57.1
+sentencepiece>=0.2,<0.3

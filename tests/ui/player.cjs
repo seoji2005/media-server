@@ -16,7 +16,8 @@ async function run(js) {
     if(path==='/api/session') result={token:'synthetic-token',diagnostics:{ffprobe:true,ffmpeg:true,recovered_copies:0}};
     else if(path==='/api/library') result={items:library.map(x=>({...x}))};
     else {const id=path.split('/')[3], item=library.find(x=>x.id===id); assert(item,path);
-      if(opts.method==='PUT'){const position=JSON.parse(opts.body).position; writes.push({id,position});item.position=position;result={...item};}
+      if(path.endsWith('/subtitles')) result={jobs:[],tracks:[]};
+      else if(opts.method==='PUT'){const position=JSON.parse(opts.body).position; writes.push({id,position});item.position=position;result={...item};}
       else result={...item};
     }
     return {ok:true,json:async()=>result};
