@@ -68,9 +68,19 @@ class Decision:
     remote_write_allowed: bool = False
 
 
+def _positive_int(value: object) -> bool:
+    return type(value) is int and value > 0
+
+
 def decide(request: Request, result: Result, facts: Facts) -> Decision:
     """Select one hypothetical action; never persist, dispatch, or consume a result."""
     target = request.target
+    # Python makes bool/float equal to int; validate before target/duplicate shortcuts.
+    if not all(_positive_int(value) for value in (
+        target.pr, result.target.pr, facts.live.pr, request.attempt, result.attempt,
+    )) or any(not _positive_int(t.pr) or not _positive_int(attempt)
+              for t, attempt in facts.processed):
+        return Decision("BLOCKED_ENV", "PR and attempt must be positive builtin integers")
     if target.repository != "seoji2005/media-server" or target.pr != 1:
         return Decision("IGNORE", "outside configured PR #1")
     if not facts.pr_open or request.state == "WIP":
@@ -85,9 +95,7 @@ def decide(request: Request, result: Result, facts: Facts) -> Decision:
         return Decision("IGNORE", "superseded or unrequested attempt")
     if any(t == target and attempt >= result.attempt for t, attempt in facts.processed):
         return Decision("IGNORE", "already processed or out of order")
-    if type(request.attempt) is not int or request.attempt < 1 or (
-        request.attempt > 1 and not request.retry_reason.strip()
-    ):
+    if request.attempt > 1 and not request.retry_reason.strip():
         return Decision("BLOCKED_ENV", "same-code retry needs an explicit reason")
     if result.verdict == "STALE":
         return Decision("IGNORE", "reviewer reported stale target")

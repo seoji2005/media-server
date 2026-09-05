@@ -112,6 +112,66 @@ class ReceiverPolicyTests(unittest.TestCase):
         self.action("BLOCKED_ENV", result=replace(self.result, verdict="looks PASS"))
         self.action("BLOCKED_ENV", result=replace(self.result, finding_severities=("major",)))
 
+    def test_request_result_and_live_pr_require_positive_builtin_integers(self):
+        for value in (True, False, 1.0, 0.0, -1.0, 0, -1, "1", None):
+            target = replace(self.target, pr=value)
+            for field in ("request", "result", "live"):
+                with self.subTest(field=field, value=value, type=type(value).__name__):
+                    self.action(
+                        "BLOCKED_ENV",
+                        request=replace(self.request, target=target) if field == "request" else None,
+                        result=replace(self.result, target=target) if field == "result" else None,
+                        facts=replace(self.facts, live=target) if field == "live" else None,
+                    )
+
+    def test_attempts_require_positive_builtin_integers_before_comparison(self):
+        for value in (True, False, 1.0, 0.0, -1.0, 0, -1, "1", None):
+            for field in ("request", "result", "both"):
+                with self.subTest(field=field, value=value, type=type(value).__name__):
+                    self.action(
+                        "BLOCKED_ENV",
+                        request=replace(self.request, attempt=value) if field != "result" else None,
+                        result=replace(self.result, attempt=value) if field != "request" else None,
+                    )
+
+    def test_invalid_numbers_cannot_hide_behind_stale_or_duplicate_shortcuts(self):
+        for value in (True, 1.0, 0, -1):
+            for facts in (replace(self.facts, live=replace(self.target, head="c" * 40)),
+                          replace(self.facts, processed=((self.target, 1),))):
+                with self.subTest(value=value, type=type(value).__name__, facts=facts):
+                    self.action("BLOCKED_ENV", result=replace(self.result, attempt=value),
+                                facts=facts)
+                    self.action("BLOCKED_ENV", request=replace(self.request, attempt=value),
+                                facts=facts)
+                    self.action("BLOCKED_ENV", result=replace(
+                        self.result, target=replace(self.target, pr=value)), facts=facts)
+
+    def test_processed_checkpoint_numbers_are_validated_before_duplicate_scan(self):
+        for value in (True, False, 1.0, 0.0, -1.0, 0, -1, "1", None):
+            for record in ((replace(self.target, pr=value), 1), (self.target, value)):
+                # A valid duplicate first must not conceal a malformed later entry.
+                for processed in ((record,), ((self.target, 1), record)):
+                    with self.subTest(record=record, processed=processed):
+                        self.action("BLOCKED_ENV", facts=replace(self.facts, processed=processed))
+
+    def test_int_subclasses_are_not_builtin_numeric_identity(self):
+        class IntSubclass(int):
+            pass
+
+        value = IntSubclass(1)
+        self.action("BLOCKED_ENV", result=replace(self.result, attempt=value))
+        self.action("BLOCKED_ENV", facts=replace(self.facts, live=replace(self.target, pr=value)))
+        self.action("BLOCKED_ENV", facts=replace(self.facts, processed=((self.target, value),)))
+
+    def test_valid_integer_mismatches_and_unrelated_checkpoint_stay_ignored(self):
+        for target in (replace(self.target, pr=2), replace(self.target, head="c" * 40)):
+            with self.subTest(target=target):
+                self.action("IGNORE", result=replace(self.result, target=target))
+                self.action("IGNORE", facts=replace(self.facts, live=target))
+                self.action("MILESTONE_COMPLETE",
+                            facts=replace(self.facts, processed=((target, 3),)))
+        self.action("IGNORE", result=replace(self.result, attempt=2))
+
 
 if __name__ == "__main__":
     unittest.main()

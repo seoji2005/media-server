@@ -11,7 +11,7 @@ possible leave date. The donor `seoji2005/media-clarity-studio` remains read-onl
 
 Verified starting state: `seoji2005/media-server` main
 `0faf1906211be12ad94870db2b1fc71e76df53c4`; only open PR **#1**, Draft,
-`harness/initial-workflow`, starting head `48b5cfff9d9577c680f9a82b22c03b2a686e70fd`.
+`harness/initial-workflow`, R2 starting head `2fdf65296ef3370babe024e7dff9b6d97abf40cb`.
 Re-read live state on resume; use `git rev-parse HEAD` / `python scripts/harness.py status`
 for the current local revision rather than assuming these starting coordinates persist.
 
@@ -33,44 +33,51 @@ The implementation receiver is enabled in **dry-run**, event-only, scoped to PR 
 Receiver bindings, native-schema observations and protocol are in
 [engineering.md](engineering.md#event-handoff). The daily “Media Clarity 진행 정체
 점검” task is unchanged and read-only. The independent reviewer's enabled PR #1
-commit-event task and separate conversation binding have also been read back. Its first
-event run intentionally selects an action without publishing a result.
+commit-event task and separate conversation binding have also been read back. After the
+owner's manual follow-up, it is **SINGLE_RESULT_TRIAL_ARMED**: the next useful ready
+push may publish one final result under its policy. Comments/reviews remain disabled
+for that reviewer task; the coordinator remains no-write dry-run.
 
-Local changed-behavior evidence: `python -m unittest discover -s tests -v` passes **13
-tests** for action selection, including stale base/head, duplicates independent of run ID,
-explicit retries, source mismatch, insufficient evidence, ownership and lost checkpoints.
+R2 in manual [comment #5550545835](https://github.com/seoji2005/media-server/pull/1#issuecomment-5550545835)
+reproduced on that starting head: `result.attempt=True/1.0` or request `target.pr=True`
+selected `MILESTONE_COMPLETE`; malformed attempts could also escape as stale/duplicate.
+The repair validates positive builtin integers before any identity/attempt comparison,
+including request/result/live PR and processed-checkpoint PR/attempt fields.
+
+Local changed-behavior evidence: the expanded `python -m unittest discover -s tests -v`
+first failed against the unchanged starting code (19 test methods, 86 failures
+and 2 errors), then passed **19 tests** after repair. Coverage includes bool/float,
+nonpositive values, numeric impostors, stale/duplicate shortcuts and malformed later
+checkpoint entries; valid PASS/FIX, retries and unrelated/stale/duplicate results remain.
 `python scripts/harness.py check` and `git diff --check` pass. Evidence class: **synthetic
-fixture / contract only**. Input facts are simulated; no live source verification,
-cross-cloud serialization, durable queue recovery or actual event delivery is proven.
+fixture / contract only**; no actual event consumer or automatic writer was added.
+Use the current Git revision for this repair's checkpoint; the starting head identifies
+the failing baseline, not the fixed code.
 
-Fresh-environment probe: recovered all nine starting-revision blobs through the GitHub
-app, verified blob hashes and tree `56f73e32a92e2ad8f410058325ca593b6c63924b`, and passed
-harness check in an isolated fresh directory. Shell Git lacks credentials; use the app
-for remote access. This proves source snapshot/tool recovery, not complete commit
-ancestry or a scheduled execution's environment. Ambiguous older local WIP was preserved
-untouched; the active author uses a clean recovered checkout.
+Prior setup evidence retained: the PR-body ready-before-ref sequence was observed for
+`2fdf652`; recovery verified its 11 remote blobs and tree
+`0a03dfc16a89fcbcd13b3fef6a6e3d229fbabe49` in a clean directory. Shell Git lacks
+credentials; use the GitHub app for remote access. This proves source snapshot/tool
+recovery, not complete commit ancestry or a scheduled execution's environment. Older
+ambiguous local WIP remains untouched.
 
-The independent Work's initial manual report identified the absent review request/protocol
-and environmental limits; this revision addresses the protocol, not the remaining limits.
-A receiver `last_run_time` was observed after that comment, but no run detail establishes
-causality or event-driven conversation resume. It is not evidence of the full chain.
-
-Unverified: API-authored comment eligibility; push/body update event ordering; both actual
-event runs and return-result publication; accessible run provenance; shared writer
-serialization and scheduled-run recovery. No exposed tools currently establish the last
-three. Event receivers must remain dry-run; no automatic follow-on writer is enabled.
+The R2 result was posted once as `source.kind=manual`, `run_id=null`; it is not an event
+review. The coordinator reported an actual `issue_comment` webhook wake, but its event
+lacked a comment ID. Exact comment-to-run linkage, independent event review provenance,
+shared writer serialization and durable scheduled-run/checkpoint recovery remain
+unverified. No full round trip is established and no automatic follow-on writer is enabled.
 Product evidence remains **contract only**; no real model, Windows, target RTX or human
 quality review has run. Reuse prior unchanged harness CLI evidence in Git history.
 
 ## One next action
 
-Both reservations are prepared. If this useful change is not yet published, stage PR-body
-`ready` with its exact future head/current base, then publish it. Once the live request
-and head match, inspect the independent Work's first synchronize dry-run; never repush
-merely to wake a task. That Work currently posts no event result; it must inspect the
-dry-run and enable its own single result-publication trial before the return edge can be
-tested. Follow [the trial](engineering.md#first-real-trial), record the actual broken or
-unobservable edge, and keep implementation dry-run while provenance/ownership are unknown.
+If this R2 repair is not yet published, set PR-body `ready` to its exact future head/current
+base and attempt 1 (new code target), then update the branch and verify remote coordinates.
+Otherwise inspect the live matching head and the independent Work's armed synchronize
+run and any single result it posts;
+follow [the trial](engineering.md#first-real-trial), never repush merely to wake a task.
+Keep the coordinator no-write dry-run while provenance/ownership are unknown. Record
+the actually observed edge and missing evidence; manual execution is not event success.
 
 Keep one concise Work checkpoint: milestone / branch / last verified revision / command
 and result / handled target-attempt-comment / WIP / blocker / next action. Refresh this

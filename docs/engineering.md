@@ -49,7 +49,8 @@ implementation agent writes; a separate Work produces the requested review verdi
 
 Observed on 2026-09-05: GitHub access has pull/push/admin. The native event schema offers
 PR-scoped opt-in `synchronize`, submitted **human** reviews, and created **human**
-conversation/inline comments. Whether API-authored user comments qualify is untested.
+conversation/inline comments. The coordinator reported an `issue_comment` webhook wake,
+but its missing comment ID leaves the exact API-posted-result linkage unverified.
 Opened/ready/closed events may also wake a task; every wake must re-read actual PR state.
 Exposed automation tools have no destination-conversation argument, run-history API or
 execution-serialization control. Do not infer these capabilities from a successful create.
@@ -61,7 +62,8 @@ Implementation receiver: automation `6a9bc5b261888191956ef1678990039f`, conversa
 review/commit-update events disabled. Independent reviewer: automation
 `6a9bc5f5e98881919450ddd0ac987576`, separate conversation
 `6a9bc514-c6b8-83ee-b772-d18d92d7404d`; its enabled PR #1 commit-event task was independently
-read back. Its first synchronize run is dry-run and intentionally posts no result.
+read back. After manual follow-up it is now **SINGLE_RESULT_TRIAL_ARMED**: the next useful
+ready push may post one result under its policy; the initial no-comment dry-run is past.
 The receiver selects/reports hypothetical actions only; it must not start a writer.
 An observed task `last_run_time` is not proof of event cause, conversation resume or
 the content of an execution without its run record.
