@@ -4,6 +4,7 @@ Optimize October delivery, real quality, time/token efficiency, maintainability,
 privacy and original safety. These are project decisions inferred from primary
 engineering sources, not measured Astra performance claims. Token usage is unknown
 unless the environment reports it; use elapsed time and repeated work as proxies.
+The release deadline is before the owner's October leave; its exact date is still open.
 
 | Decision | Problem / cost / simpler choice | Measurement and reversal |
 | --- | --- | --- |
@@ -21,3 +22,19 @@ approval ceremonies, Google's cloud/MCP deployment assumptions or a mandatory
 three-agent harness. This app needs local execution and one owner, not their scale.
 When revisiting a policy, append only the measured decision and its reversal trigger,
 not a fresh long research report.
+
+## Long runs
+
+Continue multiple verified slices inside an authorized milestone with short acceptance
+checkpoints, relevant feedback and Git-backed state. Measure verified user-visible outcomes,
+recovery and defects rather than hours running or lines generated. This adapts
+[OpenAI's long-horizon loop](https://learn.chatgpt.com/blog/run-long-horizon-tasks-with-codex);
+the reported experiment is not a runtime or quality guarantee for Media Clarity.
+
+Native [scheduled tasks](https://learn.chatgpt.com/docs/automations) can revisit connected
+tools/context; availability, execution access and limits depend on the active environment.
+Web tasks do not directly operate a folder on the owner's PC. An active coding run is
+different from a configured recurring task: committing this harness creates neither.
+Before any scheduled coding run, test the prompt manually, resolve live branch/authority,
+use one writer, exit without mutation if another run owns the work, and respect stop/owner
+decisions. Do not add a scheduler/framework or evade runtime/usage limits with shell loops.

@@ -2,9 +2,14 @@
 
 ## Scope
 
-Owner's latest instruction: **create only the harness and push it to media-server**.
+Current task: **harness-only revision** for the clarified scope and long autonomous Work
+runs. The previous restriction has not been replaced by an explicit app-implementation start.
 No application source, server, UI, model dependency, model download or media is included.
-The earlier vertical-slice request is deferred by this narrower instruction.
+Latest decisions: custom app preferred when quality/control justify it; no downloading,
+AI video generation or NAS integration this release. Watching, preparation, analysis,
+search and basic recommendation target near-finished use before October leave; date open.
+Long active runs should advance several verified slices, checkpoint and resume. No native
+recurring task or unattended application implementation has been started by this revision.
 
 Remote starting point: `seoji2005/media-server` main at
 `0faf1906211be12ad94870db2b1fc71e76df53c4` (initial README only).
@@ -25,19 +30,29 @@ do not embed a self-referential commit hash here.
 
 ## Evidence
 
-Harness check and Python compilation passed on Linux/Python 3.12. Ten focused CLI
+Baseline c920516: harness check and Python compilation passed on Linux/Python 3.12. Ten focused CLI
 cases passed: unconfigured test/start (2), committed status, child exit-code propagation,
 literal arguments without a shell, invalid command shape, broken link, missing document,
 invalid JSON, malformed-URL private sentinel. Temporary copies isolated failure probes.
 Independent review found one input-leak error path; safe exception handling fixes it.
 Status now distinguishes configured repository from unverified remote identity.
-The commit contains exactly nine harness/config/guidance files. Product evidence remains
+This revision changes existing guidance only; runner/config are unchanged. Verify document
+links/config and scoped diff before publishing; reuse unchanged CLI evidence. Product remains
 **contract only**; no application was run. Donor evidence is separately bounded in [donor.md](donor.md).
 Research sources and reversal conditions are in [engineering.md](engineering.md).
+Guidance revision verification: harness check and diff check passed; independent scope/
+autonomy review found no IMPORTANT or BLOCKER contradictions in the five-file delta.
+
+Implementation handoff fields: milestone / branch / last verified revision / actual command
+and result / input-model identity / WIP / blocker / next action. Keep private payloads out.
+On resume inspect live Git/PR state and preserve newer work; WIP is not passing evidence.
 
 ## Single highest-value next task
 
-When the owner requests application implementation: deliver import → MediaItem →
-library → playback → persisted resume, then test real process restart and browser flow.
+When the owner starts implementation: deliver import → MediaItem → library → playback →
+persisted resume, verify actual restart/browser behavior, then continue to real Korean
+subtitle watching within the authorized milestone instead of stopping after every commit.
 Use the acceptance/failure cases in [product.md](product.md). Register real test/start
-commands only when they exist; proceed to real ASR→Korean subtitles after the slice.
+commands only when they exist. Probe enhancement feasibility early during subtitle work.
+Preserve owner final merge/release decisions. The exact vacation date is an open scheduling
+detail, not a blocker to this harness update or independent preparation.
