@@ -4,7 +4,8 @@ Optimize October delivery, real quality, time/token efficiency, maintainability,
 privacy and original safety. These are project decisions inferred from primary
 engineering sources, not measured Astra performance claims. Token usage is unknown
 unless the environment reports it; use elapsed time and repeated work as proxies.
-The release deadline is before the owner's October leave; its exact date is still open.
+The owner names October 12 or 19, 2026 for leave (unconfirmed). Plan readiness by October
+11; if the later date is confirmed, use the extra week for quality, not scope expansion.
 
 | Decision | Problem / cost / simpler choice | Measurement and reversal |
 | --- | --- | --- |

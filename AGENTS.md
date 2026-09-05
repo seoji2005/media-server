@@ -18,7 +18,8 @@ Target: `seoji2005/media-server`. Prepare relevant local videos for comfortable
   acceptance cases, failure cases, verification method. Then execute through inspection.
 - Prefer a custom app when measured quality/control justify its maintenance cost.
   Exclude all video downloading, AI video generation and NAS integration this release.
-  Deadline: before the owner's October 2026 leave; exact start date is still unknown.
+  Leave starts October 12 or 19, 2026 (unconfirmed). Plan readiness by October 11
+  for the earlier date; any extra week is for quality/recovery, not automatic scope growth.
 - One capable implementation agent by default. Use bounded read-only research or
   an independent evaluator when it adds quality or saves elapsed time. No routine
   planner/builder/reviewer ceremony, model polling or multiple reviewers for consensus.

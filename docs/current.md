@@ -7,7 +7,10 @@ runs. The previous restriction has not been replaced by an explicit app-implemen
 No application source, server, UI, model dependency, model download or media is included.
 Latest decisions: custom app preferred when quality/control justify it; no downloading,
 AI video generation or NAS integration this release. Watching, preparation, analysis,
-search and basic recommendation target near-finished use before October leave; date open.
+search and basic recommendation target near-finished use before October leave. The owner
+names October 12 or 19, 2026 (unconfirmed): plan readiness by October 11; any extra week
+is for quality and defects. Working targets: integrated candidate October 5, stabilization
+October 6–11, subject to measured progress and actual target-hardware access.
 Long active runs should advance several verified slices, checkpoint and resume. No native
 recurring task or unattended application implementation has been started by this revision.
 
@@ -54,5 +57,5 @@ persisted resume, verify actual restart/browser behavior, then continue to real 
 subtitle watching within the authorized milestone instead of stopping after every commit.
 Use the acceptance/failure cases in [product.md](product.md). Register real test/start
 commands only when they exist. Probe enhancement feasibility early during subtitle work.
-Preserve owner final merge/release decisions. The exact vacation date is an open scheduling
-detail, not a blocker to this harness update or independent preparation.
+Preserve owner final merge/release decisions. Do not wait for October 12 versus 19 to
+be settled before feasible preparation; use the earlier date until the owner clarifies.

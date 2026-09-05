@@ -7,9 +7,11 @@ subsequent choices from explicit feedback. The owner is a viewer, not a routine 
 file organizer or model operator. Preserve a unified, polished experience.
 
 Target near-finished daily use **before the owner's October 2026 leave starts** on
-Windows 11, Ryzen 5 7500F, 64 GB RAM, RTX 4070 SUPER 12 GB. Exact leave date is open;
-earlier mid-October was a planning assumption, not a confirmed vacation date. Confirm
-the date before calendar commitments. Use Work/cloud for all honest available execution,
+Windows 11, Ryzen 5 7500F, 64 GB RAM, RTX 4070 SUPER 12 GB. The owner names October
+12 or 19, 2026; neither is confirmed. Plan readiness by October 11 for the earlier start.
+If October 19 is confirmed, use the extra week for quality and defects, not automatic
+scope expansion. These are planning targets, not a delivery guarantee. Use Work/cloud
+for all honest available execution,
 including CPU model runs. Cloud limitations are evidence boundaries, not reasons
 to postpone work that can run. The product is for watching, not editing.
 
@@ -117,7 +119,10 @@ subtitles, then add version switching/fallback. Grounded analysis/search/basic r
 may proceed on completed inputs while enhancement has an isolated hardware blocker.
 Finish with integrated UX, real long-video recovery and clean Windows installation.
 Do not silently omit included features or count unresolved checks as complete. Reserve
-integration/defect-correction time once the actual leave date is known.
+integration/defect-correction time now: aim for an integrated candidate by October 5 and
+stabilization October 6–11. Reassess against actual progress without silently cutting
+required quality. Exact leave confirmation must not postpone feasible work. Target RTX
+checks require actual hardware access even if cloud preparation meets these dates.
 
 P0 delivery requires real long-video recovery, subtitle quality, natural enhancement,
 Windows setup and target RTX evidence beyond the first slice. No percentages or
