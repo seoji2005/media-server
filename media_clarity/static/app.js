@@ -51,7 +51,7 @@ function render() {
     card.querySelector(".duration").textContent = time(item.duration);
     card.querySelector(".card-resolution").textContent = `${item.width} × ${item.height}`;
     const status = card.querySelector(".card-status");
-    status.textContent = !item.available ? "파일을 찾을 수 없음" : continuing(item) ? `${time(item.position)}부터 이어보기` : item.position > 0 ? "시청 완료" : "아직 보지 않음";
+    status.textContent = !item.available ? (item.unavailable_reason === "managed_file_changed" ? "보관 파일이 변경됨" : "파일을 찾을 수 없음") : continuing(item) ? `${time(item.position)}부터 이어보기` : item.position > 0 ? "시청 완료" : "아직 보지 않음";
     status.classList.toggle("missing", !item.available);
     const progress = card.querySelector("progress"); progress.value = item.position / item.duration * 100; progress.hidden = item.position === 0;
     const image = card.querySelector("img");
@@ -85,7 +85,7 @@ async function importFile(file) {
 async function openPlayer(id) {
   try {
     const item = await api(`/api/library/${id}`);
-    if(!item.available) return toast(message("managed_file_missing"),true);
+    if(!item.available) return toast(message(item.unavailable_reason || "managed_file_missing"),true);
     activeItem=item; lastQueuedPosition=null; $("player-title").textContent=item.title; $("player-meta").textContent=`${item.width} × ${item.height} · ${time(item.duration)} · 원본 사본`;
     $("video-error").hidden=true; $("save-state").textContent=continuing(item) ? `${time(item.position)}에서 이어보기` : "준비 중";
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
@@ -113,7 +113,22 @@ dialog.addEventListener("cancel",e=>{e.preventDefault();closePlayer();});
 $("restart-video").addEventListener("click",()=>{video.currentTime=0;savePosition();video.play().catch(()=>{});});
 video.addEventListener("timeupdate",()=>{if(!saveTimer) saveTimer=setTimeout(()=>{saveTimer=null;savePosition();},4000);});
 video.addEventListener("pause",()=>savePosition()); video.addEventListener("seeked",()=>savePosition()); video.addEventListener("ended",()=>savePosition());
-video.addEventListener("error",()=>{if(!activeItem)return;$("video-error").textContent="이 브라우저에서 영상을 재생할 수 없습니다. 파일 상태와 브라우저의 코덱 지원을 확인해 주세요.";$("video-error").hidden=false;$("save-state").textContent="재생할 수 없음";});
+video.addEventListener("error",async()=>{
+  if(!activeItem)return;
+  const failedItem=activeItem;
+  $("video-error").textContent="이 브라우저에서 영상을 재생할 수 없습니다. 파일 상태와 브라우저의 코덱 지원을 확인해 주세요.";
+  $("video-error").hidden=false;$("save-state").textContent="재생할 수 없음";
+  try {
+    // The media element does not expose a content endpoint's JSON error. Read
+    // its newly detected file state once, without changing a newer playback.
+    const current=await api(`/api/library/${failedItem.id}`);
+    if(activeItem!==failedItem)return;
+    const listed=items.find(item=>item.id===failedItem.id);
+    if(listed){listed.available=current.available;listed.unavailable_reason=current.unavailable_reason;}
+    if(!current.available)$("video-error").textContent=message(current.unavailable_reason||"managed_file_missing");
+    render();
+  } catch(e) { if(activeItem===failedItem)$("video-error").textContent=e.message; }
+});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")savePosition(true);});
 window.addEventListener("pagehide",()=>savePosition(true));
 for(const id of ["import-top","import-empty"]) $(id).addEventListener("click",chooseFile);

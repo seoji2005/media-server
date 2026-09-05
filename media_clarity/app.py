@@ -31,6 +31,19 @@ SECURITY_HEADERS = {
 }
 
 
+class ManagedStreamingResponse(StreamingResponse):
+    def __init__(self, content, verified, **kwargs):
+        self.verified = verified
+        super().__init__(content, **kwargs)
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            # Also covers disconnect/cancellation before the body generator starts.
+            self.verified.close()
+
+
 def byte_range(header: str | None, size: int) -> tuple[int, int, int]:
     if header is None:
         return 0, size - 1, 200
@@ -182,12 +195,8 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     @app.api_route("/api/media/{item_id}/content", methods=["GET", "HEAD"])
     def content(item_id: str, request: Request):
         row = store._row(item_id)
-        path = store.file_path(row)
-        stream = path.open("rb")
-        size = os.fstat(stream.fileno()).st_size
-        if size != row["size"]:
-            stream.close()
-            raise MediaError("managed_file_changed", 409)
+        verified = store.open_verified(row)
+        size = row["size"]
         etag = '"' + row["sha256"] + '"'
         range_header = request.headers.get("range")
         if request.headers.get("if-range") not in {None, etag}:
@@ -195,30 +204,34 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         try:
             start, end, status = byte_range(range_header, size)
         except MediaError:
-            stream.close()
+            verified.close()
             return Response(status_code=416, headers={"Content-Range": f"bytes */{size}"})
         headers = {"Accept-Ranges": "bytes", "Content-Length": str(end - start + 1), "ETag": etag}
         if status == 206:
             headers["Content-Range"] = f"bytes {start}-{end}/{size}"
         if request.method == "HEAD":
-            stream.close()
+            verified.close()
             return Response(status_code=status, media_type=row["mime"], headers=headers)
+
+        # Prime the first block before headers: a detected change is a JSON 409.
+        # A new change after headers aborts the stream before any changed block
+        # is emitted; already-sent successful status cannot then become a 409.
+        blocks = verified.read_range(start, end)
+        try:
+            first = next(blocks)
+        except BaseException:
+            verified.close()
+            raise
 
         def chunks():
             try:
-                stream.seek(start)
-                remaining = end - start + 1
-                while remaining:
-                    part = stream.read(min(256 * 1024, remaining))
-                    if not part:
-                        break
-                    remaining -= len(part)
-                    yield part
-            except OSError:
-                return
+                yield first
+                yield from blocks
             finally:
-                stream.close()
-        return StreamingResponse(chunks(), status_code=status, media_type=row["mime"], headers=headers)
+                blocks.close()
+                verified.close()
+        return ManagedStreamingResponse(chunks(), verified, status_code=status,
+                                        media_type=row["mime"], headers=headers)
 
     @app.get("/api/media/{item_id}/thumbnail")
     def thumbnail(item_id: str):

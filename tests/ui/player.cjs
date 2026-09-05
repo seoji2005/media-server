@@ -27,7 +27,7 @@ async function run(js) {
   video.play=()=>Promise.resolve(); video.pause=()=>video.dispatchEvent(new w.Event('pause')); video.load=()=>{video.currentTime=0;};
   const dialog=d.getElementById('player-dialog');dialog.showModal=()=>dialog.open=true;dialog.close=()=>dialog.open=false;
   const settle=async()=>{await new Promise(resolve=>setImmediate(resolve));};
-  w.eval(js+"\nglobalThis.__qa={openPlayer,closePlayer};"); await settle();
+  w.eval(js+"\nglobalThis.__qa={openPlayer,closePlayer,refresh};"); await settle();
   assert.equal(d.querySelectorAll('.media-card').length,2,d.getElementById('diagnostic').textContent);
   assert.equal(d.querySelector('.media-card h3').textContent,library[0].title);
   assert.equal(d.querySelector('.media-card h3 img'),null,'title must render as text');
@@ -51,7 +51,18 @@ async function run(js) {
   assert.deepEqual(writes.slice(-2).map(x=>x.position),[6,7]);
   await w.__qa.closePlayer();library[1].available=false;await w.__qa.openPlayer('fixture-b');
   assert.equal(dialog.open,false);assert.match(d.getElementById('toast').textContent,/파일을 찾을 수 없습니다/);
-  w.close();return {checks:['safe title text','library search','continue filter','metadata resume','close and reopen autosave','ordered seek/pause writes','missing-file feedback'],writes};
+  library[1].unavailable_reason='managed_file_changed';
+  await w.__qa.openPlayer('fixture-b');
+  assert.equal(dialog.open,false);assert.match(d.getElementById('toast').textContent,/파일이 변경되었습니다/);
+  await w.__qa.refresh();d.getElementById('nav-all').click();
+  assert.match(d.getElementById('library-grid').textContent,/보관 파일이 변경됨/);
+  await w.__qa.openPlayer('fixture-a');video.dispatchEvent(new w.Event('loadedmetadata'));
+  library[0].available=false;library[0].unavailable_reason='managed_file_changed';
+  video.dispatchEvent(new w.Event('error'));await settle();
+  assert.match(d.getElementById('video-error').textContent,/파일이 변경되었습니다/);
+  await w.__qa.closePlayer();
+  assert.equal(d.querySelectorAll('.media-card .missing').length,2,'media error must update the cached library state');
+  w.close();return {checks:['safe title text','library search','continue filter','metadata resume','close and reopen autosave','ordered seek/pause writes','missing-file feedback','changed-file feedback','media error refreshes library'],writes};
 }
 (async()=>{
   const result=await run(source);

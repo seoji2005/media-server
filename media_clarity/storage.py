@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from collections import OrderedDict
+from dataclasses import dataclass
 import errno
 import hashlib
 import json
@@ -10,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import sqlite3
 import subprocess
 import threading
@@ -25,6 +28,69 @@ class MediaError(Exception):
 ID = re.compile(r"^[0-9a-f]{32}$")
 CHUNK = 1024 * 1024
 RESERVE = 32 * 1024 * 1024
+INTEGRITY_CACHE_BYTES = 8 * 1024 * 1024
+INTEGRITY_CACHE_ENTRIES = 16
+
+
+def file_signature(stream) -> tuple:
+    """Windows ctime is creation time; ask the open handle for native ChangeTime."""
+    info = os.fstat(stream.fileno())
+    if not stat.S_ISREG(info.st_mode):
+        raise MediaError("unsafe_storage", 503)
+    change_time = info.st_ctime_ns
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+        import msvcrt
+
+        class FileBasicInfo(ctypes.Structure):
+            _fields_ = [(name, ctypes.c_longlong) for name in
+                        ("CreationTime", "LastAccessTime", "LastWriteTime", "ChangeTime")] + [
+                            ("FileAttributes", wintypes.DWORD)]
+
+        get_info = ctypes.WinDLL("kernel32", use_last_error=True).GetFileInformationByHandleEx
+        get_info.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+        get_info.restype = wintypes.BOOL
+        native = FileBasicInfo()
+        if not get_info(msvcrt.get_osfhandle(stream.fileno()), 0, ctypes.byref(native), ctypes.sizeof(native)):
+            raise MediaError("storage_unavailable", 503)
+        change_time = native.ChangeTime
+    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, change_time)
+
+
+@dataclass(frozen=True)
+class VerifiedSnapshot:
+    signature: tuple
+    sha256: str
+    block_size: int
+    digests: bytes
+
+
+class VerifiedContent:
+    """One open descriptor, with every emitted block tied to the verified full SHA."""
+    def __init__(self, store, row, path, stream, snapshot):
+        self.store, self.row, self.path = store, row, path
+        self.stream, self.snapshot = stream, snapshot
+
+    def close(self):
+        self.stream.close()
+
+    def read_range(self, start: int, end: int):
+        block_size = self.snapshot.block_size
+        try:
+            for index in range(start // block_size, end // block_size + 1):
+                self.store._check_signature(self.row, self.path, self.stream, self.snapshot.signature)
+                offset = index * block_size
+                self.stream.seek(offset)
+                expected_size = min(block_size, self.row["size"] - offset)
+                block = self.stream.read(expected_size)
+                self.store._check_signature(self.row, self.path, self.stream, self.snapshot.signature)
+                expected = self.snapshot.digests[index * 32:(index + 1) * 32]
+                if len(block) != expected_size or hashlib.sha256(block).digest() != expected:
+                    self.store._changed(self.row)
+                yield block[max(start - offset, 0):min(end - offset + 1, len(block))]
+        finally:
+            self.close()
 
 
 def default_data_dir() -> Path:
@@ -87,8 +153,12 @@ class Store:
         self.lock_file = None
         self.recovered = 0
         self.import_lock = threading.Lock()
+        self.integrity_lock = threading.RLock()
+        self.integrity_cache = OrderedDict()
+        self.integrity_failures = set()
 
     def start(self) -> None:
+        self._clear_integrity()
         no_symlink(self.root)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         for name in ("staging", "files", "recovery"):
@@ -122,9 +192,76 @@ class Store:
             raise
 
     def close(self) -> None:
+        self._clear_integrity()
         if self.lock_file is not None:
             self.lock_file.close()
             self.lock_file = None
+
+    def _clear_integrity(self):
+        with self.integrity_lock:
+            self.integrity_cache.clear()
+            self.integrity_failures.clear()
+
+    def _changed(self, row):
+        with self.integrity_lock:
+            self.integrity_cache.pop(row["file_id"], None)
+            self.integrity_failures.add(row["file_id"])
+        raise MediaError("managed_file_changed", 409)
+
+    def _check_signature(self, row, path, stream, expected):
+        no_symlink(path)
+        try:
+            current = file_signature(stream)
+            named = path.stat()
+        except FileNotFoundError:
+            self._changed(row)
+        # The response keeps this descriptor: a path replacement must not silently
+        # change which file is checked versus which file supplies response bytes.
+        if current != expected or (named.st_dev, named.st_ino, named.st_size, named.st_mtime_ns) != expected[:4]:
+            self._changed(row)
+
+    def _scan_content(self, row, path, stream, signature):
+        # Adaptive blocks bound each file's digest table to 2 MiB, without making
+        # a very large video ineligible for Range cache reuse.
+        block_size = max(CHUNK, (row["size"] + 65535) // 65536)
+        digest, blocks = hashlib.sha256(), bytearray()
+        stream.seek(0)
+        remaining = row["size"]
+        while remaining:
+            block = stream.read(min(block_size, remaining))
+            if not block:
+                self._changed(row)
+            digest.update(block)
+            blocks.extend(hashlib.sha256(block).digest())
+            remaining -= len(block)
+        self._check_signature(row, path, stream, signature)
+        if digest.hexdigest() != row["sha256"]:
+            self._changed(row)
+        return VerifiedSnapshot(signature, row["sha256"], block_size, bytes(blocks))
+
+    def open_verified(self, row) -> VerifiedContent:
+        """Hash on first use/change/eviction, never eagerly hash the library."""
+        path = self.file_path(row)
+        stream = path.open("rb")
+        try:
+            with self.integrity_lock:
+                signature = file_signature(stream)
+                if signature[2] != row["size"]:
+                    self._changed(row)
+                self._check_signature(row, path, stream, signature)
+                snapshot = self.integrity_cache.get(row["file_id"])
+                if snapshot is None or snapshot.signature != signature or snapshot.sha256 != row["sha256"]:
+                    self.integrity_cache.pop(row["file_id"], None)
+                    snapshot = self._scan_content(row, path, stream, signature)
+                    self.integrity_cache[row["file_id"]] = snapshot
+                    self.integrity_failures.discard(row["file_id"])
+                self.integrity_cache.move_to_end(row["file_id"])
+                while len(self.integrity_cache) > INTEGRITY_CACHE_ENTRIES or sum(len(s.digests) for s in self.integrity_cache.values()) > INTEGRITY_CACHE_BYTES:
+                    self.integrity_cache.popitem(last=False)
+            return VerifiedContent(self, row, path, stream, snapshot)
+        except BaseException:
+            stream.close()
+            raise
 
     @contextmanager
     def db(self):
@@ -237,9 +374,10 @@ class Store:
         with self.db() as db:
             duplicate = db.execute("SELECT items.id FROM files JOIN items ON files.id=items.file_id WHERE sha256=?", (digest,)).fetchone()
             if duplicate:
+                self.open_verified(self._row(duplicate["id"])).close()
                 existing = self.item(duplicate["id"])
                 if not existing["available"]:
-                    raise MediaError("managed_file_missing", 410)
+                    raise MediaError(existing["unavailable_reason"], 409)
                 return {"duplicate": True, "item": existing}
             # Exclusive fresh directory prevents destination collision/overwrite.
             try:
@@ -327,14 +465,17 @@ class Store:
 
     def item(self, item_id: str) -> dict:
         row = self._row(item_id)
+        unavailable_reason = None
         try:
-            self.file_path(row)
-            available = True
+            if self.file_path(row).stat().st_size != row["size"]:
+                self._changed(row)
+            if row["file_id"] in self.integrity_failures:
+                unavailable_reason = "managed_file_changed"
         except MediaError as exc:
-            if exc.code != "managed_file_missing":
+            if exc.code not in {"managed_file_missing", "managed_file_changed"}:
                 raise
-            available = False
-        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "watched_at", "duration", "size", "width", "height", "sha256")} | {"available": available, "thumbnail": bool(row["thumbnail"]), "mime": row["mime"]}
+            unavailable_reason = exc.code
+        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "watched_at", "duration", "size", "width", "height", "sha256")} | {"available": unavailable_reason is None, "unavailable_reason": unavailable_reason, "thumbnail": bool(row["thumbnail"]), "mime": row["mime"]}
 
     def list_items(self) -> list[dict]:
         with self.db() as db:

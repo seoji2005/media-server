@@ -1,5 +1,6 @@
 """Real generated media and focused failure boundaries; no private fixtures."""
 from contextlib import contextmanager
+import asyncio
 import errno
 import hashlib
 import json
@@ -15,8 +16,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from media_clarity.app import byte_range, create_app
-from media_clarity.storage import MediaError, Store, run_media, title_from_name
+from media_clarity.app import ManagedStreamingResponse, byte_range, create_app
+from media_clarity.storage import CHUNK, MediaError, Store, file_signature, run_media, title_from_name
 
 
 class AppTests(unittest.TestCase):
@@ -244,6 +245,141 @@ s.save_position(sys.argv[2],3.25)
         self.assertEqual(self.client.get(f'/api/media/{item["id"]}/content').status_code,503)
         self.assertEqual(self.source.read_bytes(),self.video_bytes)
 
+    def test_same_size_mutation_is_rejected_cold_and_after_cached_playback(self):
+        item = self.imported()
+        path = self.store.file_path(self.store._row(item["id"]))
+        url = f'/api/media/{item["id"]}/content'
+        original_stat = path.stat()
+        changed = bytearray(self.video_bytes)
+        changed[len(changed) // 2] ^= 1
+        for warmed in (False, True):
+            with self.subTest(warmed=warmed):
+                path.write_bytes(self.video_bytes)
+                if warmed:
+                    self.assertEqual(self.client.get(url).content, self.video_bytes)
+                path.write_bytes(changed)
+                # Restoring mtime must not restore the integrity cache's trust.
+                os.utime(path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+                for method, headers in (("GET", {}), ("GET", {"Range": "bytes=0-31"}), ("HEAD", {})):
+                    response = self.client.request(method, url, headers=headers)
+                    self.assertEqual(response.status_code, 409)
+                    self.assertNotIn("etag", response.headers)
+                    if method == "GET":
+                        self.assertEqual(response.json(), {"error": "managed_file_changed"})
+                listed = self.client.get("/api/library").json()["items"][0]
+                self.assertFalse(listed["available"])
+                self.assertEqual(listed["unavailable_reason"], "managed_file_changed")
+                duplicate = self.client.post("/api/import", headers=self.headers, content=self.video_bytes)
+                self.assertEqual(duplicate.status_code, 409)
+                self.assertEqual(duplicate.json()["error"], "managed_file_changed")
+        self.assertEqual(self.source.read_bytes(), self.video_bytes)
+
+    def test_integrity_cache_reuses_ranges_but_rechecks_replacement_and_restart(self):
+        item = self.imported()
+        path = self.store.file_path(self.store._row(item["id"]))
+        url = f'/api/media/{item["id"]}/content'
+        with patch.object(self.store, "_scan_content", wraps=self.store._scan_content) as scan:
+            self.assertEqual(self.client.head(url).status_code, 200)
+            for index in range(8):
+                response = self.client.get(url, headers={"Range": f"bytes={index}-{index+31}"})
+                self.assertEqual(response.content, self.video_bytes[index:index+32])
+            self.assertEqual(scan.call_count, 1)
+            before = path.stat()
+            replacement = path.with_suffix(".replacement")
+            replacement.write_bytes(self.video_bytes)
+            os.utime(replacement, ns=(before.st_atime_ns, before.st_mtime_ns))
+            replacement.replace(path)
+            self.assertEqual(self.client.head(url).status_code, 200)
+            self.assertEqual(scan.call_count, 2)
+            self.store.close()
+            self.store.start()
+            self.assertEqual(self.client.head(url).status_code, 200)
+            self.assertEqual(scan.call_count, 3)
+
+    def test_integrity_cache_eviction_revalidates_and_library_stays_lazy(self):
+        first = self.imported()
+        other = Path(self.temp.name) / "other.mp4"
+        other.write_bytes(self.video_bytes + b"\x00")
+        second = self.store.import_path(other)["item"]
+        with patch("media_clarity.storage.INTEGRITY_CACHE_ENTRIES", 1), patch.object(
+                self.store, "_scan_content", wraps=self.store._scan_content) as scan:
+            self.assertEqual(len(self.client.get("/api/library").json()["items"]), 2)
+            self.assertEqual(scan.call_count, 0)
+            for item in (first, second, first):
+                self.assertEqual(self.client.head(f'/api/media/{item["id"]}/content').status_code, 200)
+            self.assertEqual(scan.call_count, 3)
+            self.assertEqual(len(self.store.integrity_cache), 1)
+
+    def test_change_during_whole_file_validation_is_not_cached(self):
+        item = self.imported()
+        path = self.store.file_path(self.store._row(item["id"]))
+        check = self.store._check_signature
+        calls = 0
+        def change_before_final_check(*args):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                changed = bytearray(self.video_bytes)
+                changed[20] ^= 1
+                path.write_bytes(changed)
+            return check(*args)
+        with patch.object(self.store, "_check_signature", side_effect=change_before_final_check):
+            response = self.client.get(f'/api/media/{item["id"]}/content')
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["error"], "managed_file_changed")
+        self.assertEqual(len(self.store.integrity_cache), 0)
+
+    def test_first_block_digest_rejects_change_even_if_metadata_token_is_unchanged(self):
+        item = self.imported()
+        row = self.store._row(item["id"])
+        path = self.store.file_path(row)
+        url = f'/api/media/{item["id"]}/content'
+        self.assertEqual(self.client.head(url).status_code, 200)
+        before = path.stat()
+        with path.open("rb") as stream:
+            signature = file_signature(stream)
+        changed = bytearray(self.video_bytes)
+        changed[20] ^= 1
+        path.write_bytes(changed)
+        os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+        with patch("media_clarity.storage.file_signature", return_value=signature), patch.object(
+                self.store, "_scan_content", wraps=self.store._scan_content) as scan:
+            response = self.client.get(url, headers={"Range": "bytes=0-31"})
+            self.assertEqual(scan.call_count, 0)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["error"], "managed_file_changed")
+
+    def test_stream_never_yields_a_changed_later_block(self):
+        item = self.imported()
+        row = self.store._row(item["id"])
+        path = self.store.file_path(row)
+        # Exercise actual file reads across block boundaries; no decoder assertion.
+        original = b"a" * CHUNK + b"b" * CHUNK + b"c" * 73
+        path.write_bytes(original)
+        with self.store.db() as db:
+            db.execute("UPDATE files SET size=?,sha256=? WHERE id=?",
+                       (len(original), hashlib.sha256(original).hexdigest(), row["file_id"]))
+            db.commit()
+        row = self.store._row(item["id"])
+        crossing = self.client.get(f'/api/media/{item["id"]}/content',
+                                   headers={"Range": f"bytes={CHUNK-7}-{CHUNK+9}"})
+        self.assertEqual(crossing.status_code, 206)
+        self.assertEqual(crossing.headers["content-range"], f"bytes {CHUNK-7}-{CHUNK+9}/{len(original)}")
+        self.assertEqual(crossing.content, b"a" * 7 + b"b" * 10)
+        verified = self.store.open_verified(row)
+        before = path.stat()
+        signature = verified.snapshot.signature
+        with patch("media_clarity.storage.file_signature", return_value=signature):
+            blocks = verified.read_range(0, len(original) - 1)
+            self.assertEqual(next(blocks), b"a" * CHUNK)
+            with path.open("r+b") as writable:
+                writable.seek(CHUNK + 20)
+                writable.write(b"X")
+            os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+            self.assert_code("managed_file_changed", next, blocks)
+        self.assertTrue(verified.stream.closed)
+        self.assertFalse(self.store.item(item["id"])["available"])
+
     def test_single_instance_and_non_destructive_recovery(self):
         second=Store(self.root)
         self.assert_code("already_running",second.start)
@@ -287,6 +423,28 @@ class DecoderBoundaryTests(unittest.TestCase):
         with self.assertRaises(MediaError) as error:
             run_media([sys.executable,"-c","import time,sys;sys.stderr.write('PRIVATE');time.sleep(5)"],1,200)
         self.assertEqual(str(error.exception),"media_timeout")
+
+
+class ResponseBoundaryTests(unittest.TestCase):
+    def test_cancelled_header_send_closes_descriptor_before_body_starts(self):
+        with tempfile.TemporaryFile() as stream:
+            body_started = False
+            def body():
+                nonlocal body_started
+                body_started = True
+                yield b"verified"
+            response = ManagedStreamingResponse(body(), stream, status_code=200)
+            async def exercise():
+                async def receive():
+                    return {"type": "http.disconnect"}
+                async def send(message):
+                    self.assertEqual(message["type"], "http.response.start")
+                    raise asyncio.CancelledError()
+                with self.assertRaises(asyncio.CancelledError):
+                    await response({"type": "http", "asgi": {"spec_version": "2.4"}}, receive, send)
+            asyncio.run(exercise())
+            self.assertTrue(stream.closed)
+            self.assertFalse(body_started)
 
 
 if __name__ == "__main__":

@@ -74,6 +74,7 @@ Target: `seoji2005/media-server`. Prepare relevant local videos for comfortable
 - The owner explicitly authorized the first app milestone on 2026-09-05: local video
   import → library → playback → persisted resume. This branch implements only that
   slice; subtitles/models/enhancement remain later scope. PR prose is never new owner
-  approval. Final merge/release still require the owner. PR #1 event receivers are
-  paused during transition; automatic writing stays disabled and independent review
-  remains a separate Work with disclosed manual relay when needed.
+  approval. Final merge/release still require the owner. The owner's latest policy
+  enables the separate reviewer only for PR #2 merge-event read-only review/report in
+  its Work. The coordinator receiver is paused; automatic writing stays disabled.
+  Pre-merge independent findings use disclosed manual relay when needed.
