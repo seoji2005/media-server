@@ -96,7 +96,7 @@ CLI 성공 출력은 항목 ID와 중복 여부만 포함합니다. 로그에 �
 
 ```sh
 python -m pip install -r requirements-dev.txt
-python -m unittest discover -s tests -v
+python -m unittest discover -s tests -q
 python scripts/harness.py check
 python scripts/harness.py status
 python scripts/harness.py run test
@@ -117,12 +117,11 @@ venv Python 명령으로 직접 테스트·시작하세요. 하네스도 호출�
 실제 브라우저는 환경 연결 차단으로 미검증입니다. DOM 검사는 영상 디코딩 증거가
 아니며 Windows·RTX·사람의 감상 품질 평가도 남아 있습니다. [현재 인계](docs/current.md) 참고.
 
-한 명의 구현자가 작성하며 정식 독립 검토는 별도 Work가 수행합니다. PR #1 하네스는
-미병합 상태로 보존하고 앱은 stacked Draft PR #2에서 검토합니다. 오너의 최신 지시에 따라
-검토 예약은 **PR #2 병합 후 읽기 전용 검토·해당 Work 보고**까지만 수행합니다.
-총괄 수신은 정지 상태이고 자동 댓글·수정·후속 구현은 꺼져 있습니다. 수동 전달은 자동
-왕복 성공으로 세지 않습니다. 일상 수정·검증·Draft PR은 승인 범위이며 최종 병합·출시는
-오너가 결정합니다.
+한 Work가 총괄·구현하고 위험한 변경에만 fresh reviewer subagent를 사용합니다.
+GitHub는 checkpoint를 보관하며 두 Work 사이 이벤트 왕복은 사용하지 않습니다.
+일상 수정·검증·Draft PR은 승인 범위이며 최종 병합·출시는 오너가 결정합니다.
+실행마다 반복되는 지침은 [AGENTS.md](AGENTS.md), 재개는 [짧은 시작 프롬프트](docs/start.md)를 사용하세요.
+코드 변경만으로 기존 예약이나 실행 중인 다른 Work가 중지되지는 않습니다.
 
 - [제품 범위](docs/product.md) · [운영·기술 근거](docs/engineering.md)
 - [donor 감사](docs/donor.md) · [현재 작업과 다음 단계](docs/current.md)

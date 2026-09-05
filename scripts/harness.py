@@ -12,7 +12,7 @@ from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCUMENTS = ("AGENTS.md", "README.md", "docs/current.md", "docs/product.md",
-             "docs/engineering.md", "docs/donor.md")
+             "docs/engineering.md", "docs/donor.md", "docs/start.md")
 REPOSITORY = "seoji2005/media-server"
 
 
