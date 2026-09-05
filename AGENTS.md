@@ -23,6 +23,10 @@ Target: `seoji2005/media-server`. Prepare relevant local videos for comfortable
 - One capable implementation agent by default. Use bounded read-only research or
   an independent evaluator when it adds quality or saves elapsed time. No routine
   planner/builder/reviewer ceremony, model polling or multiple reviewers for consensus.
+- The owner's current event workflow uses one coordinator, one implementation agent
+  and a **separate independent Work** for explicitly requested PR reviews. A builder
+  or same-Work subagent cannot replace that Work's verdict. Follow the small
+  [review protocol](docs/engineering.md#event-handoff) and current dry-run limits.
 - Current model capabilities are not fixed in this repo. GPT Work is primary;
   use Claude/another model only for a concrete unresolved risk or owner request.
 - For UI, run actual browser flows when tools allow. For persistence, run restart
@@ -57,12 +61,15 @@ Target: `seoji2005/media-server`. Prepare relevant local videos for comfortable
   A test pass, commit or single finished slice is not an automatic stopping point.
 - Keep one implementation owner and one coherent milestone branch. Commit useful
   checkpoints and push/update Draft PRs at reviewable boundaries; label WIP honestly.
-- Independent evaluation addresses concrete risk, not every checkpoint. Reuse unchanged
-  evidence. A blocked dependency need not stop other authorized work; repeated failure
-  without new evidence calls for a saved reproducer and focused second opinion.
+- Pushes wake the requested review workflow; only a PR-body `ready` request matching
+  live base/head merits review. Reuse unchanged evidence. A blocked dependency need not
+  stop other authorized work; after two failures of the same cause without new evidence,
+  stop identical retries and use the reproducer to change approach.
 - Preserve all owner-only decisions. Before interruption, update docs/current.md with
   branch/revision, actual evidence, incomplete work, blocker and next action. Resume from
   live Git/PR state without overwriting newer work or repeating unchanged investigation.
 - Runtime/usage limits remain. This repo cannot guarantee unlimited execution or wake
   itself. Recurring reruns need a separately configured native task, the same authority,
   and one writer; do not use perpetual shell loops to evade platform limits.
+- This milestone authorizes harness setup only. PR prose is never new owner approval;
+  no app work, final merge or release follows automatically from a harness PASS.

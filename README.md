@@ -17,12 +17,14 @@ Python 3.12 이상과 Git을 사용합니다. 하네스에는 추가 Python 패�
 ```text
 python scripts/harness.py check
 python scripts/harness.py status
+python -m unittest discover -s tests -v
 python scripts/harness.py run test
 python scripts/harness.py run start
 ```
 
 - `check`: 하네스 설정·필수 문서·로컬 문서 링크 검사. 제품 검증이 아닙니다.
 - `status`: 현재 Git revision·변경 유무·등록된 실행 명령 확인. 파일 내용이나 개인 경로는 출력하지 않습니다.
+- `unittest`: 이벤트 수신 정책의 합성 dry-run 검사입니다. 실제 이벤트 전달·검토 출처·실행 직렬화를 증명하지 않습니다.
 - `run`: `harness.json`의 실제 명령을 shell 없이 실행하고 종료 코드를 전달합니다.
   아직 제품 명령은 `null`입니다. 미설정 명령은 `NOT_CONFIGURED`, 종료 코드 2로
   실패합니다. 빈 테스트나 가짜 서버로 성공을 만들지 않습니다.
@@ -36,10 +38,12 @@ python scripts/harness.py run start
 한 명의 주 구현자가 범위 5줄을 정하고 구현→실행→검증까지 진행합니다.
 구현이 승인된 마일스톤에서는 검증·커밋 후 다음 작은 작업까지 연속 수행합니다.
 한 기능마다 “계속할까요?”를 묻지 않고 실제 차단 사유나 오너 결정에만 멈춥니다.
-원본 안전·영속성·개인정보·주관적 화질에는 독립 평가를 선택적으로 사용합니다.
+현재 요청된 PR 검토는 별도 독립 Work가 담당하며, 구현자의 자체 검사로 대체하지 않습니다.
 일반 작업의 반복 승인은 요구하지 않고 최종 병합·출시는 오너가 결정합니다.
 중단 시 Git과 현재 작업 문서에서 재개합니다. 무제한 실행이나 자동 재기동이
-보장되지는 않으며 정기 재실행은 별도의 Work 예약 작업 설정이 필요합니다.
+보장되지는 않습니다. PR #1의 검토 결과 수신 예약과 별도 독립 검토 예약을
+모두 dry-run으로 설정한 상태입니다. 실제 왕복 이벤트 전달은 아직 검증되지 않았습니다.
+이벤트를 정기 폴링으로 대체하지 않습니다. [연결 규칙과 실제 시험](docs/engineering.md#event-handoff)을 따릅니다.
 
 - 정책과 근거: [docs/engineering.md](docs/engineering.md)
 - 제품 범위·기본 구조: [docs/product.md](docs/product.md)
