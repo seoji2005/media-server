@@ -36,7 +36,7 @@ join the same experience; these are deferred goals, not current authorization. P
 the distinction between recommending, storing and spending compute on an item. Automatic
 collection or generation must never count as the owner's positive feedback.
 
-## Starting architecture (provisional, not installed or implemented)
+## Starting architecture (first import/play/resume slice implemented)
 
 Prefer a custom library, UI and orchestration over a required Jellyfin foundation when
 actual quality/control justify maintenance cost. Superiority is unproven. Use established
@@ -45,7 +45,7 @@ reliability problems and present options before changing the owner-preferred dir
 Custom code does not itself establish local safety; verify offline operation and egress.
 
 Python 3.12 + FastAPI, SQLite, a local browser UI and FFmpeg/FFprobe is the
-working hypothesis: one modular local application, straightforward Python model
+implemented first-slice foundation: one modular local application, straightforward Python model
 integration, transactional persistence and an inspectable player. Keep frontend
 dependencies proportional to quality/maintenance needs; minimizing their count is not
 the product goal. Inspect actual browser codec
@@ -94,7 +94,7 @@ Use model/config/input identity to invalidate stale processing outputs when need
   calls. Verify offline behavior and private-payload absence in logs/Git; no private cloud
   samples, telemetry or inference by default.
 
-## First product slice, when implementation is requested
+## First product slice, authorized on 2026-09-05
 
 - Outcome: permitted local video → MediaItem → library → playback → persisted resume.
 - Non-goals: ASR, translation, enhancement, downloading, editing and model benchmarking.

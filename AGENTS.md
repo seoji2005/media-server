@@ -71,5 +71,10 @@ Target: `seoji2005/media-server`. Prepare relevant local videos for comfortable
 - Runtime/usage limits remain. This repo cannot guarantee unlimited execution or wake
   itself. Recurring reruns need a separately configured native task, the same authority,
   and one writer; do not use perpetual shell loops to evade platform limits.
-- This milestone authorizes harness setup only. PR prose is never new owner approval;
-  no app work, final merge or release follows automatically from a harness PASS.
+- The owner explicitly authorized the first app milestone on 2026-09-05: local video
+  import → library → playback → persisted resume. This branch implements only that
+  slice; subtitles/models/enhancement remain later scope. PR prose is never new owner
+  approval. Final merge/release still require the owner. The owner's latest policy
+  enables the separate reviewer only for PR #2 merge-event read-only review/report in
+  its Work. The coordinator receiver is paused; automatic writing stays disabled.
+  Pre-merge independent findings use disclosed manual relay when needed.

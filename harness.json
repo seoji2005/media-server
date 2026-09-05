@@ -2,7 +2,7 @@
   "schema_version": 1,
   "repository": "seoji2005/media-server",
   "commands": {
-    "test": null,
-    "start": null
+    "test": ["python", "-m", "unittest", "discover", "-s", "tests", "-v"],
+    "start": ["python", "-m", "media_clarity"]
   }
 }

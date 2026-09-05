@@ -80,6 +80,9 @@ def run(value: dict, name: str) -> int:
     if command is None:
         print(f"NOT_CONFIGURED: {name}; register a real command after implementation", file=sys.stderr)
         return 2
+    if command[0] == "python":
+        # Keep venv/Windows interpreter identity even without shell activation.
+        command = [sys.executable, *command[1:]]
     try:
         # Argument arrays and shell=False avoid shell parsing. This is not a sandbox:
         # configured repository commands can execute arbitrary trusted project code.

@@ -40,7 +40,35 @@ Before any scheduled coding run, test the prompt manually, resolve live branch/a
 use one writer, exit without mutation if another run owns the work, and respect stop/owner
 decisions. Do not add a scheduler/framework or evade runtime/usage limits with shell loops.
 
+## Managed playback integrity
+
+Playback/HEAD first hashes the open managed descriptor against the DB's import SHA-256.
+Only a stable successful pass seeds the process-local LRU (16 entries, 8 MiB of digests;
+each file's adaptive blocks keep its table at most 2 MiB). Identity, size, mtime and change
+time invalidate reuse; replacement, restart and eviction require another full pass.
+Windows uses native `FILE_BASIC_INFO.ChangeTime`; Python 3.12's Windows ctime is creation
+time, so it cannot be the change token. Native query failure returns `storage_unavailable`
+without trusting cached bytes. [Python 3.12](https://docs.python.org/3/whatsnew/3.12.html),
+[Microsoft FILE_BASIC_INFO](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_basic_info).
+
+The SHA pass also records aligned block digests. Every emitted range reads/checks those
+blocks on the same descriptor, before yielding bytes, even on a metadata cache hit.
+The first block is checked before HTTP headers; known changes yield `managed_file_changed`
+409 without an ETag. A change detected after headers aborts the response before the altered
+block, rather than pretending the response completed. Library listing stays lazy: available
+means present with no detected failure, not a full integrity certificate. Detected failures
+remain visible until successful revalidation or restart; failed hashes never seed the cache.
+Native Windows behavior and real browser handling of an interrupted stream remain unverified.
+
 ## Event handoff
+
+Current owner policy (2026-09-05): app PR #2 uses `app/import-play-resume`, stacked on
+the frozen/unmerged harness branch. The separate reviewer reservation is enabled for
+**PR #2 merge-only, read-only review and report in its Work**. The coordinator receiver
+is paused; automatic comments, repairs and follow-on implementation are disabled.
+Merge remains an owner decision. The earlier PR #1 experiment below is historical;
+its enabled/armed statements do not override this policy. Current pre-merge findings
+arrive by disclosed manual relay, not a proven automated review-result round trip.
 
 This is a bounded **dry-run setup**, not a verified unattended development loop. Only
 `seoji2005/media-server` PR **#1**, `harness/initial-workflow`, is in scope. The donor
