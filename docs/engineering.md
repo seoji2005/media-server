@@ -42,6 +42,14 @@ decisions. Do not add a scheduler/framework or evade runtime/usage limits with s
 
 ## Event handoff
 
+Current transition (2026-09-05): the owner authorized the first import/play/resume app
+slice. PR #1 remains frozen/unmerged; both PR #1 receivers are paused and automatic
+writing is disabled. App work uses `app/import-play-resume` and a separate stacked Draft
+PR. The following records the PR #1 experiment; enabled/armed statements below describe
+its earlier trial state, not current receiver activation. A separate Work's fixed-HEAD
+R2 review passed, but event-result posting remained blocked by missing run/serialization
+evidence. Use disclosed manual relay until the exact new PR's handoff is verified.
+
 This is a bounded **dry-run setup**, not a verified unattended development loop. Only
 `seoji2005/media-server` PR **#1**, `harness/initial-workflow`, is in scope. The donor
 stays read-only; harness completion does not start application implementation. One

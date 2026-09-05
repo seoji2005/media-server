@@ -1,0 +1,351 @@
+"""App-owned copies and transactional watch history; never mutate source files."""
+from __future__ import annotations
+
+from contextlib import contextmanager
+import errno
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import re
+import shutil
+import sqlite3
+import subprocess
+import threading
+import uuid
+
+
+class MediaError(Exception):
+    def __init__(self, code: str, status: int = 400):
+        self.code, self.status = code, status
+        super().__init__(code)
+
+
+ID = re.compile(r"^[0-9a-f]{32}$")
+CHUNK = 1024 * 1024
+RESERVE = 32 * 1024 * 1024
+
+
+def default_data_dir() -> Path:
+    if os.name == "nt":
+        return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "MediaClarity"
+    return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "media-clarity"
+
+
+def no_symlink(path: Path) -> None:
+    """Reject existing symlink/reparse components before opening managed paths."""
+    for part in (path, *path.parents):
+        if part.is_symlink() or (hasattr(part, "is_junction") and part.is_junction()):
+            raise MediaError("unsafe_storage", 503)
+
+
+def title_from_name(name: str) -> str:
+    # Only the basename is user-visible; never retain a client/server source path.
+    clean = name.replace("\\", "/").split("/")[-1]
+    clean = "".join(c for c in clean if c.isprintable() and c not in "\u202a\u202b\u202d\u202e\u202c\u2066\u2067\u2068\u2069")
+    return (Path(clean).stem.strip() or "제목 없는 영상")[:180]
+
+
+def safe_io(exc: OSError) -> MediaError:
+    return MediaError("insufficient_space" if exc.errno == errno.ENOSPC else "storage_unavailable", 507 if exc.errno == errno.ENOSPC else 503)
+
+
+def run_media(args: list[str], timeout: int, max_bytes: int) -> bytes:
+    """Capture no unbounded/private decoder diagnostics, even on malformed media."""
+    try:
+        process = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        data = bytearray()
+        def read_bounded():
+            while chunk := process.stdout.read(min(4096, max_bytes + 1 - len(data))):
+                data.extend(chunk)
+                if len(data) > max_bytes:
+                    process.kill()
+                    return
+        reader = threading.Thread(target=read_bounded, daemon=True)
+        reader.start()
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            reader.join()
+            process.stdout.close()
+            raise MediaError("media_timeout", 422) from None
+        reader.join()
+        process.stdout.close()
+        if process.returncode or len(data) > max_bytes:
+            raise MediaError("invalid_media", 422)
+        return bytes(data)
+    except FileNotFoundError:
+        raise MediaError("ffmpeg_unavailable", 503) from None
+
+
+class Store:
+    def __init__(self, root: Path):
+        self.root = root.absolute()
+        self.lock_file = None
+        self.recovered = 0
+        self.import_lock = threading.Lock()
+
+    def start(self) -> None:
+        no_symlink(self.root)
+        self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        for name in ("staging", "files", "recovery"):
+            path = self.root / name
+            no_symlink(path)
+            path.mkdir(exist_ok=True, mode=0o700)
+        lock = self.root / "instance.lock"
+        no_symlink(lock)
+        self.lock_file = lock.open("a+b")
+        try:
+            if os.name == "nt":
+                import msvcrt
+                self.lock_file.seek(0)
+                if not self.lock_file.read(1):
+                    self.lock_file.write(b"0")
+                    self.lock_file.flush()
+                self.lock_file.seek(0)
+                msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            self.lock_file.close()
+            self.lock_file = None
+            raise MediaError("already_running", 503) from None
+        try:
+            self._init_db()
+            self._recover()
+        except BaseException:
+            self.close()
+            raise
+
+    def close(self) -> None:
+        if self.lock_file is not None:
+            self.lock_file.close()
+            self.lock_file = None
+
+    @contextmanager
+    def db(self):
+        for suffix in ("", "-wal", "-shm", "-journal"):
+            no_symlink(self.root / ("library.sqlite3" + suffix))
+        connection = sqlite3.connect(self.root / "library.sqlite3", timeout=15)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA synchronous = FULL")
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+    def _init_db(self):
+        with self.db() as db:
+            db.executescript("""
+                CREATE TABLE IF NOT EXISTS files (
+                    id TEXT PRIMARY KEY, sha256 TEXT NOT NULL UNIQUE,
+                    size INTEGER NOT NULL, extension TEXT NOT NULL,
+                    mime TEXT NOT NULL, duration REAL NOT NULL,
+                    width INTEGER NOT NULL, height INTEGER NOT NULL,
+                    thumbnail INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS items (
+                    id TEXT PRIMARY KEY, file_id TEXT NOT NULL UNIQUE REFERENCES files(id),
+                    title TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                    position REAL NOT NULL DEFAULT 0,
+                    watched_at TEXT
+                );
+            """)
+            db.commit()
+
+    def _recover(self):
+        # The instance lock excludes another local app process, not another Work.
+        # Never discard potentially complete copies after an interrupted transaction.
+        with self.db() as db:
+            known = {r[0] for r in db.execute("SELECT id FROM files")}
+        for directory in (self.root / "staging", self.root / "files"):
+            for path in directory.iterdir():
+                no_symlink(path)
+                orphan = (directory.name == "staging" and re.fullmatch(r"[0-9a-f]{32}\.part", path.name)) or (directory.name == "files" and ID.fullmatch(path.name) and path.name not in known)
+                if orphan:
+                    destination = self.root / "recovery" / uuid.uuid4().hex
+                    path.rename(destination)
+        self.recovered = len(list((self.root / "recovery").iterdir()))
+
+    def diagnostics(self):
+        return {"ffprobe": shutil.which("ffprobe") is not None,
+                "ffmpeg": shutil.which("ffmpeg") is not None,
+                "recovered_copies": self.recovered}
+
+    def ensure_space(self, amount: int):
+        if shutil.disk_usage(self.root).free < amount + RESERVE:
+            raise MediaError("insufficient_space", 507)
+
+    def new_stage(self) -> tuple[Path, object]:
+        no_symlink(self.root / "staging")
+        self.ensure_space(CHUNK)
+        path = self.root / "staging" / (uuid.uuid4().hex + ".part")
+        return path, path.open("xb")
+
+    def remove_stage(self, path: Path):
+        no_symlink(path)
+        path.unlink(missing_ok=True)
+
+    def probe(self, path: Path) -> dict:
+        with path.open("rb") as stream:
+            magic = stream.read(12)
+        if not (magic[4:8] == b"ftyp" or magic[:4] == b"\x1aE\xdf\xa3"):
+            raise MediaError("unsupported_container", 422)
+        raw = run_media([
+            "ffprobe", "-v", "error", "-protocol_whitelist", "file,pipe",
+            "-format_whitelist", "mov,matroska,webm", "-show_entries",
+            "format=format_name,duration:stream=codec_type,codec_name,width,height,pix_fmt:stream_disposition=attached_pic",
+            "-of", "json", str(path)], 25, 128 * 1024)
+        try:
+            result = json.loads(raw)
+            streams = result["streams"]
+            video = [s for s in streams if s.get("codec_type") == "video" and not s.get("disposition", {}).get("attached_pic")]
+            audio = [s for s in streams if s.get("codec_type") == "audio"]
+            if len(video) != 1:
+                raise ValueError
+            track = video[0]
+            duration = float(result["format"]["duration"])
+            width, height = int(track["width"]), int(track["height"])
+            if not math.isfinite(duration) or duration <= 0 or not (0 < width <= 8192 and 0 < height <= 8192):
+                raise ValueError
+        except (ValueError, KeyError, TypeError, IndexError):
+            raise MediaError("invalid_media", 422) from None
+        is_mp4 = magic[4:8] == b"ftyp"
+        supported = (track["codec_name"] == "h264" and all(a.get("codec_name") in {"aac", "mp3"} for a in audio)) if is_mp4 else (track["codec_name"] in {"vp8", "vp9"} and all(a.get("codec_name") in {"opus", "vorbis"} for a in audio))
+        if not supported or track.get("pix_fmt") not in {"yuv420p", "yuvj420p"}:
+            raise MediaError("unsupported_codec", 422)
+        return {"duration": duration, "width": width, "height": height,
+                "extension": "mp4" if is_mp4 else "webm", "mime": "video/mp4" if is_mp4 else "video/webm"}
+
+    def finish_import(self, stage: Path, digest: str, size: int, title: str) -> dict:
+        if size <= 0:
+            raise MediaError("empty_media", 422)
+        no_symlink(stage)
+        # Re-read the persisted staged copy; the ingest hash alone does not verify copy integrity.
+        with stage.open("rb") as copied:
+            if hashlib.file_digest(copied, "sha256").hexdigest() != digest or stage.stat().st_size != size:
+                raise MediaError("copy_changed", 409)
+        metadata = self.probe(stage)
+        file_id, item_id = uuid.uuid4().hex, uuid.uuid4().hex
+        destination = self.root / "files" / file_id
+        no_symlink(destination)
+        with self.db() as db:
+            duplicate = db.execute("SELECT items.id FROM files JOIN items ON files.id=items.file_id WHERE sha256=?", (digest,)).fetchone()
+            if duplicate:
+                existing = self.item(duplicate["id"])
+                if not existing["available"]:
+                    raise MediaError("managed_file_missing", 410)
+                return {"duplicate": True, "item": existing}
+            # Exclusive fresh directory prevents destination collision/overwrite.
+            try:
+                destination.mkdir(mode=0o700)
+            except FileExistsError:
+                raise MediaError("destination_collision", 409) from None
+            try:
+                target = destination / ("original." + metadata["extension"])
+                stage.rename(target)
+                thumbnail = False
+                try:
+                    run_media(["ffmpeg", "-v", "error", "-nostdin", "-protocol_whitelist", "file,pipe",
+                               "-format_whitelist", "mov,matroska,webm", "-ss", str(min(metadata["duration"] * .15, 15)),
+                               "-i", str(target), "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "4",
+                               "-n", str(destination / "thumbnail.jpg")], 30, 1024)
+                    thumbnail = (destination / "thumbnail.jpg").is_file()
+                except MediaError:
+                    (destination / "thumbnail.jpg").unlink(missing_ok=True)
+                db.execute("INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                           (file_id, digest, size, metadata["extension"], metadata["mime"], metadata["duration"], metadata["width"], metadata["height"], thumbnail))
+                db.execute("INSERT INTO items (id,file_id,title) VALUES (?,?,?)", (item_id, file_id, title))
+                db.commit()
+            except BaseException:
+                db.rollback()
+                # Only this invocation's exclusive app-owned destination is rolled back.
+                shutil.rmtree(destination)
+                raise
+        return {"duplicate": False, "item": self.item(item_id)}
+
+    def import_path(self, source: Path, after_chunk=None) -> dict:
+        """CLI import with before/after source identity/hash checks; source is read-only."""
+        if not self.import_lock.acquire(blocking=False):
+            raise MediaError("import_busy", 409)
+        stage = None
+        try:
+            if not source.is_file():
+                raise MediaError("source_unavailable", 404)
+            stage, output = self.new_stage()
+            with output, source.open("rb") as input_file:
+                before = os.fstat(input_file.fileno())
+                self.ensure_space(before.st_size)
+                digest, size = hashlib.sha256(), 0
+                while chunk := input_file.read(CHUNK):
+                    self.ensure_space(len(chunk))
+                    output.write(chunk)
+                    digest.update(chunk)
+                    size += len(chunk)
+                    if after_chunk:
+                        after_chunk()
+                output.flush()
+                os.fsync(output.fileno())
+                input_file.seek(0)
+                checked = hashlib.file_digest(input_file, "sha256").hexdigest()
+                after, path_after = os.fstat(input_file.fileno()), source.stat()
+                identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+                if identity(before) != identity(after) or identity(after) != identity(path_after) or checked != digest.hexdigest() or size != before.st_size:
+                    raise MediaError("source_changed", 409)
+            return self.finish_import(stage, digest.hexdigest(), size, title_from_name(source.name))
+        except OSError as exc:
+            raise safe_io(exc) from None
+        finally:
+            try:
+                if stage is not None:
+                    self.remove_stage(stage)
+            finally:
+                self.import_lock.release()
+
+    def _row(self, item_id: str):
+        if not ID.fullmatch(item_id):
+            raise MediaError("item_not_found", 404)
+        with self.db() as db:
+            row = db.execute("SELECT items.*, files.sha256,files.size,files.extension,files.mime,files.duration,files.width,files.height,files.thumbnail FROM items JOIN files ON items.file_id=files.id WHERE items.id=?", (item_id,)).fetchone()
+        if row is None:
+            raise MediaError("item_not_found", 404)
+        return dict(row)
+
+    def file_path(self, row: dict, thumbnail=False) -> Path:
+        if not ID.fullmatch(row["file_id"]) or row["extension"] not in {"mp4", "webm"}:
+            raise MediaError("unsafe_storage", 503)
+        path = self.root / "files" / row["file_id"] / ("thumbnail.jpg" if thumbnail else "original." + row["extension"])
+        no_symlink(path)
+        if not path.is_file():
+            raise MediaError("managed_file_missing", 410)
+        return path
+
+    def item(self, item_id: str) -> dict:
+        row = self._row(item_id)
+        try:
+            self.file_path(row)
+            available = True
+        except MediaError as exc:
+            if exc.code != "managed_file_missing":
+                raise
+            available = False
+        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "watched_at", "duration", "size", "width", "height", "sha256")} | {"available": available, "thumbnail": bool(row["thumbnail"]), "mime": row["mime"]}
+
+    def list_items(self) -> list[dict]:
+        with self.db() as db:
+            ids = [r[0] for r in db.execute("SELECT id FROM items ORDER BY created_at DESC, id DESC")]
+        return [self.item(item_id) for item_id in ids]
+
+    def save_position(self, item_id: str, position) -> dict:
+        row = self._row(item_id)
+        if type(position) not in (int, float) or not math.isfinite(position) or not 0 <= position <= row["duration"]:
+            raise MediaError("invalid_position", 422)
+        with self.db() as db:
+            db.execute("UPDATE items SET position=?, watched_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?", (position, item_id))
+            db.commit()
+        return {"position": position}

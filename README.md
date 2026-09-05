@@ -1,55 +1,120 @@
 # Media Clarity · media-server
 
-로컬 영상 처리·감상 앱을 만들기 위한 최소 개발 하네스입니다.
-**현재는 하네스만 있으며 앱·ASR·번역·업스케일은 구현하지 않았습니다.**
+내 기기의 영상을 가져와 보관하고 감상하는 개인용 로컬 앱입니다.
+**첫 구현: 파일 선택 → 보관함 → 재생·탐색 → 시청 위치 저장과 재시작 후 복원.**
+원본은 읽기만 하며 앱 보관 공간에 별도 사본을 만듭니다. 영상·제목·썸네일·
+시청 기록은 외부로 전송하지 않습니다. 외부 CDN·폰트·분석 도구도 사용하지 않습니다.
 
-목표는 **2026년 10월 휴가 시작 전** Windows 11 / Ryzen 5 7500F / RAM 64 GB /
-RTX 4070 SUPER 12 GB에서 완성본에 가깝게 사용할 개인 미디어 서비스입니다.
-휴가 후보는 **10월 12일 또는 19일**이며 미확정입니다. 더 이른 12일에 맞춰
-11일까지 준비하는 계획을 사용하고, 19일이면 추가 일주일은 품질·오류 개선에 씁니다.
-자체 앱을 우선하고 다운로드·AI 영상 생성·NAS
-연결은 제외합니다. 감상·자막·자연스러운 화질 개선·분석·검색·기본 추천이 대상입니다.
+10월 Windows/RTX 감상 제품을 위한 첫 체크포인트입니다. ASR·한국어 번역 자막·
+향상·검색 분석·취향 추천은 아직 구현하지 않았습니다. 다운로드·AI 생성·NAS는
+이번 릴리스에서 제외합니다. [제품 범위](docs/product.md)를 따릅니다.
 
-## 시작
+## 설치와 실행
 
-Python 3.12 이상과 Git을 사용합니다. 하네스에는 추가 Python 패키지가 필요 없습니다.
+Python **3.12**, FFmpeg와 ffprobe가 필요합니다. FFmpeg는 신뢰하는 배포본을
+설치해 두 실행 파일이 `PATH`에 보이게 하세요. 아래 버전 확인이 모두 성공해야 합니다.
+앱 안에서도 누락을 알리고 `doctor`는 경로 없이 사용 가능 여부만 보여줍니다.
 
-```text
+Windows PowerShell, 저장소 폴더에서:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+ffmpeg -version
+ffprobe -version
+.\.venv\Scripts\python -m media_clarity doctor
+.\.venv\Scripts\python -m media_clarity
+```
+
+macOS/Linux:
+
+```sh
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+ffmpeg -version
+ffprobe -version
+.venv/bin/python -m media_clarity doctor
+.venv/bin/python -m media_clarity
+```
+
+브라우저에서 **http://127.0.0.1:8765**를 열고 **영상 가져오기**를 누르세요.
+끌어놓기도 가능합니다. 한 번에 한 개를 가져오며 진행률 다음에 무결성·형식 검증을
+수행합니다. 복사본 해시 확인 때문에 큰 파일은 전송 후에도 시간이 걸립니다.
+Ctrl+C로 종료하고 같은 명령으로 다시 실행하면 보관함과 저장한 위치를 복원합니다.
+서버 재시작 후 웹페이지는 새로고침하세요. 포트 충돌 시 `--port 8766`을 사용합니다.
+호스트는 항상 `127.0.0.1`이며 LAN 공개·클라우드 배포 기능은 없습니다.
+
+현재 허용 형식은 MP4/MOV의 **H.264 8-bit 4:2:0 + AAC/MP3** 또는 WebM/Matroska의
+**VP8/VP9 8-bit 4:2:0 + Opus/Vorbis**이며 무음 영상도 가능합니다. 비디오 트랙 한 개,
+각 변 8,192픽셀 이하만 허용합니다. 확장자가 아닌 내부 미디어를 검사합니다.
+HEVC, 10-bit, 지원하지 않는 오디오·형식/메타데이터를 읽을 수 없는 파일은 거절합니다.
+전체 프레임의 디코딩 무결성을 검사하지는 않습니다. 자동 변환은 없습니다.
+브라우저·OS 코덱 지원에 따라 재생이 달라질 수 있으며, 실제 Windows 브라우저 재생은
+아직 검증하지 않았습니다. native 재생 버튼·탐색 막대·전체 화면을 사용합니다.
+
+시청 위치는 약 4초마다, 일시정지·탐색·창을 닫을 때 저장합니다. 화면에 표시된 마지막
+**저장됨** 위치가 복원 기준입니다. 강제 종료 시 마지막 미확인 몇 초는 남지 않을 수
+있습니다. 끝까지 본 영상은 다음 재생에서 처음부터 시작합니다.
+
+## 보관과 복구
+
+기본 보관 폴더는 Windows `%LOCALAPPDATA%\MediaClarity`, Linux
+`$XDG_DATA_HOME/media-clarity`(미설정 시 `~/.local/share/media-clarity`), macOS는
+`~/.local/share/media-clarity`입니다. `--data-dir`로 저장소 밖의 별도 폴더를 지정할 수 있습니다.
+원본 크기와 추가 32 MiB 이상의 여유 공간이 필요합니다. 백업은 앱을 종료한 상태에서
+이 폴더 전체를 보존하세요. 영상과 DB를 함께 보존해야 합니다.
+
+- 동일 바이트의 재수입은 기존 항목·시청 기록을 유지합니다. 해시는 바이트 중복만 의미합니다.
+- 수입 중단 후 다음 실행에서 staging/미등록 사본을 `recovery`에 격리 보존합니다.
+  보관함에 자동 등록하지 않으며 원본에서 다시 가져올 수 있습니다.
+- `files/<file_id>/original.mp4` 또는 `original.webm`이 없으면 누락 상태를 표시합니다.
+  같은 파일 재수입도 거짓 성공 처리하지 않습니다. 앱을 종료하고 **해당 사본을 백업에서
+  복원**하세요. 자동 재연결·삭제·재가져오기를 통한 복구 UI는 아직 없습니다.
+- 보관 폴더의 symlink·Windows junction을 거부합니다. 같은 폴더에서는 앱 프로세스
+  하나만 실행합니다. 이는 별도 클라우드 Work의 직렬화 증거가 아닙니다.
+
+원본의 복사 전후 파일 identity·해시까지 확인하려면, 서버를 종료하고 로컬 CLI를 사용할
+수 있습니다. 브라우저 수입은 선택한 File의 전송 길이와 저장 사본 해시를 검증하며,
+원본 디스크 경로·변경 전후 metadata 검증을 주장하지 않습니다.
+
+```powershell
+.\.venv\Scripts\python -m media_clarity import "D:\Videos\example.mp4"
+```
+
+CLI 성공 출력은 항목 ID와 중복 여부만 포함합니다. 로그에 경로·제목·쿼리·내용을
+기록하지 않습니다. ffprobe/ffmpeg는 로컬 프로토콜·형식 allowlist, 시간·출력 제한으로
+실행합니다. 로컬 Host·동일 Origin·메모리 세션 토큰으로 변경 요청을 제한합니다.
+앱은 OS의 동일 사용자 권한이나 관리자에 대한 샌드박스가 아닙니다.
+
+## 검증과 작업 방식
+
+```sh
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -s tests -v
 python scripts/harness.py check
 python scripts/harness.py status
-python -m unittest discover -s tests -v
 python scripts/harness.py run test
 python scripts/harness.py run start
 ```
 
-- `check`: 하네스 설정·필수 문서·로컬 문서 링크 검사. 제품 검증이 아닙니다.
-- `status`: 현재 Git revision·변경 유무·등록된 실행 명령 확인. 파일 내용이나 개인 경로는 출력하지 않습니다.
-- `unittest`: 이벤트 수신 정책의 합성 dry-run 검사입니다. 실제 이벤트 전달·검토 출처·실행 직렬화를 증명하지 않습니다.
-- `run`: `harness.json`의 실제 명령을 shell 없이 실행하고 종료 코드를 전달합니다.
-  아직 제품 명령은 `null`입니다. 미설정 명령은 `NOT_CONFIGURED`, 종료 코드 2로
-  실패합니다. 빈 테스트나 가짜 서버로 성공을 만들지 않습니다.
+위 `python`은 활성화한 `.venv`의 Python이어야 합니다. 활성화하지 않을 때는 앞의
+venv Python 명령으로 직접 테스트·시작하세요. 하네스도 호출한 Python을 그대로 사용합니다.
+테스트는 FFmpeg 합성 fixture를 임시
+폴더에 만들며 개인 영상이 필요 없습니다. `check`는 문서·설정 검사입니다.
 
-구현 착수 후 실제 테스트·시작 명령을 `harness.json`에 등록합니다.
-시작 명령은 원칙적으로 loopback에만 바인딩합니다. `harness.json`은 신뢰하는
-저장소 코드와 동일하게 취급하며, 외부에서 받은 설정을 검토 없이 실행하지 않습니다.
+선택 UI 이벤트 회귀: Node.js와 `tests/ui/package.json`의 jsdom으로
+`npm install --prefix tests/ui`, `npm test --prefix tests/ui`를 실행합니다.
+이는 mocked media/HTTP를 사용하는 DOM 검사이며 실제 브라우저 재생 검증이 아닙니다.
 
-## 작업 방식
+현재 증거: Python 3.12.13/Linux, FFmpeg 6.1.1에서 합성 영상 API/실제 HTTP Range,
+원본·사본 해시, 강제 프로세스 종료/재시작과 트랜잭션 복구를 확인했습니다.
+실제 브라우저는 환경 연결 차단으로 미검증입니다. DOM 검사는 영상 디코딩 증거가
+아니며 Windows·RTX·사람의 감상 품질 평가도 남아 있습니다. [현재 인계](docs/current.md) 참고.
 
-한 명의 주 구현자가 범위 5줄을 정하고 구현→실행→검증까지 진행합니다.
-구현이 승인된 마일스톤에서는 검증·커밋 후 다음 작은 작업까지 연속 수행합니다.
-한 기능마다 “계속할까요?”를 묻지 않고 실제 차단 사유나 오너 결정에만 멈춥니다.
-현재 요청된 PR 검토는 별도 독립 Work가 담당하며, 구현자의 자체 검사로 대체하지 않습니다.
-일반 작업의 반복 승인은 요구하지 않고 최종 병합·출시는 오너가 결정합니다.
-중단 시 Git과 현재 작업 문서에서 재개합니다. 무제한 실행이나 자동 재기동이
-보장되지는 않습니다. PR #1의 총괄 수신은 쓰기 없는 dry-run이며, 독립 검토는
-다음 유용한 푸시에서 결과 한 번을 게시하는 시험을 준비했습니다.
-실제 왕복 이벤트 전달은 아직 검증되지 않았습니다.
-이벤트를 정기 폴링으로 대체하지 않습니다. [연결 규칙과 실제 시험](docs/engineering.md#event-handoff)을 따릅니다.
+한 명의 구현자가 작성하며 정식 독립 검토는 별도 Work가 수행합니다. PR #1 하네스는
+미병합 상태로 보존하고 앱은 별도 stacked Draft PR에서 검토합니다. 두 PR #1 이벤트
+예약은 전환을 위해 정지했고 자동 작성은 꺼져 있습니다. 수동 전달은 자동 왕복 성공으로
+세지 않습니다. 일상 수정·검증·Draft PR은 승인 범위이며 최종 병합·출시는 오너가 결정합니다.
 
-- 정책과 근거: [docs/engineering.md](docs/engineering.md)
-- 제품 범위·기본 구조: [docs/product.md](docs/product.md)
-- donor 재사용 판단: [docs/donor.md](docs/donor.md)
-- 다음 대화의 시작점: [docs/current.md](docs/current.md)
-
-작업 재개 예시: “AGENTS.md와 docs/current.md를 읽고 현재 Git 상태에서 다음
-한 작업을 검증까지 진행하라.” 하네스만 수정하라는 별도 지시가 있으면 앱을 만들지 않습니다.
+- [제품 범위](docs/product.md) · [운영·기술 근거](docs/engineering.md)
+- [donor 감사](docs/donor.md) · [현재 작업과 다음 단계](docs/current.md)

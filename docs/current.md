@@ -1,86 +1,79 @@
 # Current work
 
-## Scope and live starting point
+## Authorized milestone and branch
 
-Current milestone: **harness and GitHub event setup/verification only**. Application
-implementation still requires the owner's separate milestone approval. No server, UI,
-model installation, model download or private media belongs in this change. Product
-scope remains in [product.md](product.md): local preparation/watching before October
-leave, no downloading/AI generation/NAS; plan readiness by October 11 for the earlier
-possible leave date. The donor `seoji2005/media-clarity-studio` remains read-only.
+The owner explicitly said **“구현 시작”** on 2026-09-05 for local video import → library
+→ playback → persisted resume. This is the current app slice; models, subtitles and
+enhancement are not implemented by it. Donor `seoji2005/media-clarity-studio` stays read-only.
+One implementation agent owns app code; the coordinator verifies and publishes.
 
-Verified starting state: `seoji2005/media-server` main
-`0faf1906211be12ad94870db2b1fc71e76df53c4`; only open PR **#1**, Draft,
-`harness/initial-workflow`, R2 starting head `2fdf65296ef3370babe024e7dff9b6d97abf40cb`.
-Re-read live state on resume; use `git rev-parse HEAD` / `python scripts/harness.py status`
-for the current local revision rather than assuming these starting coordinates persist.
+Branch: `app/import-play-resume`, starting parent
+`dafa25998454cbe02ff524f9bf11f58f7a49cf95`. Keep harness PR #1 frozen, Open/Draft and
+unmerged; publish the app as a separate Draft PR stacked on `harness/initial-workflow`.
+Use `git rev-parse HEAD` and live PR coordinates on resume; this starting parent is not
+the implementation's final SHA. Final merge/release remains an owner decision.
 
-## Acceptance and current evidence
+## Observable implementation
 
-- Outcome: one writer and a separate independent Work can exchange an explicitly
-  requested review without confusing WIP, stale results, self-reports or owner authority.
-- Non-goals: application work, a scheduler/authentication/lock platform, automated merge.
-- Acceptance: useful harness push; actual independent event run and result comment;
-  event-driven implementation resume; safe duplicate/stale/overlap/recovery behavior.
-  Task creation, manual execution and synthetic checks do not prove that chain.
-- Failure cases: wrong PR/base/head, duplicate/out-of-order result, no verified source,
-  missing checkpoint or shared ownership, absent app authorization, event/comment loops.
-- Verification: inspect live GitHub and native task records; run the focused synthetic
-  policy tests and existing harness check; publish only the scoped useful change.
+Python 3.12/FastAPI/SQLite local app with a responsive Korean library/player UI.
+Browser picker/drop streams to app-owned staging, verifies persisted bytes and codecs,
+atomically publishes into an exclusive file directory and commits one MediaItem with
+a separate file identity. Originals are read-only, with no hard links. CLI source import
+also verifies source identity/metadata and rereads its hash. Real thumbnails, bounded
+HTTP single ranges, duplicate identity and transactional watch history are implemented.
+Unsupported/missing media and failed saves have explicit states.
 
-Verified setup on 2026-09-05: GitHub app pull/push/admin access; Python 3.12.13, Git 2.51.1.
-The implementation receiver is enabled in **dry-run**, event-only, scoped to PR #1 comments.
-Receiver bindings, native-schema observations and protocol are in
-[engineering.md](engineering.md#event-handoff). The daily “Media Clarity 진행 정체
-점검” task is unchanged and read-only. The independent reviewer's enabled PR #1
-commit-event task and separate conversation binding have also been read back. After the
-owner's manual follow-up, it is **SINGLE_RESULT_TRIAL_ARMED**: the next useful ready
-push may publish one final result under its policy. Comments/reviews remain disabled
-for that reviewer task; the coordinator remains no-write dry-run.
+Default launch: `python -m media_clarity`, **http://127.0.0.1:8765**. Setup, codec limits,
+data locations and recovery are in [README](../README.md). No external assets, telemetry,
+media egress, models or donor mutations. A local data-dir process lock protects recovery;
+it does not solve cloud Work serialization.
 
-R2 in manual [comment #5550545835](https://github.com/seoji2005/media-server/pull/1#issuecomment-5550545835)
-reproduced on that starting head: `result.attempt=True/1.0` or request `target.pr=True`
-selected `MILESTONE_COMPLETE`; malformed attempts could also escape as stale/duplicate.
-The repair validates positive builtin integers before any identity/attempt comparison,
-including request/result/live PR and processed-checkpoint PR/attempt fields.
+## Verification and limits
 
-Local changed-behavior evidence: the expanded `python -m unittest discover -s tests -v`
-first failed against the unchanged starting code (19 test methods, 86 failures
-and 2 errors), then passed **19 tests** after repair. Coverage includes bool/float,
-nonpositive values, numeric impostors, stale/duplicate shortcuts and malformed later
-checkpoint entries; valid PASS/FIX, retries and unrelated/stale/duplicate results remain.
-`python scripts/harness.py check` and `git diff --check` pass. Evidence class: **synthetic
-fixture / contract only**; no actual event consumer or automatic writer was added.
-Use the current Git revision for this repair's checkpoint; the starting head identifies
-the failing baseline, not the fixed code.
+Evidence class: **synthetic fixture**, with real Linux processes/HTTP/SQLite/filesystems.
+Python 3.12.13; FFmpeg/ffprobe 6.1.1; exact dependencies in requirements files.
 
-Prior setup evidence retained: the PR-body ready-before-ref sequence was observed for
-`2fdf652`; recovery verified its 11 remote blobs and tree
-`0a03dfc16a89fcbcd13b3fef6a6e3d229fbabe49` in a clean directory. Shell Git lacks
-credentials; use the GitHub app for remote access. This proves source snapshot/tool
-recovery, not complete commit ancestry or a scheduled execution's environment. Older
-ambiguous local WIP remains untouched.
+- `python -m unittest discover -s tests -v`: **37 passed** (18 app/failure-boundary tests,
+  19 receiver-policy tests). H.264/AAC fixture; source/copy hashes; duplicate/history
+  retention; exact ranges; source-change/partial-copy/space/collision/commit rollback;
+  missing/changed files; bool/NaN/infinity/out-of-range positions; Host/Origin/token/
+  traversal/symlink rejection; decoder output/timeout bounds; cleanup failure ownership
+  release. A child dies at the actual save method's commit boundary; the prior committed
+  position survives. TestClient emits a non-failing httpx deprecation warning.
+- Coordinator's actual HTTP/process probe: **25-second H.264/AAC, 2,563,495-byte** fixture.
+  Source/copy SHA matches; exactly one item; full/start/offset/suffix bytes and HEAD match;
+  malformed ranges/positions and hostile requests fail closed. Saved **8.25 seconds**
+  survives forced termination and actual restart. Killing a live partial upload preserves
+  the item and quarantines the partial on restart. Old token rejected/new token usable.
+  Captured process logs omit fixture name/path/hash.
+- Actual UI JavaScript in jsdom: safe title text, search/continue filters, metadata resume,
+  close/reopen periodic autosave, ordered seek/pause writes, missing-file feedback pass.
+  Removing the close-time timer reset reproduces the regression. This is **mocked DOM/
+  media/HTTP**, not browser playback. Optional reproducible test: `tests/ui/player.cjs`.
+- Actual browser access was blocked by the provided environment (`ERR_BLOCKED_BY_CLIENT`);
+  no advertised local forwarding capability exists. No browser playback/seek/visual-quality
+  PASS is claimed. **Windows install/locking/codecs, target RTX and human quality are
+  unverified.** Browser source metadata is unavailable. Resume covers last acknowledged
+  save; abrupt exit may lose unacknowledged seconds. Missing-file repair is manual backup
+  restoration.
 
-The R2 result was posted once as `source.kind=manual`, `run_id=null`; it is not an event
-review. The coordinator reported an actual `issue_comment` webhook wake, but its event
-lacked a comment ID. Exact comment-to-run linkage, independent event review provenance,
-shared writer serialization and durable scheduled-run/checkpoint recovery remain
-unverified. No full round trip is established and no automatic follow-on writer is enabled.
-Product evidence remains **contract only**; no real model, Windows, target RTX or human
-quality review has run. Reuse prior unchanged harness CLI evidence in Git history.
+## Review and automation checkpoint
+
+Separate Work reported fixed harness HEAD `dafa259…` code **PASS / R2 resolved**, tree
+`b99e6a3abadb649e89d40a2ce18e4d4f5c5f1107`. Actual synchronize → independent review is
+confirmed, but result publication was blocked: no run ID/history or cross-run serialization
+could exclude duplicate comments. Event review → tool comment → coordinator resume remains
+unverified. Manual relay is the disclosed minimum fallback.
+
+Both PR #1 receivers were paused for this transition. Automatic writing remains disabled;
+the daily check stays read-only. Same-Work checks cannot replace formal separate-Work review.
+Retarget only the exact new PR and verified binding under [the protocol](engineering.md#event-handoff).
 
 ## One next action
 
-If this R2 repair is not yet published, set PR-body `ready` to its exact future head/current
-base and attempt 1 (new code target), then update the branch and verify remote coordinates.
-Otherwise inspect the live matching head and the independent Work's armed synchronize
-run and any single result it posts;
-follow [the trial](engineering.md#first-real-trial), never repush merely to wake a task.
-Keep the coordinator no-write dry-run while provenance/ownership are unknown. Record
-the actually observed edge and missing evidence; manual execution is not event success.
-
-Keep one concise Work checkpoint: milestone / branch / last verified revision / command
-and result / handled target-attempt-comment / WIP / blocker / next action. Refresh this
-handoff only alongside useful work. Missing state blocks writes; no report-only commits,
-acknowledgment comments or empty wake-up pushes. Harness PASS ends this milestone; the
-first import → library → playback → persisted-resume app task still needs owner approval.
+If not yet published, complete relevant QA and publish a useful commit as a new stacked
+Draft PR with explicit WIP/ready coordinates and concise review handoff. Otherwise read
+the live Draft PR/body to recover its number and final SHA. Request separate-Work evaluation
+of original safety, persistence, HTTP/privacy and stated browser/Windows limits.
+Continue repairs within this slice without repeated permission. Do not start models or
+claim this import checkpoint completes October P0.
