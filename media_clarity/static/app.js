@@ -162,6 +162,8 @@ const subtitleMessages={
   worker_stopped:"처리 프로세스가 종료됐습니다. 완료한 구간부터 재개할 수 있습니다.",
   invalid_subtitles:"자막 형식이나 시간이 올바르지 않습니다. 영상 길이에 맞는 SRT를 선택해 주세요.",
   subtitle_utf8_required:"UTF-8로 저장한 SRT 파일을 선택해 주세요.",
+  subtitle_encoding_unsupported:"UTF-8 또는 CP949·EUC-KR로 저장한 SRT 파일을 선택해 주세요.",
+  model_bf16_unavailable:"이 GPU에서 필요한 번역 정밀도를 사용할 수 없습니다. 모델 설정과 드라이버를 확인해 주세요.",
   subtitles_too_large:"자막 파일이 너무 큽니다. 2 MiB 이하 SRT를 선택해 주세요.",
   subtitles_already_available:"이미 사용할 자막이 있습니다. 자막 목록에서 선택해 주세요."
 };
@@ -188,15 +190,18 @@ async function refreshSubtitles(owner){
     const data=await api(`/api/library/${owner.id}/subtitles`);if(activeItem!==owner)return;
     const select=$("subtitle-select"),was=select.value;
     select.replaceChildren(new Option("자막 끄기",""));
-    for(const [i,t] of data.tracks.entries())select.add(new Option(`${t.source==="supplied"?"가져온 자막":"자동 생성 자막"} · ${data.tracks.length-i}`,t.id));
+    for(const [i,t] of data.tracks.entries())select.add(new Option(`${t.source==="supplied"?"가져온 자막":"자동 생성 자막"} · ${data.tracks.length-i}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));
     const chosen=subtitleLoaded===null?(data.tracks[0]?.id||""):was;
     select.value=data.tracks.some(t=>t.id===chosen)?chosen:"";if(data.tracks.length)loadSubtitle(select.value);
     subtitleJob=data.jobs.find(j=>["queued","running","paused"].includes(j.state))||data.jobs[0]||null;
     const j=subtitleJob,busy=j&&["queued","running"].includes(j.state);
-    $("subtitle-generate").hidden=data.tracks.length>0||!!(j&&["queued","running","paused"].includes(j.state));
+    const generate=$("subtitle-generate");
+    generate.hidden=!!(j&&["queued","running","paused"].includes(j.state));
+    generate.textContent=data.tracks.length?"새 자막 만들기":"한국어 자막 만들기";
+    generate.dataset.regenerate=data.tracks.length?"true":"false";
     $("subtitle-pause").hidden=!busy;$("subtitle-resume").hidden=!j||!["paused","failed"].includes(j.state);$("subtitle-restart").hidden=$("subtitle-resume").hidden;
     const progress=$("subtitle-progress");progress.hidden=!busy;if(j?.stage==="translation"&&j.total)progress.value=j.completed/j.total*100;else progress.removeAttribute("value");
-    $("subtitle-state").textContent=j?.error?(subtitleMessages[j.error]||message(j.error)):busy?(j.stage==="translation"?`한국어 번역 중 · ${j.completed}/${j.total} 구간 저장됨`:"음성을 전사하고 있어요. 원본은 계속 감상할 수 있습니다."):j?.state==="paused"?"자막 처리를 일시정지했습니다. 완료한 전사·번역을 보존했습니다.":data.tracks.length?"한국어 자막이 준비됐습니다. 플레이어 자막 메뉴에서도 켜고 끌 수 있습니다.":"가진 한국어 SRT를 열거나 이 기기에서 자막을 만들 수 있습니다.";
+    $("subtitle-state").textContent=j?.error?(subtitleMessages[j.error]||message(j.error)):busy?(j.stage==="translation"?`한국어 번역 중 · ${j.completed}/${j.total} 구간 저장됨${j.fallback_count?` · 원문 ${j.fallback_count}구간`:""}`:"음성을 전사하고 있어요. 원본은 계속 감상할 수 있습니다."):j?.state==="paused"?"자막 처리를 일시정지했습니다. 완료한 전사·번역을 보존했습니다.":data.tracks.length?"자막이 준비됐습니다. 번역하지 못한 구간은 [원문]으로 표시합니다. 새로 만들어도 기존 자막은 보존됩니다.":"가진 한국어 SRT를 열거나 이 기기에서 자막을 만들 수 있습니다.";
     if(busy)subtitleTimer=setTimeout(()=>refreshSubtitles(owner),1500);
   }catch(e){if(activeItem===owner)$("subtitle-state").textContent=e.message;}
 }
@@ -209,7 +214,7 @@ $("subtitle-input").addEventListener("change",async()=>{
     if(activeItem===owner){subtitleLoaded=null;await refreshSubtitles(owner);}
   }catch(e){toast(e.message,true);}finally{$("subtitle-input").value="";}
 });
-$("subtitle-generate").addEventListener("click",async()=>{const owner=activeItem;if(!owner)return;try{await api(`/api/library/${owner.id}/subtitle-jobs`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)$("subtitle-state").textContent=e.message;}});
+$("subtitle-generate").addEventListener("click",async()=>{const owner=activeItem;if(!owner)return;const suffix=$("subtitle-generate").dataset.regenerate==="true"?"/regenerate":"";try{await api(`/api/library/${owner.id}/subtitle-jobs${suffix}`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)$("subtitle-state").textContent=e.message;}});
 for(const action of ["pause","resume","restart"])$("subtitle-"+action).addEventListener("click",async()=>{const owner=activeItem,job=subtitleJob;if(!owner||!job)return;try{await api(`/api/subtitle-jobs/${job.id}/${action}`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)$("subtitle-state").textContent=e.message;}});
 
 let subtitleSearch={state:"empty",cues:[]}, subtitleSearchTimer=null;

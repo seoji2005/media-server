@@ -12,9 +12,9 @@ import unittest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from media_clarity.app import create_app
-from media_clarity.jobs import Jobs, execute
+from media_clarity.jobs import Jobs, execute, document, translate_chunk
 from media_clarity.storage import Store, MediaError
-from media_clarity.subtitles import parse_srt, validate_cues, webvtt
+from media_clarity.subtitles import parse_srt, validate_cues, webvtt, translation_units
 
 SRT = '1\n00:00:00,100 --> 00:00:01,900\n안녕하세요 <b>여러분</b>\n\n2\n00:00:02,000 --> 00:00:03,500\n다음 장면입니다.\n'
 
@@ -26,8 +26,9 @@ class FixtureModel:
     def transcribe(self, path, duration):
         with (self.root/'calls').open('a') as f:
             f.write('asr\n')
-        return [{'start':.1,'end':1.9,'text':'hello'}, {'start':2.,'end':3.5,'text':'next'}]
+        return [{'start':.1,'end':1.9,'text':'hello.'}, {'start':2.,'end':3.5,'text':'next.'}]
     def translate(self, text):
+        text = text.removesuffix('.')
         with (self.root/'calls').open('a') as f:
             f.write('translate-'+text+'\n')
         if text == 'next' and (self.root/'fail').exists():
@@ -84,9 +85,12 @@ class SubtitleTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT source_srt FROM subtitle_tracks WHERE id=?',(track,)).fetchone()[0],raw)
 
     def test_missing_identity_and_erased_checkpoint_fail_closed(self):
-        for mutation in ({'config_sha':None},{'transcript':None},{'translation':'[]'}):
+        for mutation in ({'config_sha':None},{'transcript':None},{}):
             with self.subTest(mutation=mutation):
                 job_id=self.enqueue(); (self.root/'fail').touch(); self.run_job(job_id)
+                if not mutation:
+                    with self.store.db() as db:
+                        db.execute('DELETE FROM subtitle_batches WHERE job_id=?',(job_id,));db.commit()
                 self.jobs.update(job_id,**mutation,state='queued');self.run_job(job_id)
                 row=self.jobs.row(job_id)
                 self.assertEqual(row['state'],'failed');self.assertEqual(row['error'],'processing_checkpoint_invalid')
@@ -253,5 +257,143 @@ class SubtitleTests(unittest.TestCase):
             db.execute("UPDATE subtitle_tracks SET cues=replace(cues,'안녕하세요','변경됐어요') WHERE id=?",(track,));db.commit()
         with self.assertRaisesRegex(MediaError,'subtitle_changed'):self.jobs.track(self.item['id'],track)
         self.assertEqual(hashlib.sha256(self.source.read_bytes()).hexdigest(),self.item['sha256'])
+
+    def test_cp949_and_euc_kr_preserve_upload_bytes(self):
+        for encoding, text in [('cp949',SRT.replace('여러분','똠방각하')),('euc-kr',SRT)]:
+            raw=text.encode(encoding);track=self.jobs.import_srt(self.item['id'],raw)
+            self.assertIn('똠방각하' if encoding=='cp949' else '여러분',self.jobs.track(self.item['id'],track))
+            with self.store.db() as db:
+                self.assertEqual(db.execute('SELECT source_srt FROM subtitle_tracks WHERE id=?',(track,)).fetchone()[0],raw)
+        with self.assertRaisesRegex(MediaError,'subtitle_encoding_unsupported'):
+            parse_srt(b'\xff',4)
+
+    def test_regenerate_http_preserves_supplied_track_and_deduplicates(self):
+        track=self.jobs.import_srt(self.item['id'],SRT.encode());before=self.jobs.track(self.item['id'],track)
+        self.store.close()
+        with patch.object(Jobs,'start',lambda jobs:jobs.init(recover=True)), patch('media_clarity.models.local_models'), TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
+            headers={'X-Media-Token':client.get('/api/session').json()['token']}
+            url=f"/api/library/{self.item['id']}/subtitle-jobs"
+            self.assertEqual(client.post(url,headers=headers).json()['error'],'subtitles_already_available')
+            self.assertEqual(client.post(url+'/regenerate').status_code,403)
+            first=client.post(url+'/regenerate',headers=headers)
+            self.assertEqual(first.status_code,202)
+            self.assertEqual(client.post(url+'/regenerate',headers=headers).json(),first.json())
+            self.assertEqual(client.get(f"/api/library/{self.item['id']}/subtitles/{track}.vtt").text,before)
+
+    def test_failed_translation_units_publish_marked_source_and_resume(self):
+        class Batched(FixtureModel):
+            batch_size=2;checkpoint_size=20
+            def transcribe(inner,path,duration):
+                self.assertEqual(path,self.store.file_path(self.store._row(self.item['id'])))
+                return [{'start':i*.5,'end':i*.5+.4,'text':text} for i,text in enumerate(['Hello.','Too long.','Empty.','Truncated.','안녕하세요.','Finish.'])]
+            def translate_many(inner,texts):
+                if texts==['Finish.']:
+                    raise RuntimeError('private diagnostic')
+                values={'Hello.':'안녕.','Too long.':MediaError('translation_input_too_long',422),'Empty.':None,'Truncated.':MediaError('translation_truncated',422)}
+                return [values[text] for text in texts]
+        job=self.enqueue();execute(self.store,job,Batched)
+        row=self.jobs.row(job);self.assertEqual((row['state'],row['completed'],row['fallback_count']),('failed',4,3))
+        with self.store.db() as db:
+            before=[tuple(r) for r in db.execute('SELECT * FROM subtitle_batches WHERE job_id=?',(job,))]
+        class Resumed(Batched):
+            def transcribe(inner,*args):raise AssertionError('ASR repeated')
+            def translate_many(inner,texts):
+                self.assertEqual(texts,['Finish.']);return ['끝.']
+        with patch('media_clarity.models.local_models'):self.jobs.action(job,'resume')
+        execute(self.store,job,Resumed)
+        row=self.jobs.row(job);self.assertEqual((row['state'],row['completed'],row['fallback_count']),('succeeded',6,3))
+        track=self.jobs.status(self.item['id'])['tracks'][0];self.assertEqual(track['fallback_count'],3)
+        vtt=self.jobs.track(self.item['id'],track['id']);self.assertEqual(vtt.count('[원문]'),3)
+        self.assertIn('[원문] Too long.',vtt);self.assertIn('안녕하세요.',vtt);self.assertIn('끝.',vtt)
+        self.assertFalse((self.root/'processing').exists())
+        with self.store.db() as db:
+            after=[tuple(r) for r in db.execute('SELECT * FROM subtitle_batches WHERE job_id=? ORDER BY first_index',(job,))]
+            self.assertEqual(after[:len(before)],before)
+            # Warning deletion must not silently turn source fallbacks into translated cues.
+            db.execute('UPDATE subtitle_tracks SET warnings=NULL WHERE id=?',(track['id'],));db.commit()
+        with self.assertRaisesRegex(MediaError,'subtitle_changed'):self.jobs.track(self.item['id'],track['id'])
+
+    def test_append_checkpoints_and_legacy_track_compatibility(self):
+        class Many(FixtureModel):
+            batch_size=2;checkpoint_size=20
+            def transcribe(inner,path,duration):
+                return [{'start':i*.03,'end':i*.03+.02,'text':'A.'} for i in range(100)]
+            def translate_many(inner,texts):return ['가.']*len(texts)
+        job=self.enqueue();execute(self.store,job,Many)
+        self.assertEqual(self.jobs.row(job)['state'],'succeeded')
+        with self.store.db() as db:
+            rows=db.execute('SELECT first_index,payload FROM subtitle_batches WHERE job_id=? ORDER BY first_index',(job,)).fetchall()
+        self.assertEqual([r['first_index'] for r in rows],[0,20,40,60,80])
+        self.assertTrue(all(len(json.loads(r['payload'])['cues'])==20 for r in rows))
+        self.assertEqual(self.jobs.row(job)['translation'],'[]','never rewrite the growing prefix')
+        # A database from the previous representation still renders old ready tracks.
+        legacy=document(parse_srt(SRT.encode(),4));track='a'*32
+        with self.store.db() as db:
+            db.execute('INSERT INTO subtitle_tracks(id,item_id,input_sha,source,cues,sha256) VALUES(?,?,?,?,?,?)',
+                       (track,self.item['id'],self.item['sha256'],'supplied',legacy,hashlib.sha256(legacy.encode()).hexdigest()));db.commit()
+        self.assertIn('여러분',self.jobs.track(self.item['id'],track))
+
+    def test_legacy_translation_prefix_can_resume_without_rewrite(self):
+        job=self.enqueue();(self.root/'fail').touch();self.run_job(job)
+        with self.store.db() as db:
+            payload=json.loads(db.execute('SELECT payload FROM subtitle_batches WHERE job_id=?',(job,)).fetchone()[0])
+            prefix=document(payload['cues'])
+            db.execute('UPDATE subtitle_jobs SET translation=?,translation_sha=? WHERE id=?',(prefix,hashlib.sha256(prefix.encode()).hexdigest(),job))
+            db.execute('DELETE FROM subtitle_batches WHERE job_id=?',(job,));db.commit()
+        (self.root/'fail').unlink()
+        with patch('media_clarity.models.local_models'):self.jobs.action(job,'resume')
+        self.run_job(job)
+        self.assertEqual(self.jobs.row(job)['state'],'succeeded');self.assertEqual(self.jobs.row(job)['translation'],prefix)
+        self.assertEqual((self.root/'calls').read_text().count('translate-hello'),1)
+
+    def test_source_change_during_decode_prevents_checkpoint_and_publish(self):
+        class Changed(FixtureModel):
+            def transcribe(inner,path,duration):
+                data=bytearray(path.read_bytes());data[-1]^=1;path.write_bytes(data)
+                return super().transcribe(path,duration)
+        job=self.enqueue();execute(self.store,job,Changed)
+        self.assertEqual(self.jobs.row(job)['state'],'failed')
+        self.assertIsNone(self.jobs.row(job)['transcript'])
+        self.assertEqual(self.jobs.status(self.item['id'])['tracks'],[])
+        self.assertEqual(hashlib.sha256(self.source.read_bytes()).hexdigest(),self.item['sha256'])
+
+
+class TranslationUnitTests(unittest.TestCase):
+    def test_model_identity_uses_metadata_without_reading_weights(self):
+        from media_clarity.models import LocalModels
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);weight=root/'model.safetensors';weight.write_bytes(b'weights')
+            backend=object.__new__(LocalModels);backend.paths={'translation':root};backend.device='cpu'
+            opened=Path.open
+            class MetadataOnly:
+                def __init__(self,path,*args,**kwargs):self.stream=opened(path,*args,**kwargs)
+                def __enter__(self):return self
+                def __exit__(self,*args):self.stream.close()
+                def fileno(self):return self.stream.fileno()
+                def read(self,*args):raise AssertionError('weight bytes read')
+            with patch('media_clarity.models.importlib.metadata.version',return_value='fixture'),patch.object(Path,'open',lambda path,*a,**kw:MetadataOnly(path,*a,**kw)):
+                before=backend.identity();self.assertEqual(backend.identity(),before)
+            weight.write_bytes(b'changed and longer')
+            with patch('media_clarity.models.importlib.metadata.version',return_value='fixture'):
+                self.assertNotEqual(backend.identity(),before)
+
+    def test_sentence_join_has_bounded_timing_and_keeps_source(self):
+        cues=[{'start':0,'end':1,'text':'When I got home,'},{'start':1.1,'end':3,'text':'I called my mother.'},{'start':3.1,'end':4,'text':'Next.'}]
+        before=document(cues);units=translation_units(cues)
+        self.assertEqual(units,[{'start':0,'end':3,'text':'When I got home, I called my mother.'},cues[2]])
+        self.assertEqual(document(cues),before)
+        for first,second in [({'text':'Done。'},{}),({}, {'start':2}),({}, {'end':13}),({'text':'a'*400},{})]:
+            pair=[{**cues[0],**first},{**cues[1],**second}]
+            self.assertEqual(len(translation_units(pair)),2)
+
+    def test_korean_passthrough_is_per_unit_and_content_failures_are_bounded(self):
+        observed=[]
+        class Model:
+            def translate_many(self,texts):observed.extend(texts);return ['혼합 언어.', 'x'*4001]
+        units=[{'start':i,'end':i+.8,'text':t} for i,t in enumerate(['안녕 2026!','Hello 한국어.','Long.'])]
+        cues,codes=translate_chunk(Model(),units)
+        self.assertEqual(observed,['Hello 한국어.','Long.'])
+        self.assertEqual(cues[0]['text'],'안녕 2026!');self.assertEqual(cues[2]['text'],'Long.')
+        self.assertEqual(codes,[None,None,'translation_truncated'])
 
 if __name__=='__main__':unittest.main()

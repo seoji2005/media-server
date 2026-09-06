@@ -10,10 +10,13 @@ import sqlite3
 import subprocess
 import sys
 import threading
+import time
 import uuid
 
 from .storage import ID, MediaError, Store, no_symlink
-from .subtitles import MAX_SUBTITLE_BYTES, parse_srt, validate_cues, webvtt
+from .subtitles import MAX_SUBTITLE_BYTES, parse_srt, validate_cues, webvtt, translation_units, korean_text
+
+TRANSLATION_WARNINGS = {'translation_truncated', 'translation_empty', 'translation_input_too_long'}
 
 
 def document(value):
@@ -76,10 +79,20 @@ class Jobs:
                     source TEXT NOT NULL, cues TEXT NOT NULL, sha256 TEXT NOT NULL, source_srt BLOB,
                     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
                 );
+                CREATE TABLE IF NOT EXISTS subtitle_batches (
+                    job_id TEXT NOT NULL REFERENCES subtitle_jobs(id), first_index INTEGER NOT NULL,
+                    payload TEXT NOT NULL, sha256 TEXT NOT NULL,
+                    PRIMARY KEY(job_id,first_index)
+                );
             ''')
             columns = {r['name'] for r in db.execute('PRAGMA table_info(subtitle_tracks)')}
             if 'source_srt' not in columns:
                 db.execute('ALTER TABLE subtitle_tracks ADD COLUMN source_srt BLOB')
+            if 'warnings' not in columns:
+                db.execute('ALTER TABLE subtitle_tracks ADD COLUMN warnings TEXT')
+            columns = {r['name'] for r in db.execute('PRAGMA table_info(subtitle_jobs)')}
+            if 'fallback_count' not in columns:
+                db.execute('ALTER TABLE subtitle_jobs ADD COLUMN fallback_count INTEGER NOT NULL DEFAULT 0')
             db.commit()
         if recover:
             self.recovery_pending = True
@@ -185,10 +198,48 @@ class Jobs:
     def status(self, item_id):
         media = self.store._row(item_id)
         with self.store.db() as db:
-            jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
-            tracks = db.execute('SELECT id,source,input_sha FROM subtitle_tracks WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
+            jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error,fallback_count FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
+            tracks = db.execute('SELECT id,source,input_sha,warnings FROM subtitle_tracks WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
         return {'jobs': [dict(r) for r in jobs], 'tracks': [
-            {'id':r['id'], 'source':r['source'], 'language':'ko'} for r in tracks if r['input_sha'] == media['sha256']]}
+            {'id':r['id'], 'source':r['source'], 'language':'ko', 'fallback_count':len(json.loads(r['warnings'] or '[]'))} for r in tracks if r['input_sha'] == media['sha256']]}
+
+    def saved_results(self, row, units, duration):
+        """Read each completed batch once. Legacy prefix bytes remain untouched."""
+        if row['translation'] != '[]' and hashlib.sha256(row['translation'].encode()).hexdigest() != row['translation_sha']:
+            raise MediaError('processing_checkpoint_invalid', 409)
+        cues = validate_cues(json.loads(row['translation']), duration)
+        warnings = []
+        with self.store.db() as db:
+            batches = db.execute('SELECT * FROM subtitle_batches WHERE job_id=? ORDER BY first_index', (row['id'],)).fetchall()
+        for batch in batches:
+            if batch['first_index'] != len(cues) or hashlib.sha256(batch['payload'].encode()).hexdigest() != batch['sha256']:
+                raise MediaError('processing_checkpoint_invalid', 409)
+            payload = json.loads(batch['payload'])
+            if type(payload) is not dict or set(payload) != {'cues','warnings'}:
+                raise MediaError('processing_checkpoint_invalid', 409)
+            part = validate_cues(payload['cues'], duration)
+            codes = payload['warnings']
+            if (not part or type(codes) is not list or len(codes) != len(part)
+                    or any(c is not None and (type(c) is not str or c not in TRANSLATION_WARNINGS) for c in codes)):
+                raise MediaError('processing_checkpoint_invalid', 409)
+            warnings.extend({'index':len(cues)+i, 'code':code} for i,code in enumerate(codes) if code)
+            cues.extend(part)
+        if (len(cues) != row['completed'] or len(warnings) != row['fallback_count'] or len(cues) > len(units)
+                or any((c['start'],c['end']) != (units[i]['start'],units[i]['end']) for i,c in enumerate(cues))):
+            raise MediaError('processing_checkpoint_invalid', 409)
+        return cues, warnings
+
+    def checkpoint(self, job_id, first_index, cues, codes):
+        payload = document({'cues':cues, 'warnings':codes})
+        with self.store.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            changed = db.execute("UPDATE subtitle_jobs SET completed=completed+?,fallback_count=fallback_count+? WHERE id=? AND state='running' AND attempt=? AND completed=?",
+                                 (len(cues),sum(c is not None for c in codes),job_id,self.expected_attempt,first_index)).rowcount
+            if changed != 1:
+                raise MediaError('processing_interrupted', 409)
+            db.execute('INSERT INTO subtitle_batches(job_id,first_index,payload,sha256) VALUES(?,?,?,?)',
+                       (job_id,first_index,payload,hashlib.sha256(payload.encode()).hexdigest()))
+            db.commit()
 
     def enqueue(self, item_id, force=False):
         from .models import local_models
@@ -259,14 +310,15 @@ class Jobs:
         self.store.open_verified(row).close()
         return self.publish(row, cues, 'supplied', None, source_srt=data)
 
-    def publish(self, media, cues, source, job_id, source_srt=None):
+    def publish(self, media, cues, source, job_id, source_srt=None, warnings=None):
         encoded = document(validate_cues(cues, media['duration']))
         if len(encoded.encode()) > MAX_SUBTITLE_BYTES * 4:
             raise MediaError('subtitles_too_large', 422)
         track_id = uuid.uuid4().hex
+        warning_json = document(warnings or [])
         with self.store.db() as db:
-            db.execute('INSERT INTO subtitle_tracks(id,item_id,input_sha,job_id,source,cues,sha256,source_srt) VALUES(?,?,?,?,?,?,?,?)',
-                       (track_id,media['id'],media['sha256'],job_id,source,encoded,hashlib.sha256(encoded.encode()).hexdigest(),source_srt))
+            db.execute('INSERT INTO subtitle_tracks(id,item_id,input_sha,job_id,source,cues,sha256,source_srt,warnings) VALUES(?,?,?,?,?,?,?,?,?)',
+                       (track_id,media['id'],media['sha256'],job_id,source,encoded,hashlib.sha256((encoded+warning_json).encode()).hexdigest(),source_srt,warning_json))
             if job_id:
                 changed = db.execute("UPDATE subtitle_jobs SET state='succeeded',stage='ready',error=NULL WHERE id=? AND state='running' AND attempt=?", (job_id,self.expected_attempt)).rowcount
                 if changed != 1:
@@ -282,16 +334,55 @@ class Jobs:
             row = db.execute('SELECT * FROM subtitle_tracks WHERE id=? AND item_id=?', (track_id,item_id)).fetchone()
         if not row:
             raise MediaError('subtitle_not_found', 404)
-        if row['input_sha'] != media['sha256'] or hashlib.sha256(row['cues'].encode()).hexdigest() != row['sha256']:
+        if row['input_sha'] != media['sha256'] or hashlib.sha256((row['cues']+(row['warnings'] or '')).encode()).hexdigest() != row['sha256']:
             raise MediaError('subtitle_changed', 409)
         self.store.open_verified(media).close()
-        return webvtt(validate_cues(json.loads(row['cues']), media['duration']))
+        warning_json = row['warnings'] or '[]'
+        warnings = json.loads(warning_json)
+        return webvtt(validate_cues(json.loads(row['cues']), media['duration']), {w['index'] for w in warnings})
 
 
 def execute(store, job_id, backend_factory=None):
     """Serialize actual workers, including survivors of a crashed parent."""
     with worker_guard(store.root):
         _execute(store, job_id, backend_factory)
+
+
+def translate_chunk(backend, units):
+    """Only known content failures use marked source text; runtime/storage errors stop."""
+    results = [None] * len(units)
+    foreign = [i for i,cue in enumerate(units) if not korean_text(cue['text'])]
+    if foreign:
+        texts = [units[i]['text'] for i in foreign]
+        if hasattr(backend, 'translate_many'):
+            values = backend.translate_many(texts)
+        else:
+            values = []
+            for text in texts:
+                try:
+                    values.append(backend.translate(text))
+                except MediaError as exc:
+                    if exc.code not in TRANSLATION_WARNINGS:
+                        raise
+                    values.append(exc)
+        if len(values) != len(foreign):
+            raise MediaError('processing_failed', 500)
+        for i, value in zip(foreign, values):
+            results[i] = value
+    cues, codes = [], []
+    for index, (unit, value) in enumerate(zip(units, results)):
+        code = None
+        if isinstance(value, MediaError):
+            if value.code not in TRANSLATION_WARNINGS:
+                raise value
+            code = value.code
+        elif index in foreign and (not isinstance(value, str) or not value.strip()):
+            code = 'translation_empty'
+        elif isinstance(value, str) and (len(value) > 4000 or any(ord(c) < 32 and c not in '\n\t' for c in value) or '\x7f' in value):
+            code = 'translation_truncated'
+        cues.append({**unit, 'text':unit['text'] if code or value is None else value})
+        codes.append(code)
+    return cues, codes
 
 
 def _execute(store, job_id, backend_factory):
@@ -304,7 +395,7 @@ def _execute(store, job_id, backend_factory):
     if claimed is None:
         return
     jobs.expected_attempt = claimed['attempt']
-    backend = path = attempt = None
+    backend = None
     try:
         row = jobs.row(job_id)
         if row['attempt'] != jobs.expected_attempt or row['state'] != 'running':
@@ -322,55 +413,56 @@ def _execute(store, job_id, backend_factory):
             raise MediaError('processing_config_changed', 409)
         if row['transcript'] is None and (row['translation'] != '[]' or row['total']):
             raise MediaError('processing_checkpoint_invalid', 409)
-        if row['completed'] != len(json.loads(row['translation'])):
-            raise MediaError('processing_checkpoint_invalid', 409)
         jobs.update(job_id, config_sha=identity)
         if row['transcript'] is None:
             jobs.update(job_id, stage='asr')
-            directory = store.root / 'processing'
-            no_symlink(directory)
-            directory.mkdir(exist_ok=True, mode=0o700)
-            attempt = directory / uuid.uuid4().hex
-            attempt.mkdir(mode=0o700)
-            path = attempt / ('input.' + media['extension'])
-            store.ensure_space(media['size'])
             verified = store.open_verified(media)
             try:
-                with path.open('xb') as out:
-                    for block in verified.read_range(0, media['size'] - 1):
-                        out.write(block)
-                    out.flush()
-                    os.fsync(out.fileno())
+                # FFmpeg reads the app-owned original without another video copy.
+                # Revalidate after decode and before publishing any ready result.
+                transcript = validate_cues(backend.transcribe(store.file_path(media), media['duration']), media['duration'])
             finally:
                 verified.close()
-            transcript = validate_cues(backend.transcribe(path, media['duration']), media['duration'])
+            store.open_verified(media).close()
             if not transcript:
                 raise MediaError('no_speech_detected', 422)
             encoded = document(transcript)
             if len(encoded.encode()) > MAX_SUBTITLE_BYTES * 4:
                 raise MediaError('subtitles_too_large', 422)
-            jobs.update(job_id, transcript=encoded, transcript_sha=hashlib.sha256(encoded.encode()).hexdigest(), total=len(transcript), stage='translation')
+            jobs.update(job_id, transcript=encoded, transcript_sha=hashlib.sha256(encoded.encode()).hexdigest(), total=len(translation_units(transcript)), stage='translation')
         else:
             if hashlib.sha256(row['transcript'].encode()).hexdigest() != row['transcript_sha']:
                 raise MediaError('processing_checkpoint_invalid', 409)
             transcript = validate_cues(json.loads(row['transcript']), media['duration'])
-        if row['translation'] != '[]' and hashlib.sha256(row['translation'].encode()).hexdigest() != row['translation_sha']:
-            raise MediaError('processing_checkpoint_invalid', 409)
-        translated = validate_cues(json.loads(row['translation']), media['duration'])
-        if len(translated) > len(transcript) or any((c['start'],c['end']) != (transcript[i]['start'],transcript[i]['end']) for i,c in enumerate(translated)):
-            raise MediaError('processing_checkpoint_invalid', 409)
-        jobs.update(job_id, stage='translation', completed=len(translated), total=len(transcript))
-        for cue in transcript[len(translated):]:
-            translated.append({**cue, 'text':backend.translate(cue['text'])})
-            translated = validate_cues(translated, media['duration'])
-            encoded = document(translated)
-            if len(encoded.encode()) > MAX_SUBTITLE_BYTES * 4:
-                raise MediaError('subtitles_too_large', 422)
-            jobs.update(job_id, translation=encoded, translation_sha=hashlib.sha256(encoded.encode()).hexdigest(), completed=len(translated))
+        units = translation_units(transcript)
+        translated, warnings = jobs.saved_results(row, units, media['duration'])
+        jobs.update(job_id, stage='translation', total=len(units))
+        batch_size = min(2, max(1, getattr(backend, 'batch_size', 1)))
+        checkpoint_size = min(20, max(1, getattr(backend, 'checkpoint_size', 1)))
+        saved = len(translated); pending_cues, pending_codes = [], []
+        encoded_bytes = sum(len(document(c).encode())+1 for c in translated)
+        last_save = time.monotonic()
+        try:
+            for start in range(saved, len(units), batch_size):
+                part, codes = translate_chunk(backend, units[start:start+batch_size])
+                part = validate_cues(part, media['duration'])
+                encoded_bytes += sum(len(document(c).encode())+1 for c in part)
+                if encoded_bytes + 2 > MAX_SUBTITLE_BYTES * 4:
+                    raise MediaError('subtitles_too_large', 422)
+                warnings.extend({'index':len(translated)+i,'code':code} for i,code in enumerate(codes) if code)
+                translated.extend(part);pending_cues.extend(part);pending_codes.extend(codes)
+                if len(pending_cues) >= checkpoint_size or time.monotonic()-last_save >= 5:
+                    jobs.checkpoint(job_id,saved,pending_cues,pending_codes)
+                    saved += len(pending_cues);pending_cues, pending_codes = [], []
+                    last_save = time.monotonic()
+        finally:
+            # Preserve completed outputs on a runtime failure; hard kill loses at most 20 units.
+            if pending_cues:
+                jobs.checkpoint(job_id,saved,pending_cues,pending_codes)
         if identity != backend.identity():
             raise MediaError('processing_config_changed', 409)
         store.open_verified(media).close()
-        jobs.publish(media, translated, 'generated', job_id)
+        jobs.publish(media, translated, 'generated', job_id, warnings=warnings)
     except MediaError as exc:
         try:
             jobs.update(job_id, state='failed', error=exc.code)
@@ -384,11 +476,3 @@ def _execute(store, job_id, backend_factory):
     finally:
         if backend is not None:
             backend.close()
-        # Only this invocation's disposable input; crash leftovers stay preserved.
-        if path is not None:
-            try:
-                no_symlink(path)
-                path.unlink(missing_ok=True)
-                attempt.rmdir()
-            except (OSError, MediaError):
-                pass

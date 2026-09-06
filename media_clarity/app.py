@@ -221,6 +221,11 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     def create_subtitle_job(item_id: str):
         return JSONResponse({"id":jobs.enqueue(item_id)}, status_code=202)
 
+    @app.post("/api/library/{item_id}/subtitle-jobs/regenerate")
+    def regenerate_subtitle_job(item_id: str):
+        # A new version; existing supplied/generated tracks remain available.
+        return JSONResponse({"id":jobs.enqueue(item_id, force=True)}, status_code=202)
+
     @app.post("/api/subtitle-jobs/{job_id}/{action}")
     def subtitle_job_action(job_id: str, action: str):
         jobs.action(job_id, action)

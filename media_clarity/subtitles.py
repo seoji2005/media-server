@@ -38,9 +38,13 @@ def parse_srt(data, duration):
     if not data or len(data) > MAX_SUBTITLE_BYTES:
         raise MediaError('invalid_subtitles', 422)
     try:
-        text = data.decode('utf-8-sig').replace('\r\n', '\n').replace('\r', '\n').strip()
+        text = data.decode('utf-8-sig')
     except UnicodeError:
-        raise MediaError('subtitle_utf8_required', 422) from None
+        try:
+            text = data.decode('cp949')  # Includes EUC-KR; never replace invalid bytes.
+        except UnicodeError:
+            raise MediaError('subtitle_encoding_unsupported', 422) from None
+    text = text.replace('\r\n', '\n').replace('\r', '\n').strip()
     cues = []
     def seconds(value):
         h, m, s, ms = map(int, re.split('[:,.]', value))
@@ -62,13 +66,36 @@ def parse_srt(data, duration):
     return validate_cues(cues, duration)
 
 
+def translation_units(cues):
+    """Join adjacent fragments, preserving source timing rather than inventing alignment."""
+    units = []
+    for cue in cues:
+        previous = units[-1] if units else None
+        if (previous and not re.search(r'[.!?。！？][\"\'”’」』)]*$', previous['text'])
+                and 0 <= cue['start'] - previous['end'] <= .8
+                and cue['end'] - previous['start'] <= 12
+                and len(previous['text']) + len(cue['text']) + 1 <= 400):
+            previous['text'] += ' ' + cue['text']
+            previous['end'] = cue['end']
+        else:
+            units.append(dict(cue))
+    return units
+
+
+def korean_text(text):
+    """Conservative pass-through; never classify an entire mixed-language video as Korean."""
+    letters = [c for c in text if c.isalpha()]
+    return bool(letters) and all('\uac00' <= c <= '\ud7a3' or '\u1100' <= c <= '\u11ff'
+                                 or '\u3130' <= c <= '\u318f' for c in letters)
+
+
 def timestamp(seconds, separator='.'):
     ms = round(seconds * 1000)
     return f'{ms // 3600000:02}:{ms // 60000 % 60:02}:{ms // 1000 % 60:02}{separator}{ms % 1000:03}'
 
 
-def webvtt(cues):
+def webvtt(cues, fallback_indices=()):
     # Encode all markup, including model/user-provided cue settings and tags.
     return 'WEBVTT\n\n' + '\n\n'.join(
-        f"{timestamp(c['start'])} --> {timestamp(c['end'])}\n{html.escape(c['text'], quote=False)}"
-        for c in cues) + '\n'
+        f"{timestamp(c['start'])} --> {timestamp(c['end'])}\n{'[원문] ' if i in fallback_indices else ''}{html.escape(c['text'], quote=False)}"
+        for i, c in enumerate(cues)) + '\n'
