@@ -1,16 +1,26 @@
 # Current work
 
 - **Milestone:** Korean-subtitle viewing and resumable preparation — in progress.
-  The public multilingual CPU execution/correction checkpoint is complete; target
+  Multilingual CPU execution/corrections and the first local recommendation checkpoint
+  are implemented; target
   viewing and overall October acceptance are not. No included feature is dropped.
 - **Branch:** `app/korean-subtitles-resume`, Draft PR #4 targets **main** directly.
   Main was confirmed an ancestor; this integration candidate includes #1/#3 changes.
   Their branches/PRs remain preserved; #2 had merged into `harness/initial-workflow`.
-  No final merge. Read live coordinates before continuing. Implementation: `5ea410c`.
+  No final merge. Read live coordinates before continuing. Implementation: `34463f8`.
 - **App:** import/library/original playback/Range/watch-position resume; UTF-8/CP949/
   EUC-KR SRT with original bytes and append-only versions. Explicit regeneration keeps
   previous captions available. Selected-caption text search/seek uses browser memory;
   it does not complete visual/semantic analysis. UI remains awaiting actual playback.
+- **Recommendations:** explicit like/dislike/less-of-this plus separate item opt-in.
+  New and existing imports default excluded; excluded candidates and feedback do not
+  enter scoring. Included unrated titles match included feedback words; no subtitle,
+  watch-history or external metadata learning. Up to 12 suggestions, reserving every
+  fourth place for unrelated discovery when available. This is literal title matching,
+  with acknowledged filename/language/relevance limits, not semantic understanding.
+  Pending saves survive same-item reopen; atomic revision checks reject stale writes
+  that could undo exclusion. Lost responses require rereading saved state before edits.
+  Usage, privacy and limits: [recommendations](recommendations.md).
 - **Pipeline:** source ASR and Korean translation are separate. Adjacent fragments join
   within sentence/time/length bounds, preserving their outer interval. MADLAD batch two,
   CUDA bfloat16/CPU float32; known content failures save marked source text and continue.
@@ -42,21 +52,30 @@
   matched; standalone ORT modules/native mappings absent, Python connect audit zero.
   These observations are not native packet tracing or Windows proof. Details and
   earlier scale/model setup evidence remain in [subtitles](subtitles.md).
-- **Verification/review:** full Python **53 passed** (10.141 s), real DB/FFmpeg/process
-  coverage. New regressions cover numeric foreign-word boundaries, generated markup,
-  single decoding and exact saved content after failure/resume. Fresh reviewer found no
-  actionable findings and independently passed 28 subtitle tests (4.154 s) at local
-  `9b7d469`; published `5ea410c` has the identical complete tree
-  `f56413f637730d536695035b89b4c723d51d59ee`. Previous DOM3/runtime/storage reviews remain
-  valid in unchanged scopes; neither DOM nor this review establishes playback quality.
+- **Recommendation execution:** production CLI/HTTP on seven generated clips verified
+  opt-in defaults, related ranking changes, discovery, exclusion and stale-write 409.
+  Forced server kill/restart preserved preference/recommendation responses, position
+  1.25 s and byte-identical VTT; seven Range checks exact, source unchanged, log zero
+  bytes. No private inputs or model inference; 1.870 s is a functional probe only.
+- **Verification/review:** full Python **61 passed** (12.593 s), real DB/FFmpeg/process
+  coverage. DOM4 flows passed; the new delayed-save/reopen case passed after correction.
+  Fresh reviewer found an older save could undo exclusion after same-item reopen at
+  local `3475d13`. Fixed pending-write sequencing and atomic revision rejection at
+  `a23a93d`; bounded rereview found no remaining actionable findings, independently
+  passed eight recommendation tests (3.504 s), DOM, and a simultaneous SQLite write
+  conflict check. Published `34463f8` has identical complete tree
+  `fb71e31e6467181fe6fb0a98bc1ebfeeb62c5d07`. Prior subtitle/runtime/storage review
+  evidence remains valid in unchanged scopes. DOM/review is not real browser playback.
 - **Remaining gates:** no target Windows/RTX access here; CUDA/driver/bfloat16/12 GB,
   actual browser decoding/captions/seek/resume and human quality remain unverified.
   Browser localhost previously returned `ERR_BLOCKED_BY_CLIENT`; native ptrace was
-  denied. Natural code-switching, long films and long-cue readability remain unchecked.
+  denied. Natural code-switching, long films, long-cue readability and human recommendation
+  relevance remain unchecked. Browser presentation of the new controls is not accepted yet.
 - **Next:** target Windows/browser ASR→Korean→playback/resume remains the first external
   gate; measure a conservative non-generative enhancement candidate on 12 GB before
-  adoption. While access is absent, the next independent product slice is basic local
-  recommendations from explicit feedback. Visual/semantic analysis and enhancement
+  adoption. While access is absent, evaluate one conservative enhancement candidate on
+  a permitted live-action CPU sample and prepare the smallest target measurement.
+  Visual/semantic analysis and enhancement
   remain included October work; do not claim subtitle matching completes them.
   Consequential scope cuts and final merge/release need the owner.
 - **Operations:** one Work writes, fresh reviewers only for risky changes. Old developer/
