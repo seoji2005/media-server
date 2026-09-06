@@ -6,11 +6,12 @@ NAS remain excluded. Public model-weight setup below is separate from video down
 
 ## Watching with existing subtitles
 
-Open a video → **자막 파일 열기** → choose its Korean SRT (UTF-8, ≤2 MiB).
+Open a video → **자막 파일 열기** → choose its Korean SRT (UTF-8 or CP949/EUC-KR, ≤2 MiB).
 The app validates ordered timestamps against the video duration, stores a new version,
 and serves escaped plain-text WebVTT to the native player. Previous versions remain
 selectable. Common SRT styling is removed for display; literal angle-bracket text and the
-original uploaded SRT bytes are preserved. ASS/SSA, embedded subtitle extraction and automatic
+original uploaded SRT bytes are preserved. Decoding is strict UTF-8 first, then CP949
+(including EUC-KR), with no replacement characters. SMI/SAMI, ASS/SSA, embedded subtitle extraction and automatic
 language verification are not implemented. Choose **자막 끄기** to hide captions.
 Source SRT files and source videos are never written. Imported text is treated as
 Korean because the user selected it for the Korean track; the app does not certify it.
@@ -30,7 +31,14 @@ These adapters are a reversible baseline, not a model-selection verdict:
 [large-v3](https://huggingface.co/Systran/faster-whisper-large-v3), followed by
 [MADLAD-400-3B-MT](https://huggingface.co/docs/transformers/en/model_doc/madlad-400).
 ASR source text/timing and Korean translations are stored separately. MADLAD uses
-its `<2ko>` target prefix. GPU models run sequentially; 12 GB feasibility is unmeasured.
+its `<2ko>` target prefix. Adjacent fragments join through sentence punctuation, capped
+at 12 seconds, 400 characters and a 0.8-second gap; existing longer cues remain intact.
+One translated sentence retains the combined original interval. This does not invent
+word alignment or claim exact within-sentence timing. The untouched ASR cues remain stored.
+Pure Hangul text passes through per unit; mixed-language units still translate.
+MADLAD runs batches of two with beam four, CUDA bfloat16 or CPU float32. Unsupported
+CUDA bfloat16 is diagnosed rather than silently using float16. GPU models run
+sequentially; CUDA bfloat16 execution and 12 GB feasibility are still unmeasured.
 
 The app does **not** download models, call hosted inference, accept license prompts,
 load remote Python code or fetch missing tokenizer files. Prepare public model files
@@ -75,16 +83,40 @@ Repeating that audio three times in a synthetic MP4 produced three ASR cues in
 79.79 s. Repetition is only a recovery fixture, not varied speech/quality evidence.
 Native network tracing was unavailable (`ptrace: Operation not permitted`).
 
-At code checkpoint `f7e08d2`, the production CLI/HTTP pipeline completed that 33 s
-fixture with three Korean cues in **183.93 s including pause and server restarts**.
-After the first saved translation (112.41 s), pause stopped the worker. Forced server
-restart preserved transcript/translation hashes and a 5.25 s watch position. Attempt
-two reused those results and finished the remaining cues. One ready WebVTT survived
-another forced restart byte-for-byte; Range bytes matched and the original source
-hash was unchanged. Server logs were zero bytes. Source and Korean text were inspected:
-the repeated English sentence was retained and translated consistently; these long
-sentence-level cues still need browser readability and human quality evaluation.
-This is **real CPU/cloud model** evidence, not actual browser or Windows/RTX evidence.
+At implementation `f2a3ba3`, the production CLI/HTTP pipeline completed that 33 s
+fixture with three Korean cues in **133.10 s including pause and server restarts**.
+After two saved translations (104.19 s), pause stopped the worker. Forced server restart
+preserved the transcript hash, the exact saved batch bytes and a 5.25 s watch position.
+Attempt two translated only the remaining unit. The regenerated VTT and the previous
+ready version survived another forced restart byte-for-byte; Range bytes matched,
+source hash stayed unchanged and server logs were zero bytes. Source and Korean text
+were inspected; these long sentences still need browser readability/human evaluation.
+This is real CPU model evidence, not actual browser or Windows/RTX evidence. The older
+183.93 s run used one-cue processing; these small runs are not a speedup benchmark or
+a two-hour movie runtime estimate.
+
+Real MADLAD CPU float32 also translated two author-written fragment pairs. Japanese
+`駅に着いたら、` + `私に電話してください。` translated together as
+“역에 도착하면 전화해주세요”; separate fragments lost that conditional connection.
+The English joined sentence retained the complete meaning but remained literal in
+style. This checks actual text output, not Japanese ASR or general translation quality.
+Model identity took 71.52 ms with the installed full weights; it no longer reads weight
+bytes on each job. Whole-file download hashes below were verified once during setup.
+
+Synthetic bookkeeping measurements on the same Linux machine (no model computation,
+real SQLite FULL commits; 20 units/batch, import excluded):
+
+| Units | Seconds | Appended batches | Stored payload characters |
+| --- | --- | --- | --- |
+| 250 | 0.014 | 13 | 12,744 |
+| 500 | 0.021 | 25 | 25,465 |
+| 1,000 | 0.038 | 50 | 50,930 |
+| 2,000 | 0.091 | 100 | 101,860 |
+| 4,000 | 0.148 | 200 | 203,720 |
+
+This demonstrates bounded appended storage; it does not measure Windows fsync or
+real speech timing. The initial benchmark fixture used sub-millisecond intervals
+and correctly failed timestamp validation; these measurements use valid intervals.
 
 Recorded SHA-256 identities:
 
@@ -98,9 +130,11 @@ The MADLAD digest was compared with its pinned Hugging Face LFS metadata. Model
 cards label large-v3 MIT and MADLAD Apache-2.0; neither download required a gated
 license acceptance. Weights, source media and generated captions stay out of Git.
 
-Once prepared, open a video → **한국어 자막 만들기**. Existing supplied/ready subtitles
-prevent redundant generation. Missing weights/runtime show a local setup diagnostic.
-Progress shows the processing stage and saved translation cue count.
+Once prepared, open a video → **한국어 자막 만들기**. When a supplied/ready version
+exists, **새 자막 만들기** explicitly creates another version; existing versions stay
+selectable during processing. Only one active job per video is allowed. Missing
+weights/runtime show a local diagnostic. Progress shows saved translation units and
+the number left as source text. Such segments show **[원문]** in the actual caption.
 
 ## Recovery and limits
 
@@ -110,20 +144,31 @@ Progress shows the processing stage and saved translation cue count.
   on their claimed generation. Processing continues when the player closes.
 - **일시정지** stops the child; **처리 재개** retries with durable completed results.
 - An interrupted running job becomes paused on server startup. A completed transcript
-  is reused; translation resumes after the last committed cue. Interruption during
+  is reused; translation resumes after the last committed batch. New completed units
+  append atomically every 20 units or after a batch completes at least five seconds
+  after the last save. No growing prefix is rewritten. A hard stop repeats at most
+  20 units; the five-second threshold does not interrupt an in-flight generation.
+  Completed pending outputs also save on a caught runtime error. Interruption during
   ASR reruns that ASR stage; partial ASR and within-cue translation are not checkpoints.
-- Original byte identity, model file contents, device, adapter settings and dependency
-  versions bind reusable results. Changed model/config refuses reuse; restore the old
+- Original byte identity, model paths/file metadata (device, inode, size, modification/
+  change time), execution device, adapter settings and dependency versions bind reusable
+  results. This is a change fingerprint, not a fresh model byte-integrity certificate.
+  Changed model/config refuses reuse; restore the old
   setup to resume, or choose **처음부터 다시 만들기** for a new job with current
   settings. This preserves previous jobs, checkpoints and caption versions.
-  Original/caption tampering fails closed.
+  The new sentence/bfloat16 pipeline invalidates unfinished jobs from the old adapter;
+  restart creates a new job without deleting the old results. Existing ready versions
+  and legacy checkpoint storage remain readable. Original/caption tampering fails closed.
 - Source/caption versions remain available after failure. A job publishes its full
-  Korean track only after successful validation; it never overwrites an imported SRT.
-- Attempt input copies live in app-owned `processing/`. Normal exits remove only
-  their own disposable input copy; crash leftovers are retained. Translation-only resume needs no extra media copy. Back up the
-  complete data directory with the server stopped.
-- No silent input truncation. An overlong cue or unfinished translation fails with a
-  diagnostic. Empty ASR is reported as no speech, not a fabricated ready subtitle.
+  track only after validation; it never overwrites an imported SRT.
+- FFmpeg reads the managed original directly under the existing protocol/container
+  restrictions. Verify before/after decoding and before publication; no extra full
+  video is copied into `processing/`. Old crash leftovers are not automatically removed.
+  Back up the complete data directory with the server stopped.
+- No silent input truncation. Overlong input, empty or unfinished translation retains
+  that unit's source text with a saved warning and visible **[원문]**. Other units
+  continue. Runtime/memory/storage errors stop with recoverable completed results.
+  Empty ASR is reported as no speech, not a fabricated ready subtitle.
 - Actual mixed-language recognition, omission/hallucination/translation/timing quality,
   long-video runtime, Windows/CUDA installation, GPU memory and browser decoding/caption
   display need real samples and target tests. Synthetic results do not establish these.

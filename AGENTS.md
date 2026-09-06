@@ -30,9 +30,8 @@ Run relevant tests and actual startup/API/browser/restart/output checks. Broaden
 for a concrete risk or integration gate; reuse still-valid evidence. Preserve failures,
 skips and exit codes. Record command, revision, result and limits.
 
-Evidence: **contract only / synthetic fixture / real CPU/cloud model /
-Windows non-GPU / target RTX / human quality review**. Mocked DOM is not browser
-playback; fixtures are not model quality; cloud is not target RTX.
+State what actually ran and on which machine. Mocked DOM is not browser playback;
+fixtures are not model quality; cloud CPU is not target RTX.
 
 Use a fresh, uninvolved reviewer subagent for persistence, original safety, privacy,
 resume and material architecture changes. Low-risk edits use author checks.
@@ -41,11 +40,11 @@ needs human review. An unavailable required review holds that change's acceptanc
 not safe independent work.
 
 Give fixed base/HEAD, acceptance, relevant code/tests and prior findings, not the
-author's desired verdict. Reviewer returns findings/evidence only: no edits, push,
-merge or promotion to orchestrator. Keep the snapshot fixed; context separation is
-not a permission sandbox. PASS / CHANGES_REQUESTED / BLOCKED_ENV; findings:
-BLOCKER / IMPORTANT / NIT / FOLLOW-UP. Resolve BLOCKER/IMPORTANT; NIT never gates.
-Verdicts apply only to reviewed revisions/scope, never replace owner merge approval.
+author's desired verdict. Reviewer returns actionable findings and evidence limits:
+no edits, push, merge or promotion to orchestrator. Keep the snapshot fixed;
+context separation is not a permission sandbox. Resolve correctness/safety defects;
+style suggestions never gate. Review covers only its revision/scope and never
+replaces owner merge approval.
 
 ## Boundaries
 
