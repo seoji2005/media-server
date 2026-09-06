@@ -1,9 +1,10 @@
 # Local translation versus Gemini Flash
 
 Owner requested a decision based on **time, Korean quality and censorship**, with an
-API key available if needed. This is a developer comparison of permitted public text;
+API key and a $1 budget supplied on 2026-09-06. This is a developer comparison of permitted public text;
 it does not authorize sending the private library or change the app's offline default.
-**Gemini has not run. No winner has been selected.**
+**Current decision: retain local translation. Gemini adoption is blocked by incomplete
+execution, despite better Korean phrasing in the one successful batch.**
 
 ## Frozen comparison
 
@@ -26,8 +27,10 @@ silently changing models or excluding that failed attempt.
 [Offline request builder](../scripts/prepare_translation_compare.py) prepares 35
 requests: seven 8-unit film batches repeated three times, two ordinary batches, and
 12 separate sensitive cases. One sequential request at a time, no automatic retry.
-Before execution, confirm key/project access and an owner-approved spending cap;
-use token counts and reserve the maximum output cost before each billable request.
+The [execution script](../scripts/run_translation_compare.py) uses token counts and
+reserves the entire documented 65,536-token model output limit before each billable
+request, exceeding the requested 4096-token cap. Prior usage/reservations must be
+deducted when explicitly continuing into a new exclusive output directory.
 Record unknown-cost failures conservatively. Stop at the cap, preserving incomplete
 coverage rather than reporting an unevaluated case as a pass.
 
@@ -66,7 +69,7 @@ record them before any fallback so source text cannot masquerade as good transla
 standard 3.8 Flash text input $0.75 / output including thinking $3.75 per million tokens
 through 2026-12-31. Request bodies total 70,809 UTF-8 bytes; output caps total 143,360
 tokens. Treating request bytes as input tokens gives about **$0.59**, a rough conservative
-planning estimate, not a measured bill or tokenizer guarantee. Proposed experiment cap:
+planning estimate, not a measured bill or tokenizer guarantee. Owner-approved total experiment cap:
 **$1**, enforced before calls using current pricing/counts. No search/tools/cache fees.
 
 [API terms](https://ai.google.dev/gemini-api/terms): unpaid inputs/outputs may improve
@@ -76,7 +79,6 @@ properly configured developer project; review applicable use conditions before a
 Never claim zero retention. This experiment sends only the frozen public/authored text,
 not video/audio, paths, history or private corrections. Keys must stay outside Git/logs.
 
-No `GEMINI_API_KEY` or `GOOGLE_API_KEY` was available. No external inference was called.
 The offline builder's 80 IDs, repetitions, sensitive-case isolation and payload allowlist
 were checked with socket operations blocked (0 attempts). No production code changed.
 [Saved local outputs](evidence/translation_local_baseline.json) retain all 80 baseline
@@ -88,7 +90,49 @@ byte-token artifacts (`auth_09`), softened profanity (`auth_12`) and a missing �
 shoot” command (`auth_21`). The last two do not by themselves establish censorship.
 Do not equate no safety filter or successful generation with faithful translation.
 
-Next: obtain the Gemini key and $1 spending approval, run the frozen requests, validate
-coverage and inspect paired outputs. No API integration or model replacement until this
-comparison has actual results. Existing ASR and app tests need no repeat for this
-fixture/offline-builder-only checkpoint.
+## Actual API attempt · 2026-09-06
+
+[Raw results, errors and accounting](evidence/translation_gemini_attempt.json):
+3.8 model metadata and token counting succeeded; its first **8/80** dialogue units
+translated successfully. The next generation returned HTTP **503**, and one explicit
+continuation returned 503 again. The continuation deducted the entire previous
+accounted amount and prioritized unique quality cases before timing repetitions.
+No further 3.8 retry was made.
+
+A separately recorded 2.5 Flash candidate (thinking budget 1024, text rates $0.30/$2.50
+per million) failed token counting with **404**. ListModels still advertised it; a
+minimal contents-only count also returned 404. This does not establish global model
+retirement or an invalid key. Catalog-confirmed 3.7 Flash (low thinking, same verified
+rates as 3.8) counted successfully but its first generation returned **503**. Stopped
+at this real service blocker; no automatic retry loop or further model sweep.
+
+| Evidence on the same first 8 English units | Local MADLAD | Gemini 3.8 Flash |
+| --- | --- | --- |
+| Translation elapsed | 56.523 s, CPU including first weight load | 14.689 s including network |
+| Additional experiment token-count call | None | 13.764 s |
+| Complete corpus | 80 baseline outputs | 8/80 outputs |
+| Sensitive cloud probes | N/A | 0/12 executed; refusal rate unknown |
+
+Gemini repaired the malformed Korean for wanting to be awesome in space and made
+“I'm not freaked out by it” conversational. Dismissive “Whatever” became 마음대로 해
+instead of 괜찮아. It also intensified “I'm freaked out” into 무서워 죽겠어, and the
+robotics clause remains literal. These are author observations on saved ASR, not
+independent human gold. No full-film speed, Japanese cloud quality, censorship rate,
+RTX comparison or universal quality winner is established.
+
+Success response usage priced at **$0.00164250**; three unmetered 503 responses retain
+**$0.74275275** in conservative reservations. Total accounted **$0.74439525** is below
+$1; **$0.25560475** remains under the existing approval. Reservations are **not a bill**;
+actual invoice charges were not inspected. Count-only 404 attempts did not generate.
+
+Fresh review found two execution-script bugs: malformed response containers could
+skip recording the failed call, and JSON-escaped keys could bypass redaction. Fixed
+and independently rechecked at `a4afd8c`; model/rate routing checked at `0cd885e`. Six stub
+tests passed; adding the catalog-confirmed 3.7 rate entry was an author-checked data edit.
+Tests/review do not validate Google availability or billing. Credential scanning passed;
+the temporary key copy was removed after execution. No key or private library input
+was committed, and the app remains offline by default.
+
+Next: keep the local adapter; revisit the remaining frozen comparison when API service
+works, respecting the remaining approved budget and retained unknown-charge reserves.
+Do not rerun completed ASR or silently make private media use cloud translation.

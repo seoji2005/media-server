@@ -20,7 +20,8 @@
   approval; a separate public short-film download succeeded. HEVC/10-bit policy, spending
   and scope cuts require owner decisions.
 - **Next action:** owner requested [local versus Gemini Flash translation](translation-comparison.md)
-  on time, quality and censorship. Public inputs/request bodies are prepared; API execution
-  awaits a key and spending approval. Select only after actual outputs; private egress stays opt-in.
+  on time, quality and censorship. Only 8/80 cloud units completed; repeated 503 responses
+  blocked the rest. Keep local; revisit when API works. $1 approved, conservative accounted
+  $0.74439525 (mostly unknown-charge reserves), $0.25560475 remains. Private egress stays opt-in.
   Prioritize Windows/RTX and long-input recovery when access/input becomes available.
   Keep enhancement and semantic retrieval included; do not expand diagnostics/harness.

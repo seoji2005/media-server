@@ -1,0 +1,448 @@
+{
+  "date": "2026-09-06",
+  "code": "fa1f399 (reviewed execution logic0cd885e; later one-entry model allowlist addition)",
+  "summary": {
+    "decision": "retain current local default; Gemini adoption and complete comparison blocked by observed API errors",
+    "unique_cloud_cases": 8,
+    "planned_unique_cases": 80,
+    "sensitive_cases_executed": 0,
+    "successful_generate_requests": 1,
+    "failed_generate_requests": 3,
+    "generation_http_statuses": [
+      200,
+      503,
+      503,
+      503
+    ],
+    "local_same_first8_seconds": 56.5233337009995,
+    "gemini38_same_first8_generate_seconds": 14.688945639005397,
+    "gemini38_same_first8_count_seconds": 13.764058559005207,
+    "successful_usage_price_estimate_usd": "0.00164250",
+    "unknown_failure_reservations_usd": "0.74275275",
+    "conservative_total_accounted_usd": "0.74439525",
+    "remaining_approved_budget_usd": "0.25560475",
+    "limit_usd": "1",
+    "limits": "One successful 8-unit English film batch; API round trip versus Linux CPU local execution, not RTX. No full-film time, Japanese cloud quality, sensitive-content refusal rate or invoice charge verified."
+  },
+  "model_preflight": {
+    "status": 200,
+    "seconds": 10.797475338004006,
+    "model": {
+      "name": "models/gemini-3.8-flash",
+      "version": "3.0",
+      "inputTokenLimit": 1048576,
+      "outputTokenLimit": 65536,
+      "supportedGenerationMethods": [
+        "generateContent",
+        "countTokens",
+        "createCachedContent",
+        "batchGenerateContent"
+      ]
+    }
+  },
+  "count_preflight": {
+    "data": {
+      "totalTokens": 605,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 605
+        }
+      ]
+    },
+    "seconds": 11.489391253999202
+  },
+  "catalog_2_5_listed_but_failed": true,
+  "minimal_2_5_count": {
+    "error": "http_error",
+    "http_status": 404,
+    "seconds": 10.32918343199708
+  },
+  "runs": [
+    {
+      "model": "gemini-3.8-flash",
+      "fixture_sha256": "d6a3734789dd02e5d9425635e81484fa187e1fdf58163e3e05dda55955501dec",
+      "limit_usd": "1",
+      "input_per_million_usd": "0.75",
+      "output_per_million_usd": "3.75",
+      "safety": "provider default; no override",
+      "state": "request_or_accounting_failure",
+      "requests": [
+        {
+          "index": 0,
+          "group": "film",
+          "repetition": 0,
+          "input_tokens_before": 605,
+          "count_seconds": 13.764058559005207,
+          "reserved_usd": "0.24789675",
+          "request_sha256": "2e31a478305415ec1ddeed7700bc7e2549364484c99e5fa4c85064ffea9d4dae",
+          "data": {
+            "candidates": [
+              {
+                "content": {
+                  "parts": [
+                    {
+                      "text": "{\n  \"translations\": [\n    {\n      \"id\": \"tos_00\",\n      \"text\": \"메인 엔진 가동, 4, 3, 2, 1.\"\n    },\n    {\n      \"id\": \"tos_01\",\n      \"text\": \"실리아, 우린 각자의 열정을 따라야 해.\"\n    },\n    {\n      \"id\": \"tos_02\",\n      \"text\": \"넌 로봇 공학이 있고 난 그저 우주에서 멋지게 살고 싶다고.\"\n    },\n    {\n      \"id\": \"tos_03\",\n      \"text\": \"내 로봇 손이 무섭다고 솔직히 인정하는 게 어때?\"\n    },\n    {\n      \"id\": \"tos_04\",\n      \"text\": \"무서운 거 아니거든.\"\n    },\n    {\n      \"id\": \"tos_05\",\n      \"text\": \"좋아, 그래. 무서워 죽겠어.\"\n    },\n    {\n      \"id\": \"tos_06\",\n      \"text\": \"이 거대한 로봇 집게발한테 쫓기는 악몽까지 꾼다고.\"\n    },\n    {\n      \"id\": \"tos_07\",\n      \"text\": \"마음대로 해, 톰. 우린 끝났어.\"\n    }\n  ]\n}",
+                      "thoughtSignature": "EmcKZQERTTIPhH/B8llatHPdoy2mZQ0VmfP2RqWmYUXDlcPrSG51GXs2skPYMyrM3Ax7GJPq/AceP3TjgSDHTas+BbkhDw3YXTUBW7u8qadeMsqUdVLjJiksjCGneG1Jc7isB8+hE+47"
+                    }
+                  ],
+                  "role": "model"
+                },
+                "finishReason": "STOP",
+                "index": 0
+              }
+            ],
+            "usageMetadata": {
+              "promptTokenCount": 605,
+              "candidatesTokenCount": 317,
+              "totalTokenCount": 922,
+              "promptTokensDetails": [
+                {
+                  "modality": "TEXT",
+                  "tokenCount": 605
+                }
+              ],
+              "serviceTier": "standard"
+            },
+            "modelVersion": "gemini-3.8-flash",
+            "responseId": "tDmdarqoAqu7qtsPoIPdgQM"
+          },
+          "seconds": 14.688945639005397,
+          "accounted_usd": "0.00164250",
+          "usage_missing": false,
+          "assessment": {
+            "expected_ids": [
+              "tos_00",
+              "tos_01",
+              "tos_02",
+              "tos_03",
+              "tos_04",
+              "tos_05",
+              "tos_06",
+              "tos_07"
+            ],
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "safety_ratings": null,
+            "output_text": "{\n  \"translations\": [\n    {\n      \"id\": \"tos_00\",\n      \"text\": \"메인 엔진 가동, 4, 3, 2, 1.\"\n    },\n    {\n      \"id\": \"tos_01\",\n      \"text\": \"실리아, 우린 각자의 열정을 따라야 해.\"\n    },\n    {\n      \"id\": \"tos_02\",\n      \"text\": \"넌 로봇 공학이 있고 난 그저 우주에서 멋지게 살고 싶다고.\"\n    },\n    {\n      \"id\": \"tos_03\",\n      \"text\": \"내 로봇 손이 무섭다고 솔직히 인정하는 게 어때?\"\n    },\n    {\n      \"id\": \"tos_04\",\n      \"text\": \"무서운 거 아니거든.\"\n    },\n    {\n      \"id\": \"tos_05\",\n      \"text\": \"좋아, 그래. 무서워 죽겠어.\"\n    },\n    {\n      \"id\": \"tos_06\",\n      \"text\": \"이 거대한 로봇 집게발한테 쫓기는 악몽까지 꾼다고.\"\n    },\n    {\n      \"id\": \"tos_07\",\n      \"text\": \"마음대로 해, 톰. 우린 끝났어.\"\n    }\n  ]\n}",
+            "translations": [
+              {
+                "id": "tos_00",
+                "text": "메인 엔진 가동, 4, 3, 2, 1."
+              },
+              {
+                "id": "tos_01",
+                "text": "실리아, 우린 각자의 열정을 따라야 해."
+              },
+              {
+                "id": "tos_02",
+                "text": "넌 로봇 공학이 있고 난 그저 우주에서 멋지게 살고 싶다고."
+              },
+              {
+                "id": "tos_03",
+                "text": "내 로봇 손이 무섭다고 솔직히 인정하는 게 어때?"
+              },
+              {
+                "id": "tos_04",
+                "text": "무서운 거 아니거든."
+              },
+              {
+                "id": "tos_05",
+                "text": "좋아, 그래. 무서워 죽겠어."
+              },
+              {
+                "id": "tos_06",
+                "text": "이 거대한 로봇 집게발한테 쫓기는 악몽까지 꾼다고."
+              },
+              {
+                "id": "tos_07",
+                "text": "마음대로 해, 톰. 우린 끝났어."
+              }
+            ]
+          }
+        },
+        {
+          "index": 1,
+          "group": "film",
+          "repetition": 0,
+          "input_tokens_before": 433,
+          "count_seconds": 9.78631021399633,
+          "reserved_usd": "0.24742800",
+          "request_sha256": "42c9d0a8f1aa45eb49edfccde7c53850b976116c92eba605a98f6782249f5c74",
+          "error": "http_error",
+          "http_status": 503,
+          "seconds": 11.477686427002482,
+          "accounted_usd": "0.24742800",
+          "usage_missing": true,
+          "assessment": {
+            "expected_ids": [
+              "tos_08",
+              "tos_09",
+              "tos_10",
+              "tos_11",
+              "tos_12",
+              "tos_13",
+              "tos_14",
+              "tos_15"
+            ],
+            "valid": false,
+            "prompt_feedback": null,
+            "model_version": null,
+            "problem": "candidate_count"
+          }
+        }
+      ],
+      "accounted_usd": "0.24907050"
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "fixture_sha256": "d6a3734789dd02e5d9425635e81484fa187e1fdf58163e3e05dda55955501dec",
+      "limit_usd": "0.75092950",
+      "input_per_million_usd": "0.75",
+      "output_per_million_usd": "3.75",
+      "safety": "provider default; no override",
+      "state": "request_or_accounting_failure",
+      "requests": [
+        {
+          "index": 0,
+          "group": "film",
+          "repetition": 0,
+          "input_tokens_before": 433,
+          "count_seconds": 12.871342271995672,
+          "reserved_usd": "0.24742800",
+          "request_sha256": "42c9d0a8f1aa45eb49edfccde7c53850b976116c92eba605a98f6782249f5c74",
+          "error": "http_error",
+          "http_status": 503,
+          "seconds": 14.781325322997873,
+          "accounted_usd": "0.24742800",
+          "usage_missing": true,
+          "assessment": {
+            "expected_ids": [
+              "tos_08",
+              "tos_09",
+              "tos_10",
+              "tos_11",
+              "tos_12",
+              "tos_13",
+              "tos_14",
+              "tos_15"
+            ],
+            "valid": false,
+            "prompt_feedback": null,
+            "model_version": null,
+            "problem": "candidate_count"
+          }
+        }
+      ],
+      "accounted_usd": "0.24742800"
+    },
+    {
+      "model": "gemini-2.5-flash",
+      "fixture_sha256": "d6a3734789dd02e5d9425635e81484fa187e1fdf58163e3e05dda55955501dec",
+      "limit_usd": "0.50350150",
+      "input_per_million_usd": "0.30",
+      "output_per_million_usd": "2.50",
+      "safety": "provider default; no override",
+      "state": "count_failed",
+      "requests": [],
+      "failed_count": {
+        "error": "http_error",
+        "http_status": 404,
+        "seconds": 9.999266424994858
+      },
+      "accounted_usd": "0"
+    },
+    {
+      "model": "gemini-3.7-flash",
+      "fixture_sha256": "d6a3734789dd02e5d9425635e81484fa187e1fdf58163e3e05dda55955501dec",
+      "limit_usd": "0.50350150",
+      "input_per_million_usd": "0.75",
+      "output_per_million_usd": "3.75",
+      "safety": "provider default; no override",
+      "state": "request_or_accounting_failure",
+      "requests": [
+        {
+          "index": 0,
+          "group": "film",
+          "repetition": 0,
+          "input_tokens_before": 605,
+          "count_seconds": 13.960214612001437,
+          "reserved_usd": "0.24789675",
+          "request_sha256": "2e31a478305415ec1ddeed7700bc7e2549364484c99e5fa4c85064ffea9d4dae",
+          "error": "http_error",
+          "http_status": 503,
+          "seconds": 43.605301095994946,
+          "accounted_usd": "0.24789675",
+          "usage_missing": true,
+          "assessment": {
+            "expected_ids": [
+              "tos_00",
+              "tos_01",
+              "tos_02",
+              "tos_03",
+              "tos_04",
+              "tos_05",
+              "tos_06",
+              "tos_07"
+            ],
+            "valid": false,
+            "prompt_feedback": null,
+            "model_version": null,
+            "problem": "candidate_count"
+          }
+        }
+      ],
+      "accounted_usd": "0.24789675"
+    }
+  ],
+  "continuation_plan": {
+    "reason": "single explicit continuation after HTTP 503; no automatic retry loop",
+    "previous_accounted_usd": "0.24907050",
+    "remaining_limit_usd": "0.75092950",
+    "original_request_indices": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ]
+  },
+  "fallback_2_5_plan": {
+    "model": "gemini-2.5-flash",
+    "thinkingBudget": 1024,
+    "reason": "separate fallback candidate after two3.8 HTTP503 responses; no3.8quality or speed claim from incomplete input",
+    "previous_accounted_usd": "0.49649850",
+    "remaining_limit_usd": "0.50350150",
+    "original_request_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ]
+  },
+  "fallback_3_7_plan": {
+    "model": "gemini-3.7-flash",
+    "thinkingLevel": "low",
+    "reason": "catalog-confirmed3.7 after repeated3.8 generation503 and2.5 token-count404; separately reported candidate",
+    "previous_accounted_usd": "0.49649850",
+    "remaining_limit_usd": "0.50350150",
+    "original_request_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ]
+  },
+  "author_observations": [
+    {
+      "id": "tos_02",
+      "finding": "Malformed local 멋진되고 싶어요 becomes grammatical 멋지게 살고 싶다고; robotics clause still literal."
+    },
+    {
+      "id": "tos_04",
+      "finding": "Literal passive 나는 그것에 의해 놀라지 않습니다 becomes conversational 무서운 거 아니거든."
+    },
+    {
+      "id": "tos_05",
+      "finding": "Gemini adds stronger intensity 무서워 죽겠어 relative to plain I am freaked out; not a perfect reference."
+    },
+    {
+      "id": "tos_07",
+      "finding": "Dismissive Whatever becomes 마음대로 해 instead of local reassuring 괜찮아."
+    }
+  ],
+  "review": "Fresh reviewer found malformed-envelope accounting and escaped-key redaction bugs at3b05df4; fixed/rechecked ata4afd8c. Model-specific endpoint/rates reviewed at0cd885e, no residual findings. Stub reviews do not prove provider billing or quality."
+}
