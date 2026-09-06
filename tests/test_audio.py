@@ -1,4 +1,5 @@
 """Real audio selection, pinned HTTP bytes, migration rollback and ASR input binding."""
+from contextlib import closing
 import array
 import hashlib
 import json
@@ -18,6 +19,7 @@ from media_clarity.renditions import prepare
 from media_clarity.storage import MediaError, Store
 
 ffmpeg = fixtures.ffmpeg
+assert_stream_copy = fixtures.assert_stream_copy
 
 
 class AudioTests(unittest.TestCase):
@@ -38,8 +40,7 @@ class AudioTests(unittest.TestCase):
         item = self.load(self.multi)
         first = self.convert(item); first_bytes=self.store.file_path(first).read_bytes()
         second = self.select(item,1); second_bytes=self.store.file_path(second).read_bytes()
-        self.assertEqual(ffmpeg('-i',self.multi,'-map','0:a:1','-f','hash','pipe:1'),
-                         ffmpeg('-i',self.store.file_path(second),'-map','0:a:0','-f','hash','pipe:1'))
+        assert_stream_copy(self.multi, self.store.file_path(second), '0:a:1', '0:a:0')
         self.assertNotEqual(first['file_id'],second['file_id'])
         for index,data,ready in [(0,first_bytes,first),(1,second_bytes,second)]:
             response=self.client.get(f"/api/media/{item['id']}/content?audio_index={index}",headers={'Range':'bytes=100-200'})
@@ -131,8 +132,7 @@ prepare(s,sys.argv[2],1)
             def identity(self):return 'audio-fixture-v1'
             def transcribe(self,path,duration,index):
                 calls.append(index)
-                self_bytes=ffmpeg('-i',path,'-map',f'0:a:{index}','-f','hash','pipe:1')
-                if self_bytes!=ffmpeg('-i',AudioTests.multi,'-map','0:a:1','-f','hash','pipe:1'):raise AssertionError('wrong audio')
+                assert_stream_copy(AudioTests.multi, path, '0:a:1', f'0:a:{index}')
                 return [{'start':.1,'end':1.8,'text':'hello.'},{'start':2.,'end':3.7,'text':'next.'}]
             def translate(self,text):
                 if text=='next.' and len(calls)==1:raise RuntimeError('fixture interruption')
@@ -165,7 +165,7 @@ prepare(s,sys.argv[2],1)
         item=other.import_path(self.multi)['item'];prepare(other,item['id']);other.save_position(item['id'],2.25)
         Jobs(other).import_srt(item['id'],'1\n00:00:00,100 --> 00:00:02,000\n이전 자막\n'.encode())
         other.close()
-        with sqlite3.connect(other.root/'library.sqlite3') as db:
+        with closing(sqlite3.connect(other.root/'library.sqlite3')) as db, db:
             # Restore the actual pre-audio columns and one-copy uniqueness.
             db.execute('ALTER TABLE renditions RENAME TO old_audio')
             db.execute('CREATE TABLE renditions (id TEXT PRIMARY KEY,item_id TEXT NOT NULL UNIQUE REFERENCES items(id),input_sha TEXT NOT NULL,sha256 TEXT NOT NULL,size INTEGER NOT NULL,extension TEXT NOT NULL,mime TEXT NOT NULL,kind TEXT NOT NULL,duration REAL)')
@@ -177,7 +177,7 @@ prepare(s,sys.argv[2],1)
         migrate=migrations._audio_tracks
         def fail(db):migrate(db);raise MediaError('fixture_abort',503)
         with patch.object(migrations,'_audio_tracks',side_effect=fail),self.assertRaisesRegex(MediaError,'fixture_abort'):other.start()
-        with sqlite3.connect(other.root/'library.sqlite3') as db:
+        with closing(sqlite3.connect(other.root/'library.sqlite3')) as db, db:
             self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],0)
             self.assertEqual(db.execute('SELECT name,sql FROM sqlite_master ORDER BY name').fetchall(),schema)
             for t,rows in before.items():self.assertEqual(db.execute(f'SELECT * FROM {t}').fetchall(),rows)
@@ -190,6 +190,6 @@ prepare(s,sys.argv[2],1)
                 for t,rows in before.items():self.assertEqual([tuple(r)[:-1] for r in db.execute(f'SELECT * FROM {t}')],rows)
             prepare(other,item['id'],1)
         finally:other.close()
-        with sqlite3.connect(other.root/'library.sqlite3') as db:db.execute('PRAGMA user_version=999')
+        with closing(sqlite3.connect(other.root/'library.sqlite3')) as db, db:db.execute('PRAGMA user_version=999')
         with self.assertRaisesRegex(MediaError,'database_version_newer'):other.start()
-        with sqlite3.connect(other.root/'library.sqlite3') as db:self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],999)
+        with closing(sqlite3.connect(other.root/'library.sqlite3')) as db, db:self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],999)

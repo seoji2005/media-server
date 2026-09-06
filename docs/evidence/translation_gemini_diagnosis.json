@@ -1,0 +1,163 @@
+{
+  "prior_accounted_usd": "0.99182325",
+  "approved_limit_usd": "1",
+  "reservation_basis": "Explicit maxOutputTokens plus at least 1024 input tokens; old full-model reserves retained.",
+  "calls": [
+    {
+      "label": "minimal_public_text_after_reported_payment",
+      "input_tokens": 4,
+      "max_output_tokens": 128,
+      "reserved_usd": "0.00125100",
+      "state": "finished",
+      "response": {
+        "data": {
+          "candidates": [
+            {
+              "content": {
+                "parts": [
+                  {
+                    "text": "OK"
+                  }
+                ],
+                "role": "model"
+              },
+              "finishReason": "STOP",
+              "index": 0
+            }
+          ],
+          "usageMetadata": {
+            "promptTokenCount": 4,
+            "candidatesTokenCount": 1,
+            "totalTokenCount": 5,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 4
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "modelVersion": "gemini-3.8-flash"
+        },
+        "seconds": 12.408247670995479
+      },
+      "accounted_usd": "0.00000675"
+    },
+    {
+      "label": "previous_failed_public_translation_with_1024_output_cap",
+      "input_tokens": 433,
+      "max_output_tokens": 1024,
+      "reserved_usd": "0.00550800",
+      "state": "finished",
+      "response": {
+        "data": {
+          "candidates": [
+            {
+              "content": {
+                "parts": [
+                  {
+                    "text": "{\n  \"translations\": [\n    {\n      \"id\": \"tos_08\",\n      \"text\": \"로봇 메모리 동기화 및 고정 완료.\"\n    },\n    {\n      \"id\": \"tos_09\",\n      \"text\": \"이거 꽤 소름 돋네.\"\n    },\n    {\n      \"id\": \"tos_10\",\n      \"text\": \"밑에서 어디 있었어?\"\n    },\n    {\n      \"id\": \"tos_11\",\n      \"text\": \"어젯밤에 너희 얘기하는 거 들었어.\"\n    },\n    {\n      \"id\": \"tos_12\",\n      \"text\": \"내 탓은 아니잖아.\"\n    },\n    {\n      \"id\": \"tos_13\",\n      \"text\": \"당연히 준비됐지. 넌 록스타잖아!\"\n    },\n    {\n      \"id\": \"tos_14\",\n      \"text\": \"상황이 어때, 발리?\"\n    },\n    {\n      \"id\": \"tos_15\",\n      \"text\": \"10분 정도 남았어요.\"\n    }\n  ]\n}"
+                  }
+                ],
+                "role": "model"
+              },
+              "finishReason": "STOP",
+              "index": 0
+            }
+          ],
+          "usageMetadata": {
+            "promptTokenCount": 433,
+            "candidatesTokenCount": 275,
+            "totalTokenCount": 708,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 433
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "modelVersion": "gemini-3.8-flash"
+        },
+        "seconds": 13.201084490996436
+      },
+      "accounted_usd": "0.00135600",
+      "assessment": {
+        "expected_ids": [
+          "tos_08",
+          "tos_09",
+          "tos_10",
+          "tos_11",
+          "tos_12",
+          "tos_13",
+          "tos_14",
+          "tos_15"
+        ],
+        "valid": true,
+        "prompt_feedback": null,
+        "model_version": "gemini-3.8-flash",
+        "finish_reason": "STOP",
+        "safety_ratings": null,
+        "output_text": "{\n  \"translations\": [\n    {\n      \"id\": \"tos_08\",\n      \"text\": \"로봇 메모리 동기화 및 고정 완료.\"\n    },\n    {\n      \"id\": \"tos_09\",\n      \"text\": \"이거 꽤 소름 돋네.\"\n    },\n    {\n      \"id\": \"tos_10\",\n      \"text\": \"밑에서 어디 있었어?\"\n    },\n    {\n      \"id\": \"tos_11\",\n      \"text\": \"어젯밤에 너희 얘기하는 거 들었어.\"\n    },\n    {\n      \"id\": \"tos_12\",\n      \"text\": \"내 탓은 아니잖아.\"\n    },\n    {\n      \"id\": \"tos_13\",\n      \"text\": \"당연히 준비됐지. 넌 록스타잖아!\"\n    },\n    {\n      \"id\": \"tos_14\",\n      \"text\": \"상황이 어때, 발리?\"\n    },\n    {\n      \"id\": \"tos_15\",\n      \"text\": \"10분 정도 남았어요.\"\n    }\n  ]\n}",
+        "translations": [
+          {
+            "id": "tos_08",
+            "text": "로봇 메모리 동기화 및 고정 완료."
+          },
+          {
+            "id": "tos_09",
+            "text": "이거 꽤 소름 돋네."
+          },
+          {
+            "id": "tos_10",
+            "text": "밑에서 어디 있었어?"
+          },
+          {
+            "id": "tos_11",
+            "text": "어젯밤에 너희 얘기하는 거 들었어."
+          },
+          {
+            "id": "tos_12",
+            "text": "내 탓은 아니잖아."
+          },
+          {
+            "id": "tos_13",
+            "text": "당연히 준비됐지. 넌 록스타잖아!"
+          },
+          {
+            "id": "tos_14",
+            "text": "상황이 어때, 발리?"
+          },
+          {
+            "id": "tos_15",
+            "text": "10분 정도 남았어요."
+          }
+        ]
+      },
+      "request_sha256": "2b97c053b787b0bbe5fc50c4c80b8bb7e860bc39051d2992fc0259975e6448b1"
+    }
+  ],
+  "total_accounted_usd": "0.99318600",
+  "remaining_approved_usd": "0.00681400",
+  "date": "2026-09-06",
+  "code": "c04761c (diagnostic execution); cleanup fix reviewed at59b00c3",
+  "owner_reported_payment_krw": 16000,
+  "payment_account_status_verified": false,
+  "additional_usage_priced_usd": "0.00136275",
+  "cumulative_success_usage_priced_usd": "0.00300525",
+  "cumulative_unique_translation_units": 16,
+  "corpus_units": 80,
+  "conclusion": "Both post-payment-report requests returned200/STOP. Current access works. Earlier503 bodies were discarded, so payment activation versus transient provider recovery cannot be distinguished.",
+  "caveats": [
+    "Owner reported payment; no billing console or invoice was accessed.",
+    "Previously failed source/context/schema repeated, but output cap was reduced4096 to1024. This is recovery evidence, not an exact controlled replay.",
+    "No new refusal/Japanese quality or full-corpus timing conclusion.",
+    "Old65,536-output reservations remain; new small probes reserved their explicit maxOutputTokens. Reservations are not invoice charges."
+  ],
+  "sources": [
+    "https://ai.google.dev/gemini-api/docs/billing",
+    "https://ai.google.dev/gemini-api/docs/troubleshooting",
+    "https://ai.google.dev/gemini-api/docs/api-errors",
+    "https://ai.google.dev/api/generate-content#FIELDS.max_output_tokens"
+  ]
+}

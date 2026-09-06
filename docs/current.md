@@ -1,25 +1,28 @@
 # Current work
 
-- **Milestone:** approximate visual search now works inside the selected video's player,
-  with saved images/timestamps and restartable preparation. October acceptance remains open.
-- **Branch / PR / HEAD:** `app/scene-retrieval`, [Draft PR #9](https://github.com/seoji2005/media-server/pull/9).
-  Resolve live HEAD there; verified code `029f9e0`, followed by documentation. Base main
-  `f0b0010` includes owner-approved #8. #9 still needs separate merge approval.
-  One writer; this checkout's AGENTS.md and [product contract](product.md) govern.
+- **Milestone:** preserve the working viewing flow with repeatable checks. #9 is merged;
+  #10 includes different-film retrieval, whole 12-minute subtitles and partial translation comparison.
+- **Branch / PR / HEAD:** `app/scene-quality`; resolve its live Draft PR/HEAD in
+  [open PRs](https://github.com/seoji2005/media-server/pulls). Base main `bfce827` includes
+  owner-approved #9. The Draft needs separate merge approval. One writer;
+  AGENTS.md and [product contract](product.md) govern; no harness redesign.
 - **What works:** import/compatible copies, shared audio, playback/resume, real ASR/Korean
-  captions and recoverable jobs, literal caption search, explicit-feedback recommendations,
-  time previews and selected-video visual candidates. [Scene search setup/results](scene-search.md),
-  [retrieval development evaluation](scene-retrieval.md), [previews](previews.md),
-  [renditions/audio/UI](compatible-renditions.md), [ASR/runtime](subtitles.md),
-  [readability](subtitle-readability.md), [speech quality](speech-quality.md).
-- **Current blockers:** no Windows/RTX access or suitable local 60+ minute ASR input.
-  Earlier long-film download and larger retrieval-model lookup ended in cancelled network
-  approval; neither was retried here. The permitted short-film/model were reused locally.
-  ASR interruption still repeats its stage. [Enhancement](enhancement-spike.md) has no
-  adopted preset; held-out visual quality/absent-scene handling and Windows polish remain
-  open. HEVC/10-bit policy, spending and scope cuts require owner decisions.
-- **Next action:** test different permitted live-action content for useful visual candidates
-  and missed short scenes before extending analysis into recommendations. Prioritize long
-  ASR recovery and Windows/RTX as soon as input/access is available. Keep enhancement and
-  semantic retrieval included; avoid expanding diagnostics/harness or adding default query
-  translation without better evidence.
+  captions and recoverable jobs, literal/visual scene search, previews and explicit-feedback
+  recommendations. [New quality findings](quality-check.md), [scene setup](scene-search.md),
+  [ASR/runtime](subtitles.md), [readability](subtitle-readability.md),
+  [renditions/audio/UI](compatible-renditions.md). [One verification command](../README.md#검증과-작업-방식)
+  now includes all seven DOM suites and real browser import/captions/playback/server restart.
+- **Current blockers:** no Windows 11/RTX access or natural 60+ minute speech input. ASR
+  interruption repeats its stage; the 12-minute run supplied no interruption proof.
+  [Enhancement](enhancement-spike.md) has no adopted preset. Action/absent-scene search
+  and natural Korean dialogue remain weak. CI spending was approved on 2026-09-06;
+  Linux and Windows CPU jobs now execute; inspect [live results](https://github.com/seoji2005/media-server/actions/workflows/verify.yml).
+  Earlier long-film/larger-encoder requests ended in cancelled approval; do not bypass them.
+- **Next action:** resolve any failing live check before new implementation; measure
+  long-timeline interruption/repeated work using existing permitted
+  media (operational evidence only); use natural long dialogue separately for ASR quality.
+  Avoid chunked ASR design before measuring loss. Next product experiment is one
+  compression-aware enhancement candidate against the failed baseline. Windows/RTX
+  access takes priority whenever available. Keep all October features included.
+  [Gemini comparison/budget](translation-comparison.md#post-payment-diagnosis) remains
+  incomplete (16/80); local stays default and private egress remains opt-in.

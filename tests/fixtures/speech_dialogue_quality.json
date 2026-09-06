@@ -1,0 +1,129 @@
+{
+  "source": "Tears of Steel — (CC) Blender Foundation | mango.blender.org",
+  "license": "CC BY 3.0; ASR and Korean translation are machine-generated adaptations",
+  "source_url": "https://media.xiph.org/tearsofsteel/README.txt",
+  "purpose": "Post-run development cases, not held-out gold translations. Notes assess the translation given saved ASR; spoken-word accuracy is not independently scored.",
+  "model": "faster-whisper large-v3 int8 CPU; MADLAD400 3B float32 CPU, beam4, batch2",
+  "cases": [
+    {
+      "source_index": 2,
+      "start": 27.08,
+      "end": 30.08,
+      "source_asr": "You have your robotics and I just want to be awesome in space.",
+      "observed_korean": "당신은 당신의 로봇 공학을 가지고 있고 나는 그냥 우주에서 멋진되고 싶어요.",
+      "context_before": "Look, Celia, we have to follow our passions.",
+      "context_after": "Why don't you just admit that you're freaked out by my robot hand?",
+      "author_note": "Awkward Korean morphology and literal phrasing."
+    },
+    {
+      "source_index": 4,
+      "start": 34.08,
+      "end": 36.08,
+      "source_asr": "I'm not freaked out by it.",
+      "observed_korean": "나는 그것에 의해 놀라지 않습니다.",
+      "context_before": "Why don't you just admit that you're freaked out by my robot hand?",
+      "context_after": "Alright, fine. I'm freaked out.",
+      "author_note": "Literal passive phrasing; check register across the conversation."
+    },
+    {
+      "source_index": 7,
+      "start": 42.08,
+      "end": 45.08,
+      "source_asr": "Whatever, Tom. We're done.",
+      "observed_korean": "괜찮아, 톰, 끝났어",
+      "context_before": "I'm having nightmares that I'm being chased by these giant robotic claws.",
+      "context_after": "Robot's memory synced and locked.",
+      "author_note": "Given the saved English, dismissive whatever becomes reassuring 괜찮아."
+    },
+    {
+      "source_index": 15,
+      "start": 198.88,
+      "end": 200.88,
+      "source_asr": "We should have about ten minutes.",
+      "observed_korean": "10분 정도 남았어요",
+      "context_before": "How's it looking, Barley?",
+      "context_after": "Well, that's perfect.",
+      "author_note": "Retain as a less problematic control; context still matters."
+    },
+    {
+      "source_index": 23,
+      "start": 237.39,
+      "end": 238.39,
+      "source_asr": "This is your passion.",
+      "observed_korean": "이것은 당신의 열정입니다.",
+      "context_before": "Tom!",
+      "context_after": "Be honest.",
+      "author_note": "Literal phrasing; register/context check."
+    },
+    {
+      "source_index": 24,
+      "start": 241.26,
+      "end": 242.26,
+      "source_asr": "Be honest.",
+      "observed_korean": "솔직해지세요",
+      "context_before": "This is your passion.",
+      "context_after": "Remind her what love is.",
+      "author_note": "Short command; register/context check."
+    },
+    {
+      "source_index": 30,
+      "start": 315.76,
+      "end": 316.76,
+      "source_asr": "Look, Celia.",
+      "observed_korean": "봐, 셀리아",
+      "context_before": "Sorry.",
+      "context_after": "We have to follow our passions.",
+      "author_note": "Short address; context check."
+    },
+    {
+      "source_index": 38,
+      "start": 344.22,
+      "end": 346.22,
+      "source_asr": "Viva Ciccio!",
+      "observed_korean": "안녕하세요, 치치오!",
+      "context_before": "Speed it up, Tom!",
+      "context_after": "Why don't you just admit that you're freaked out by my robot hand?",
+      "author_note": "Foreign interjection/name; meaning needs review."
+    },
+    {
+      "source_index": 45,
+      "start": 366.69,
+      "end": 368.69,
+      "source_asr": "We already tried that one.",
+      "observed_korean": "우리는 이미 그것을 시도했다.",
+      "context_before": "Why does she do this?",
+      "context_after": "No!",
+      "author_note": "Literal phrasing; register/context check."
+    },
+    {
+      "source_index": 48,
+      "start": 387.02,
+      "end": 389.02,
+      "source_asr": "You forgot me on Earth.",
+      "observed_korean": "지구에서 날 잊어버렸잖아",
+      "context_before": "You broke my heart!",
+      "context_after": "I know.",
+      "author_note": "Retain as a less problematic control; context still matters."
+    },
+    {
+      "source_index": 52,
+      "start": 410.19,
+      "end": 411.19,
+      "source_asr": "Good ad-lib.",
+      "observed_korean": "좋은 광고예요",
+      "context_before": "I'm sorry.",
+      "context_after": "It's not my fault!",
+      "author_note": "Given saved ad-lib, 광고 changes its meaning to an advertisement."
+    },
+    {
+      "source_index": 55,
+      "start": 566.22,
+      "end": 567.12,
+      "source_asr": "No cameras.",
+      "observed_korean": "카메라 없어요",
+      "context_before": "Change, Celia.",
+      "context_after": null,
+      "author_note": "Short phrase; context check, not an ASR correctness claim."
+    }
+  ]
+}

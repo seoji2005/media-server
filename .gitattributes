@@ -1,0 +1,2 @@
+# Keep the approved experiment's byte hash identical on Windows checkouts.
+tests/fixtures/translation_compare.json text eol=lf

@@ -429,8 +429,8 @@ class Store:
                 raise MediaError("source_unavailable", 404)
             stage, output = self.new_stage()
             with output, source.open("rb") as input_file:
-                before = os.fstat(input_file.fileno())
-                self.ensure_space(before.st_size)
+                before = file_signature(input_file)
+                self.ensure_space(before[2])
                 digest, size = hashlib.sha256(), 0
                 while chunk := input_file.read(CHUNK):
                     self.ensure_space(len(chunk))
@@ -443,9 +443,14 @@ class Store:
                 os.fsync(output.fileno())
                 input_file.seek(0)
                 checked = hashlib.file_digest(input_file, "sha256").hexdigest()
-                after, path_after = os.fstat(input_file.fileno()), source.stat()
-                identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
-                if identity(before) != identity(after) or identity(after) != identity(path_after) or checked != digest.hexdigest() or size != before.st_size:
+                path_after = source.stat()
+                after = file_signature(input_file)
+                # Windows stat/fstat ctime can mean creation/change time respectively.
+                # Check the handle last to cover changes during the path lookup.
+                named = (path_after.st_dev, path_after.st_ino, path_after.st_size, path_after.st_mtime_ns)
+                if (before != after or after[:4] != named
+                        or (os.name != 'nt' and path_after.st_ctime_ns != after[-1])
+                        or checked != digest.hexdigest() or size != before[2]):
                     raise MediaError("source_changed", 409)
             return self.finish_import(stage, digest.hexdigest(), size, title_from_name(source.name))
         except OSError as exc:

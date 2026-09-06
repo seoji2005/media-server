@@ -1,5 +1,5 @@
 """Real SQLite/HTTP/FFmpeg fixtures; no private preference or model data."""
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import hashlib
 import json
 from pathlib import Path
@@ -178,7 +178,7 @@ class RecommendationTests(unittest.TestCase):
     def test_pre_revision_database_upgrades_without_erasing_exclusion(self):
         iid=self.add('저장한 선호');self.save(iid,'like',False)
         self.client.__exit__(None,None,None)
-        with sqlite3.connect(self.root/'library.sqlite3') as db:
+        with closing(sqlite3.connect(self.root/'library.sqlite3')) as db, db:
             db.execute('PRAGMA user_version=0')
             db.execute('ALTER TABLE item_preferences DROP COLUMN revision')
         self.start()

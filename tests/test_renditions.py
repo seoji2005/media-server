@@ -1,3 +1,4 @@
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -18,6 +19,44 @@ from media_clarity.storage import MediaError, Store
 
 def ffmpeg(*args):
     return subprocess.run(['ffmpeg', '-v', 'error', '-nostdin', *map(str, args)], check=True, capture_output=True).stdout
+
+
+def decoded_hash(source, stream):
+    # Full codec frames; assert_stream_copy checks presentation trimming separately.
+    return ffmpeg('-flags2', '+skip_manual', '-i', source, '-map', stream,
+                  *(['-fps_mode', 'passthrough'] if ':v:' in stream else []),
+                  '-f', 'hash', 'pipe:1')
+
+
+def assert_stream_copy(source, target, stream, target_stream=None):
+    target_stream = target_stream or stream
+    if decoded_hash(source, stream) != decoded_hash(target, target_stream):
+        raise AssertionError('decoded codec frames changed')
+    if (ffmpeg('-i', source, '-map', stream, '-c', 'copy', '-f', 'hash', 'pipe:1') !=
+            ffmpeg('-i', target, '-map', target_stream, '-c', 'copy', '-f', 'hash', 'pipe:1')):
+        raise AssertionError('encoded packets changed')
+    if ':a:' in stream:
+        packets, priming, origins = [], [], []
+        for path, selected in [(source, stream), (target, target_stream)]:
+            audio = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', selected[2:],
+                '-show_packets', '-show_streams', '-show_format', '-of', 'json', str(path)]))
+            sides = [s for p in audio['packets'] for s in p.get('side_data_list', [])]
+            rate = int(audio['streams'][0]['sample_rate'])
+            priming.append(sum(s.get('skip_samples', 0) for s in sides) / rate)
+            packets.append(audio['packets'])
+            origins.append(float(audio['format']['start_time']))
+        # FFmpeg 9 expresses a short final MKV packet as MP4 discard_padding.
+        # Compare every packet's declared time/duration and existing priming;
+        # rounding is bounded to the source Matroska timebase, never an AAC frame.
+        if abs(priming[0] - priming[1]) > .001001 or len(packets[0]) != len(packets[1]):
+            raise AssertionError('audio priming or packet count changed')
+        for before, after in zip(*packets):
+            for field in ('pts_time', 'duration_time'):
+                # Match the video's common playback origin, not each audio's
+                # first packet, so an independently shifted voice still fails.
+                shift = origins[0] - origins[1] if field == 'pts_time' else 0
+                if abs(float(before[field]) - float(after[field]) - shift) > .001001:
+                    raise AssertionError('audio packet timing changed by more than 1 ms')
 
 
 class RenditionTests(unittest.TestCase):
@@ -73,10 +112,7 @@ class RenditionTests(unittest.TestCase):
         self.assertNotEqual(ready['file_id'], item['file_id'])
         self.assertNotEqual(ready['sha256'], item['sha256'])
         for stream in ['0:v:0', '0:a:0']:
-            # Decoded essence rather than container bytes must survive -c copy.
-            before = ffmpeg('-i', self.mkv, '-map', stream, '-f', 'hash', 'pipe:1')
-            after = ffmpeg('-i', target, '-map', stream, '-f', 'hash', 'pipe:1')
-            self.assertEqual(before, after)
+            assert_stream_copy(self.mkv, target, stream)
         response = self.client.get(url, headers={'Range':'bytes=128-255'})
         self.assertEqual(response.status_code, 206)
         self.assertEqual(response.content, target.read_bytes()[128:256])
@@ -101,17 +137,15 @@ class RenditionTests(unittest.TestCase):
         raw = subprocess.check_output(['ffprobe','-v','error','-show_streams','-of','json',str(target)])
         audio = [s for s in json.loads(raw)['streams'] if s['codec_type']=='audio']
         self.assertEqual([(s['codec_name'],s['channels']) for s in audio], [('aac',2)])
-        self.assertEqual(ffmpeg('-i',self.ac3,'-map','0:v:0','-f','hash','pipe:1'),
-                         ffmpeg('-i',target,'-map','0:v:0','-f','hash','pipe:1'))
+        assert_stream_copy(self.ac3, target, '0:v:0')
         self.assertEqual(hashlib.sha256(self.ac3.read_bytes()).hexdigest(), item['sha256'])
 
     def test_first_audio_matches_asr_even_when_second_is_default(self):
         item = self.load(self.multi)
         target = self.store.file_path(self.convert(item))
-        expected = ffmpeg('-i', self.multi, '-map', '0:a:0', '-f', 'hash', 'pipe:1')
-        second = ffmpeg('-i', self.multi, '-map', '0:a:1', '-f', 'hash', 'pipe:1')
-        actual = ffmpeg('-i', target, '-map', '0:a:0', '-f', 'hash', 'pipe:1')
-        self.assertEqual(expected, actual)
+        assert_stream_copy(self.multi, target, '0:a:0')
+        second = decoded_hash(self.multi, '0:a:1')
+        actual = decoded_hash(target, '0:a:0')
         self.assertNotEqual(second, actual)
 
     def test_space_conversion_and_validation_failures_keep_original_and_allow_retry(self):
@@ -200,7 +234,7 @@ prepare(s,sys.argv[2])
         jobs.import_srt(legacy['id'], '1\n00:00:00,500 --> 00:00:02,000\n보존할 자막\n'.encode())
         with other.db() as db: before = tuple(db.execute('SELECT * FROM subtitle_tracks').fetchone())
         other.close()
-        with sqlite3.connect(other.root/'library.sqlite3') as db:
+        with closing(sqlite3.connect(other.root/'library.sqlite3')) as db, db:
             db.execute('PRAGMA user_version=0')
             db.execute('ALTER TABLE files DROP COLUMN preparation')
             db.execute('ALTER TABLE files DROP COLUMN preparation_error')
@@ -228,15 +262,14 @@ prepare(s,sys.argv[2])
         with self.assertRaisesRegex(MediaError,'invalid_position'):
             self.store.save_position(item['id'],item['duration'])
         for stream in ['0:v:0','0:a:0']:
-            self.assertEqual(ffmpeg('-i',source,'-map',stream,'-f','hash','pipe:1'),
-                             ffmpeg('-i',target,'-map',stream,'-f','hash','pipe:1'))
+            assert_stream_copy(source, target, stream)
 
     def test_legacy_multi_audio_is_classified_on_first_use_without_history_rewrite(self):
         source = Path(self.temp.name)/'legacy-multi.mp4'
         ffmpeg('-i',self.multi,'-map','0','-c','copy',source)
         other = Store(Path(self.temp.name)/'legacy');other.start()
         item = other.import_path(source)['item'];other.save_position(item['id'],2.25);other.close()
-        with sqlite3.connect(other.root/'library.sqlite3') as db:
+        with closing(sqlite3.connect(other.root/'library.sqlite3')) as db, db:
             db.execute('PRAGMA user_version=0')
             db.execute('ALTER TABLE files DROP COLUMN preparation')
             db.execute('ALTER TABLE files DROP COLUMN preparation_error')
@@ -247,8 +280,7 @@ prepare(s,sys.argv[2])
             self.assertEqual(ready['preparation'],'remux_mp4')
             self.assertTrue(ready['available']);self.assertEqual(ready['position'],2.25)
             target = other.file_path(other.playback_row(item['id']))
-            self.assertEqual(ffmpeg('-i',source,'-map','0:a:0','-f','hash','pipe:1'),
-                             ffmpeg('-i',target,'-map','0:a:0','-f','hash','pipe:1'))
+            assert_stream_copy(source, target, '0:a:0')
             self.assertEqual(other.file_path(other._row(item['id'])).read_bytes(),source.read_bytes())
         finally:other.close()
 

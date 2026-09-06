@@ -1,0 +1,482 @@
+{
+  "fixture_sha256": "d6a3734789dd02e5d9425635e81484fa187e1fdf58163e3e05dda55955501dec",
+  "film": {
+    "film_evidence": "speech_twelve_minute.json",
+    "film_seconds": 210.35408321901195,
+    "device": "Linux CPU float32; not RTX",
+    "rows": [
+      {
+        "id": "tos_00",
+        "text": "메인 엔진 시동, 4, 3, 2, 1"
+      },
+      {
+        "id": "tos_01",
+        "text": "이봐, 셀리아, 우리는 우리의 열정을 따라야 해"
+      },
+      {
+        "id": "tos_02",
+        "text": "당신은 당신의 로봇 공학을 가지고 있고 나는 그냥 우주에서 멋진되고 싶어요."
+      },
+      {
+        "id": "tos_03",
+        "text": "내 로봇 손에 겁먹었다고 인정하지 않겠어?"
+      },
+      {
+        "id": "tos_04",
+        "text": "나는 그것에 의해 놀라지 않습니다."
+      },
+      {
+        "id": "tos_05",
+        "text": "알았어요, 난 겁먹었어요"
+      },
+      {
+        "id": "tos_06",
+        "text": "거대한 로봇 발톱에 쫓기는 악몽을 꾸고 있어요"
+      },
+      {
+        "id": "tos_07",
+        "text": "괜찮아, 톰, 끝났어"
+      },
+      {
+        "id": "tos_08",
+        "text": "로봇의 메모리가 동기화되고 잠겼습니다."
+      },
+      {
+        "id": "tos_09",
+        "text": "이건 정말 이상해요"
+      },
+      {
+        "id": "tos_10",
+        "text": "저기 어디 있었어?"
+      },
+      {
+        "id": "tos_11",
+        "text": "어젯밤 얘기 들었어요"
+      },
+      {
+        "id": "tos_12",
+        "text": "내 잘못이 아니야"
+      },
+      {
+        "id": "tos_13",
+        "text": "당연히 준비가 됐잖아 넌 록스타야!"
+      },
+      {
+        "id": "tos_14",
+        "text": "어때, 바리?"
+      },
+      {
+        "id": "tos_15",
+        "text": "10분 정도 남았어요"
+      },
+      {
+        "id": "tos_16",
+        "text": "완벽해요"
+      },
+      {
+        "id": "tos_17",
+        "text": "우린 한 명이야"
+      },
+      {
+        "id": "tos_18",
+        "text": "모든 시스템 작동!"
+      },
+      {
+        "id": "tos_19",
+        "text": "네, 가세요!"
+      },
+      {
+        "id": "tos_20",
+        "text": "멋지네요"
+      },
+      {
+        "id": "tos_21",
+        "text": "걱정할 것 없어요"
+      },
+      {
+        "id": "tos_22",
+        "text": "톰!"
+      },
+      {
+        "id": "tos_23",
+        "text": "이것은 당신의 열정입니다."
+      },
+      {
+        "id": "tos_24",
+        "text": "솔직해지세요"
+      },
+      {
+        "id": "tos_25",
+        "text": "사랑이 무엇인지 상기시켜주세요"
+      },
+      {
+        "id": "tos_26",
+        "text": "승차가 진행 중입니다."
+      },
+      {
+        "id": "tos_27",
+        "text": "넌 멍청이야, 톰!"
+      },
+      {
+        "id": "tos_28",
+        "text": "죄송해요!"
+      },
+      {
+        "id": "tos_29",
+        "text": "죄송해요"
+      },
+      {
+        "id": "tos_30",
+        "text": "봐, 셀리아"
+      },
+      {
+        "id": "tos_31",
+        "text": "우리는 우리의 열정을 따라야합니다."
+      },
+      {
+        "id": "tos_32",
+        "text": "당신은 당신의 로봇을 가지고 있습니다."
+      },
+      {
+        "id": "tos_33",
+        "text": "우주에서 멋진 사람이 되고 싶어요"
+      },
+      {
+        "id": "tos_34",
+        "text": "들어오는 게 좋을 거야"
+      },
+      {
+        "id": "tos_35",
+        "text": "2분 남았어"
+      },
+      {
+        "id": "tos_36",
+        "text": "2분 남았어요"
+      },
+      {
+        "id": "tos_37",
+        "text": "속도를 내, 톰!"
+      },
+      {
+        "id": "tos_38",
+        "text": "안녕하세요, 치치오!"
+      },
+      {
+        "id": "tos_39",
+        "text": "내 로봇 손에 겁먹었다고 인정하지 않겠어?"
+      },
+      {
+        "id": "tos_40",
+        "text": "들어봐, 셀리아"
+      },
+      {
+        "id": "tos_41",
+        "text": "난 젊었어요"
+      },
+      {
+        "id": "tos_42",
+        "text": "그리고 자지"
+      },
+      {
+        "id": "tos_43",
+        "text": "하지만 세상을 파괴할 이유는 없어요"
+      },
+      {
+        "id": "tos_44",
+        "text": "왜 이러는 거야?"
+      },
+      {
+        "id": "tos_45",
+        "text": "우리는 이미 그것을 시도했다."
+      },
+      {
+        "id": "tos_46",
+        "text": "안돼!"
+      },
+      {
+        "id": "tos_47",
+        "text": "넌 내 마음을 아프게 했어!"
+      },
+      {
+        "id": "tos_48",
+        "text": "지구에서 날 잊어버렸잖아"
+      },
+      {
+        "id": "tos_49",
+        "text": "알아, 알아"
+      },
+      {
+        "id": "tos_50",
+        "text": "그냥 죽여버려야지!"
+      },
+      {
+        "id": "tos_51",
+        "text": "죄송해요"
+      },
+      {
+        "id": "tos_52",
+        "text": "좋은 광고예요"
+      },
+      {
+        "id": "tos_53",
+        "text": "내 잘못이 아니야!"
+      },
+      {
+        "id": "tos_54",
+        "text": "갈아입어, 셀리아"
+      },
+      {
+        "id": "tos_55",
+        "text": "카메라 없어요"
+      }
+    ]
+  },
+  "authored": {
+    "code": "e56a004",
+    "machine": "Linux CPU, four Torch threads, float32 MADLAD400 3B, beam4/batch2; not Windows/RTX",
+    "init_seconds": 0.7098570020025363,
+    "translation_seconds": 112.26715176698781,
+    "peak_process_rss_mib": 11144.94921875,
+    "python_network_attempts": 0,
+    "batches": [
+      {
+        "ids": [
+          "auth_00",
+          "auth_01"
+        ],
+        "seconds": 11.440604570998403
+      },
+      {
+        "ids": [
+          "auth_02",
+          "auth_03"
+        ],
+        "seconds": 7.930572300996573
+      },
+      {
+        "ids": [
+          "auth_04",
+          "auth_05"
+        ],
+        "seconds": 5.793498293998709
+      },
+      {
+        "ids": [
+          "auth_06",
+          "auth_07"
+        ],
+        "seconds": 10.042226762998325
+      },
+      {
+        "ids": [
+          "auth_08",
+          "auth_09"
+        ],
+        "seconds": 13.183344714998384
+      },
+      {
+        "ids": [
+          "auth_10",
+          "auth_11"
+        ],
+        "seconds": 5.237707362000947
+      },
+      {
+        "ids": [
+          "auth_12",
+          "auth_13"
+        ],
+        "seconds": 8.280313394003315
+      },
+      {
+        "ids": [
+          "auth_14",
+          "auth_15"
+        ],
+        "seconds": 13.526786618000187
+      },
+      {
+        "ids": [
+          "auth_16",
+          "auth_17"
+        ],
+        "seconds": 8.220652174997667
+      },
+      {
+        "ids": [
+          "auth_18",
+          "auth_19"
+        ],
+        "seconds": 13.380144560003828
+      },
+      {
+        "ids": [
+          "auth_20",
+          "auth_21"
+        ],
+        "seconds": 5.807653441996081
+      },
+      {
+        "ids": [
+          "auth_22",
+          "auth_23"
+        ],
+        "seconds": 9.423647571995389
+      }
+    ],
+    "rows": [
+      {
+        "id": "auth_00",
+        "text": "좋아요, 우리가 필요했던 거죠",
+        "error": null
+      },
+      {
+        "id": "auth_01",
+        "text": "이제 날 포기하지 않을 거야, 그렇지?",
+        "error": null
+      },
+      {
+        "id": "auth_02",
+        "text": "미끄러지게 놔뒀어요",
+        "error": null
+      },
+      {
+        "id": "auth_03",
+        "text": "미나가 제이를 덮어줄 거라고 했어요",
+        "error": null
+      },
+      {
+        "id": "auth_04",
+        "text": "아뇨, 괜찮아요",
+        "error": null
+      },
+      {
+        "id": "auth_05",
+        "text": "혼자서도 괜찮아요",
+        "error": null
+      },
+      {
+        "id": "auth_06",
+        "text": "안타깝게도, 내일까지 기다릴 수 있을까요?",
+        "error": null
+      },
+      {
+        "id": "auth_07",
+        "text": "안 온다고 말한 게 아니에요",
+        "error": null
+      },
+      {
+        "id": "auth_08",
+        "text": "5시 15분이야.",
+        "error": null
+      },
+      {
+        "id": "auth_09",
+        "text": "RAM이 충분해요. GPU 메모리가 가득 <0xEC><0xB0><0xBC>어요.",
+        "error": null
+      },
+      {
+        "id": "auth_10",
+        "text": "그건 문제가 아니야.",
+        "error": null
+      },
+      {
+        "id": "auth_11",
+        "text": "가져가도 될까요?",
+        "error": null
+      },
+      {
+        "id": "auth_12",
+        "text": "내 집에서 나가!",
+        "error": null
+      },
+      {
+        "id": "auth_13",
+        "text": "누구한테라도 말하면 죽여버릴 거야",
+        "error": null
+      },
+      {
+        "id": "auth_14",
+        "text": "클럽 밖에서 코카인을 팔고 있었어요",
+        "error": null
+      },
+      {
+        "id": "auth_15",
+        "text": "우린 섹스를 했지만 그게 우리가 다시 함께 있다는 뜻은 아닙니다.",
+        "error": null
+      },
+      {
+        "id": "auth_16",
+        "text": "콘돔을 써야지",
+        "error": null
+      },
+      {
+        "id": "auth_17",
+        "text": "그는 나를 강간했고, 나는 그것을 신고했습니다.",
+        "error": null
+      },
+      {
+        "id": "auth_18",
+        "text": "자살을 생각했고 도움을 요청했어요",
+        "error": null
+      },
+      {
+        "id": "auth_19",
+        "text": "그는 인종차별적인 욕설을 썼어요 그건 여기서 받아들일 수 없어요",
+        "error": null
+      },
+      {
+        "id": "auth_20",
+        "text": "젠장, 농담이야!",
+        "error": null
+      },
+      {
+        "id": "auth_21",
+        "text": "그 사람은 의사야!",
+        "error": null
+      },
+      {
+        "id": "auth_22",
+        "text": "오늘 밤은 섹스하고 싶지 않아요.",
+        "error": null
+      },
+      {
+        "id": "auth_23",
+        "text": "콘돔 있어?",
+        "error": null
+      }
+    ],
+    "limits": "One sequential run of authored text, no ASR or conversation context; first batch includes weight loading. No provider filter exists, but paraphrase/omission can still occur."
+  },
+  "gemini_status": "not_run_missing_key_and_spend_approval",
+  "author_observations": [
+    {
+      "id": "auth_02",
+      "finding": "Idiomatic disclosure translated as letting something physically slip."
+    },
+    {
+      "id": "auth_03",
+      "finding": "Shift coverage translated literally as covering Jae."
+    },
+    {
+      "id": "auth_08",
+      "finding": "Ten-minute arrival statement omitted."
+    },
+    {
+      "id": "auth_09",
+      "finding": "Literal byte fallback tokens leaked into Korean output."
+    },
+    {
+      "id": "auth_12",
+      "finding": "Profanity intensity softened; output alone does not establish censorship."
+    },
+    {
+      "id": "auth_20",
+      "finding": "Angry command translated as saying it is a joke."
+    },
+    {
+      "id": "auth_21",
+      "finding": "Do not shoot imperative omitted; no explicit model refusal."
+    }
+  ]
+}
