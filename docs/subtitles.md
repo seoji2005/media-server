@@ -7,8 +7,11 @@ NAS remain excluded. Public model-weight setup below is separate from video down
 ## Watching with existing subtitles
 
 Open a video → **자막 파일 열기** → choose its Korean SRT (UTF-8 or CP949/EUC-KR, ≤2 MiB).
-The app validates ordered timestamps against the video duration, stores a new version,
-and serves escaped plain-text WebVTT to the native player. Previous versions remain
+The app sorts cues by time, skips empty/outside cues and clips valid cues at the video
+end. One-digit hours and trailing positioning settings are accepted; positioning is
+ignored. Adjustment counts appear for the selected version. Invalid timing, controls,
+oversized text/files or excessive cue counts still fail; no usable cues is diagnosed.
+It stores a new version and serves escaped plain-text WebVTT. Previous versions remain
 selectable. Common SRT styling is removed for display; literal angle-bracket text and the
 original uploaded SRT bytes are preserved. Decoding is strict UTF-8 first, then CP949
 (including EUC-KR), with no replacement characters. SMI/SAMI, ASS/SSA, embedded subtitle extraction and automatic
@@ -33,8 +36,11 @@ These adapters are a reversible baseline, not a model-selection verdict:
 ASR source text/timing and Korean translations are stored separately. MADLAD uses
 its `<2ko>` target prefix. Adjacent fragments join through sentence punctuation, capped
 at 12 seconds, 400 characters and a 0.8-second gap; existing longer cues remain intact.
-One translated sentence retains the combined original interval. This does not invent
-word alignment or claim exact within-sentence timing. The untouched ASR cues remain stored.
+One translated sentence retains the combined original interval in storage. New tracks
+also store a separate two-line display presentation, with sequential timing bounded
+by that interval. Existing ready tracks are never reflowed during reads. This does not
+claim word alignment or exact within-sentence timing. Untouched ASR cues and translation
+checkpoints remain stored. [Readability rules, warnings and evidence](subtitle-readability.md).
 Hangul-only text, including explicit numeric units such as `15m`, passes through per
 unit unchanged; other foreign letters still require translation. Generated translation
 entities decode once before validation and escaped WebVTT output. Source/fallback text
@@ -213,7 +219,8 @@ the number left as source text. Such segments show **[원문]** in the actual ca
 - The [actual multilingual speech check](speech-quality.md) covers short public
   Japanese/English/Korean recordings and concatenated language changes. It exposed
   remaining recognition/translation errors; natural mixed speech, long-video runtime,
-  Windows/CUDA, GPU memory and browser display remain unverified.
+  Windows/CUDA, GPU memory and human quality remain unverified. Short Linux Chromium
+  decoding/caption/seek/resume evidence is recorded in [readability](subtitle-readability.md).
 
 The next required target evidence is Windows/RTX installation and real browser caption
 playback/seek/resume. Broaden speech quality checks to natural language changes and long

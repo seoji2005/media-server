@@ -72,7 +72,9 @@ class SubtitleTests(unittest.TestCase):
             self.jobs.enqueue(self.item['id'])
         literal=webvtt([{'start':0,'end':1,'text':'<script> & -->'}])
         self.assertNotIn('<script>',literal); self.assertIn('&lt;script&gt;',literal)
-        for bad in [SRT.replace('03,500','09,500'),SRT.replace('01,900','00,050'),'abc',SRT.replace('00:00:02','00:67:02')]:
+        clipped, notes = parse_srt(SRT.replace('03,500','09,500').encode(),4,report=True)
+        self.assertEqual(clipped[-1]['end'],4);self.assertEqual(notes['clipped'],1)
+        for bad in [SRT.replace('01,900','00,050'),'abc',SRT.replace('00:00:02','00:67:02')]:
             with self.subTest(bad=bad), self.assertRaises(MediaError): parse_srt(bad.encode(),4)
         for value in [True,float('nan'),float('inf')]:
             with self.assertRaises(MediaError):validate_cues([{'start':value,'end':3,'text':'x'}],4)
@@ -406,6 +408,95 @@ class SubtitleTests(unittest.TestCase):
         self.assertIsNone(self.jobs.row(job)['transcript'])
         self.assertEqual(self.jobs.status(self.item['id'])['tracks'],[])
         self.assertEqual(hashlib.sha256(self.source.read_bytes()).hexdigest(),self.item['sha256'])
+
+    def test_layout_is_published_after_resume_without_rewriting_units_or_old_tracks(self):
+        old=self.jobs.import_srt(self.item['id'],SRT.encode())
+        old_vtt=self.jobs.track(self.item['id'],old)
+        long_text='중요한 이름과 날짜를 잊지 않으려고 친구에게 다시 물었습니다. 다음 약속은 2026년 10월 11일입니다.'
+        class Content(FixtureModel):
+            def transcribe(inner,*args):
+                return [{'start':.1,'end':2.9,'text':'Long.'}, {'start':3,'end':3.9,'text':'Finish.'}]
+            def translate(inner,text):
+                if text=='Finish.':raise RuntimeError('private details')
+                return long_text
+        with patch('media_clarity.models.local_models'):
+            job=self.jobs.enqueue(self.item['id'],force=True)
+        execute(self.store,job,Content)
+        self.assertEqual(self.jobs.row(job)['completed'],1)
+        with self.store.db() as db:
+            before=[tuple(r) for r in db.execute('SELECT * FROM subtitle_batches WHERE job_id=?',(job,))]
+        class Resumed(Content):
+            def transcribe(inner,*args):raise AssertionError('ASR repeated')
+            def translate(inner,text):
+                self.assertEqual(text,'Finish.');return '끝.'
+        with patch('media_clarity.models.local_models'):self.jobs.action(job,'resume')
+        execute(self.store,job,Resumed)
+        self.assertEqual(self.jobs.row(job)['state'],'succeeded')
+        with self.store.db() as db:
+            after=[tuple(r) for r in db.execute('SELECT * FROM subtitle_batches WHERE job_id=? ORDER BY first_index',(job,))]
+            row=dict(db.execute('SELECT * FROM subtitle_tracks WHERE job_id=?',(job,)).fetchone())
+        self.assertEqual(after[:len(before)],before)
+        units=json.loads(row['cues']);layout=json.loads(row['presentation'])
+        self.assertEqual(units[0]['text'],long_text)
+        self.assertGreater(len(layout['cues']),len(units))
+        for cue,index in zip(layout['cues'],layout['units']):
+            self.assertGreaterEqual(cue['start'],units[index]['start'])
+            self.assertLessEqual(cue['end'],units[index]['end'])
+        rendered=self.jobs.track(self.item['id'],row['id'])
+        self.store.close();self.store.start();self.jobs.init(recover=True)
+        with patch('media_clarity.jobs.generated_layout',side_effect=AssertionError('old presentation regenerated')):
+            self.assertEqual(self.jobs.track(self.item['id'],row['id']),rendered)
+        self.assertEqual(self.jobs.track(self.item['id'],old),old_vtt)
+        info=next(t for t in self.jobs.status(self.item['id'])['tracks'] if t['id']==row['id'])
+        self.assertEqual(info['layout'],'ko-readable-v1')
+        self.assertGreater(info['fast_count'],0)
+        # Removing the new column must not silently revert a ready track to old layout.
+        with self.store.db() as db:
+            db.execute('UPDATE subtitle_tracks SET presentation=NULL WHERE id=?',(row['id'],));db.commit()
+        with self.assertRaisesRegex(MediaError,'subtitle_changed'):self.jobs.track(self.item['id'],row['id'])
+
+    def test_import_adjustments_are_persisted_with_original_bytes_and_reported_over_http(self):
+        raw=('2\n0:00:02,000 --> 0:00:09,000 X1:0 X2:100\n마지막\n\n'
+             '1\n0:00:00,100 --> 0:00:01,000\n처음\n\n'
+             '3\n0:00:03,000 --> 0:00:03,500\n\n'
+             '4\n0:00:05,000 --> 0:00:06,000\n영상 밖').encode('cp949')
+        self.store.close()
+        with TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
+            headers={'X-Media-Token':client.get('/api/session').json()['token']}
+            url=f"/api/library/{self.item['id']}/subtitles"
+            r=client.post(url,headers=headers,content=raw)
+            self.assertEqual(r.status_code,201)
+            track=r.json()['id'];status=client.get(url).json()['tracks'][0]
+            self.assertEqual(status['import_notes'],dict(empty=1,outside=1,clipped=1,settings=1,reordered=True))
+            vtt=client.get(url+'/'+track+'.vtt').text
+            self.assertLess(vtt.index('처음'),vtt.index('마지막'))
+            self.assertNotIn('영상 밖',vtt);self.assertNotIn('X1',vtt)
+        self.store.start();self.jobs.init()
+        with self.store.db() as db:
+            self.assertEqual(db.execute('SELECT source_srt FROM subtitle_tracks WHERE id=?',(track,)).fetchone()[0],raw)
+
+    def test_overlapping_units_publish_after_resume_with_correct_fallback_children(self):
+        text='첫 번째 문장입니다. 두 번째 문장입니다. 세 번째 문장입니다.'
+        class Overlap(FixtureModel):
+            def transcribe(inner,*args):
+                return [{'start':0,'end':3.5,'text':text}, {'start':.5,'end':1.5,'text':'Overlap.'}]
+            def translate(inner,source):raise RuntimeError('interrupted translation')
+        job=self.enqueue();execute(self.store,job,Overlap)
+        self.assertEqual(self.jobs.row(job)['completed'],1)
+        class Resume(Overlap):
+            def transcribe(inner,*args):raise AssertionError('ASR repeated')
+            def translate(inner,source):raise MediaError('translation_empty')
+        with patch('media_clarity.models.local_models'):self.jobs.action(job,'resume')
+        execute(self.store,job,Resume)
+        self.assertEqual(self.jobs.row(job)['state'],'succeeded')
+        with self.store.db() as db:
+            row=dict(db.execute('SELECT * FROM subtitle_tracks WHERE job_id=?',(job,)).fetchone())
+        layout=json.loads(row['presentation'])
+        self.assertEqual(layout['units'][:3],[0,1,0])
+        vtt=self.jobs.track(self.item['id'],row['id'])
+        self.assertEqual(vtt.count('[원문]'),1)
+        self.assertIn('[원문] Overlap.',vtt)
+        self.assertNotIn('[원문] 두',vtt)
 
 
 class TranslationUnitTests(unittest.TestCase):

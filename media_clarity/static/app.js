@@ -214,7 +214,7 @@ document.addEventListener("dragleave",()=>{dragDepth=Math.max(0,dragDepth-1);if(
 document.addEventListener("drop",e=>{e.preventDefault();dragDepth=0;$("drop-overlay").hidden=true;if(dialog.open)return;if(e.dataTransfer.files.length!==1)return toast("한 번에 한 개의 영상을 선택해 주세요.");importFile(e.dataTransfer.files[0]);});
 (async()=>{try{const session=await api("/api/session");sessionToken=session.token;const d=session.diagnostics;const notes=[];if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);if(notes.length){$("diagnostic").textContent=notes.join(" ");$("diagnostic").hidden=false;}await refresh();}catch(e){$("diagnostic").textContent=e.message;$("diagnostic").hidden=false;}finally{$("loading-state").hidden=true;}})();
 
-let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null;
+let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null, subtitleTracks=[];
 const subtitleMessages={
   model_privacy_setup_required:"현재 프로세스에 허용되지 않은 추론 엔진이 로드됐습니다. 앱을 종료하고 안내된 로컬 모델 환경으로 다시 실행해 주세요. 가진 자막과 원본은 보존됩니다.",
   processing_worker_active:"이전 처리 프로세스가 종료되는 중입니다. 원본은 감상할 수 있으며, 종료 후 처리를 재개할 수 있습니다.",
@@ -230,16 +230,33 @@ const subtitleMessages={
   processing_failed:"자막 처리에 실패했습니다. 모델 설치와 메모리를 확인하고 재개해 주세요.",
   worker_stopped:"처리 프로세스가 종료됐습니다. 완료한 구간부터 재개할 수 있습니다.",
   invalid_subtitles:"자막 형식이나 시간이 올바르지 않습니다. 영상 길이에 맞는 SRT를 선택해 주세요.",
+  subtitle_no_usable_cues:"이 영상에 표시할 자막이 없습니다. 빈 구간과 영상 길이 밖의 구간을 제외한 결과입니다. 다른 SRT를 선택해 주세요.",
   subtitle_utf8_required:"UTF-8로 저장한 SRT 파일을 선택해 주세요.",
   subtitle_encoding_unsupported:"UTF-8 또는 CP949·EUC-KR로 저장한 SRT 파일을 선택해 주세요.",
   model_bf16_unavailable:"이 GPU에서 필요한 번역 정밀도를 사용할 수 없습니다. 모델 설정과 드라이버를 확인해 주세요.",
   subtitles_too_large:"자막 파일이 너무 큽니다. 2 MiB 이하 SRT를 선택해 주세요.",
   subtitles_already_available:"이미 사용할 자막이 있습니다. 자막 목록에서 선택해 주세요."
 };
-function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
+function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
+function renderSubtitleNotes(){
+  const track=subtitleTracks.find(t=>t.id===subtitleLoaded),notes=[];
+  if(track?.review_count)notes.push(`가독성 확인이 필요한 표시 구간 ${track.review_count}개${track.fast_count?` · 읽기 속도가 빠른 구간 ${track.fast_count}개`:""}. 번역 내용을 생략하지 않고 표시했습니다.`);
+  const imported=track?.import_notes;
+  if(imported){
+    if(imported.empty)notes.push(`빈 자막 ${imported.empty}개 제외`);
+    if(imported.outside)notes.push(`영상 밖 자막 ${imported.outside}개 제외`);
+    if(imported.clipped)notes.push(`영상 끝에 맞춘 자막 ${imported.clipped}개`);
+    if(imported.reordered)notes.push("시간순으로 정렬");
+    if(imported.settings)notes.push(`파일 위치 설정 ${imported.settings}개 생략`);
+    if(notes.length)notes.push("가져온 SRT 원본은 그대로 보존했습니다.");
+  }
+  $("subtitle-notes").textContent=notes.join(" · ");$("subtitle-notes").hidden=!notes.length;
+}
 function loadSubtitle(id){
-  if(!activeItem||subtitleLoaded===id)return;
+  if(!activeItem)return;
+  if(subtitleLoaded===id){renderSubtitleNotes();return;}
   video.querySelectorAll("track").forEach(t=>t.remove());subtitleLoaded=id;
+  renderSubtitleNotes();
   resetSubtitleSearch(false, id ? "loading" : "empty");
   if(!id)return;
   const owner=activeItem,track=document.createElement("track");track.kind="subtitles";track.srclang="ko";track.label="한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${id}.vtt`;
@@ -257,6 +274,7 @@ async function refreshSubtitles(owner){
   clearTimeout(subtitleTimer);
   try{
     const data=await api(`/api/library/${owner.id}/subtitles`);if(activeItem!==owner)return;
+    subtitleTracks=data.tracks;
     const select=$("subtitle-select"),was=select.value;
     select.replaceChildren(new Option("자막 끄기",""));
     for(const [i,t] of data.tracks.entries())select.add(new Option(`${t.source==="supplied"?"가져온 자막":"자동 생성 자막"} · ${data.tracks.length-i}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));

@@ -16,6 +16,7 @@ import uuid
 
 from .storage import ID, MediaError, Store, no_symlink
 from .subtitles import MAX_SUBTITLE_BYTES, parse_srt, validate_cues, webvtt, translation_units, korean_text
+from .subtitle_layout import generated_layout
 
 TRANSLATION_WARNINGS = {'translation_truncated', 'translation_empty', 'translation_input_too_long'}
 
@@ -91,6 +92,10 @@ class Jobs:
                 db.execute('ALTER TABLE subtitle_tracks ADD COLUMN source_srt BLOB')
             if 'warnings' not in columns:
                 db.execute('ALTER TABLE subtitle_tracks ADD COLUMN warnings TEXT')
+            if 'presentation' not in columns:
+                db.execute('ALTER TABLE subtitle_tracks ADD COLUMN presentation TEXT')
+            if 'presentation_summary' not in columns:
+                db.execute('ALTER TABLE subtitle_tracks ADD COLUMN presentation_summary TEXT')
             columns = {r['name'] for r in db.execute('PRAGMA table_info(subtitle_jobs)')}
             if 'fallback_count' not in columns:
                 db.execute('ALTER TABLE subtitle_jobs ADD COLUMN fallback_count INTEGER NOT NULL DEFAULT 0')
@@ -200,9 +205,17 @@ class Jobs:
         media = self.store._row(item_id)
         with self.store.db() as db:
             jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error,fallback_count FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
-            tracks = db.execute('SELECT id,source,input_sha,warnings FROM subtitle_tracks WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
-        return {'jobs': [dict(r) for r in jobs], 'tracks': [
-            {'id':r['id'], 'source':r['source'], 'language':'ko', 'fallback_count':len(json.loads(r['warnings'] or '[]'))} for r in tracks if r['input_sha'] == media['sha256']]}
+            tracks = db.execute('SELECT id,source,input_sha,warnings,presentation_summary FROM subtitle_tracks WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
+        result = []
+        for r in tracks:
+            if r['input_sha'] != media['sha256']:
+                continue
+            summary = json.loads(r['presentation_summary'] or '{}')
+            result.append({'id':r['id'], 'source':r['source'], 'language':'ko',
+                           'fallback_count':len(json.loads(r['warnings'] or '[]')),
+                           'layout':summary.get('layout'), 'review_count':summary.get('review_count',0),
+                           'fast_count':summary.get('fast_count',0), 'import_notes':summary.get('import_notes')})
+        return {'jobs':[dict(r) for r in jobs], 'tracks':result}
 
     def saved_results(self, row, units, duration):
         """Read each completed batch once. Legacy prefix bytes remain untouched."""
@@ -305,21 +318,36 @@ class Jobs:
 
     def import_srt(self, item_id, data):
         row = self.store._row(item_id)
-        cues = parse_srt(data, row['duration'])
+        cues, notes = parse_srt(data, row['duration'], report=True)
         if not cues:
             raise MediaError('invalid_subtitles', 422)
         self.store.open_verified(row).close()
-        return self.publish(row, cues, 'supplied', None, source_srt=data)
+        return self.publish(row, cues, 'supplied', None, source_srt=data,
+                            presentation={'profile':'supplied-v1', 'import':notes})
 
-    def publish(self, media, cues, source, job_id, source_srt=None, warnings=None):
-        encoded = document(validate_cues(cues, media['duration']))
+    def publish(self, media, cues, source, job_id, source_srt=None, warnings=None, presentation=None):
+        cues = validate_cues(cues, media['duration'])
+        encoded = document(cues)
+        if source == 'generated':
+            presentation = generated_layout(cues, media['duration'], {w['index'] for w in warnings or []})
+        presentation_json = document(presentation) if presentation is not None else None
+        summary_json = None
+        if presentation is not None:
+            issues = presentation.get('issues', [])
+            # Polling status never loads/parses every version's full display cues.
+            summary_json = document({'layout':presentation['profile'], 'review_count':len(issues),
+                                     'fast_count':sum('reading_speed' in issue['codes'] for issue in issues),
+                                     'import_notes':presentation.get('import')})
         if len(encoded.encode()) > MAX_SUBTITLE_BYTES * 4:
+            raise MediaError('subtitles_too_large', 422)
+        if presentation_json and len(presentation_json.encode()) > MAX_SUBTITLE_BYTES * 8:
             raise MediaError('subtitles_too_large', 422)
         track_id = uuid.uuid4().hex
         warning_json = document(warnings or [])
         with self.store.db() as db:
-            db.execute('INSERT INTO subtitle_tracks(id,item_id,input_sha,job_id,source,cues,sha256,source_srt,warnings) VALUES(?,?,?,?,?,?,?,?,?)',
-                       (track_id,media['id'],media['sha256'],job_id,source,encoded,hashlib.sha256((encoded+warning_json).encode()).hexdigest(),source_srt,warning_json))
+            digest = hashlib.sha256((encoded+warning_json+(presentation_json or '')+(summary_json or '')).encode()).hexdigest()
+            db.execute('INSERT INTO subtitle_tracks(id,item_id,input_sha,job_id,source,cues,sha256,source_srt,warnings,presentation,presentation_summary) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                       (track_id,media['id'],media['sha256'],job_id,source,encoded,digest,source_srt,warning_json,presentation_json,summary_json))
             if job_id:
                 changed = db.execute("UPDATE subtitle_jobs SET state='succeeded',stage='ready',error=NULL WHERE id=? AND state='running' AND attempt=?", (job_id,self.expected_attempt)).rowcount
                 if changed != 1:
@@ -335,12 +363,19 @@ class Jobs:
             row = db.execute('SELECT * FROM subtitle_tracks WHERE id=? AND item_id=?', (track_id,item_id)).fetchone()
         if not row:
             raise MediaError('subtitle_not_found', 404)
-        if row['input_sha'] != media['sha256'] or hashlib.sha256((row['cues']+(row['warnings'] or '')).encode()).hexdigest() != row['sha256']:
+        if row['input_sha'] != media['sha256'] or hashlib.sha256((row['cues']+(row['warnings'] or '')+(row['presentation'] or '')+(row['presentation_summary'] or '')).encode()).hexdigest() != row['sha256']:
             raise MediaError('subtitle_changed', 409)
         self.store.open_verified(media).close()
         warning_json = row['warnings'] or '[]'
         warnings = json.loads(warning_json)
-        return webvtt(validate_cues(json.loads(row['cues']), media['duration']), {w['index'] for w in warnings})
+        fallback = {w['index'] for w in warnings}
+        presentation = json.loads(row['presentation'] or '{}')
+        if 'cues' in presentation:
+            cues = validate_cues(presentation['cues'], media['duration'])
+            fallback = {i for i, unit in enumerate(presentation['units']) if unit in fallback}
+        else:
+            cues = validate_cues(json.loads(row['cues']), media['duration'])
+        return webvtt(cues, fallback)
 
 
 def execute(store, job_id, backend_factory=None):
