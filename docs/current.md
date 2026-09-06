@@ -22,6 +22,7 @@
 - **Next action:** owner requested [local versus Gemini Flash translation](translation-comparison.md)
   on time, quality and censorship. Only 8/80 cloud units completed; repeated 503 responses
   blocked the rest. Keep local; revisit when API works. $1 approved, conservative accounted
-  $0.74439525 (mostly unknown-charge reserves), $0.25560475 remains. Private egress stays opt-in.
+  $0.99182325 (mostly unknown-charge reserves), $0.00817675 remains. A replacement
+  key authenticated/counts succeeded; generation again 503. No more calls under this reserve. Private egress stays opt-in.
   Prioritize Windows/RTX and long-input recovery when access/input becomes available.
   Keep enhancement and semantic retrieval included; do not expand diagnostics/harness.

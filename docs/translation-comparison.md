@@ -106,6 +106,13 @@ retirement or an invalid key. Catalog-confirmed 3.7 Flash (low thinking, same ve
 rates as 3.8) counted successfully but its first generation returned **503**. Stopped
 at this real service blocker; no automatic retry loop or further model sweep.
 
+The owner then supplied a replacement credential and requested one attempt. Model
+metadata returned 200 and token counting succeeded (433 tokens), but the previously
+failed 8-unit generation returned 503 again after 16.455 s. No additional translation
+completed. This is not an invalid-key response; the cause of the 503 is unconfirmed.
+The temporary credential copy was removed, and no further call fits the retained
+maximum-output reserve within the original $1 approval.
+
 | Evidence on the same first 8 English units | Local MADLAD | Gemini 3.8 Flash |
 | --- | --- | --- |
 | Translation elapsed | 56.523 s, CPU including first weight load | 14.689 s including network |
@@ -120,9 +127,9 @@ robotics clause remains literal. These are author observations on saved ASR, not
 independent human gold. No full-film speed, Japanese cloud quality, censorship rate,
 RTX comparison or universal quality winner is established.
 
-Success response usage priced at **$0.00164250**; three unmetered 503 responses retain
-**$0.74275275** in conservative reservations. Total accounted **$0.74439525** is below
-$1; **$0.25560475** remains under the existing approval. Reservations are **not a bill**;
+Success response usage priced at **$0.00164250**; four unmetered 503 responses retain
+**$0.99018075** in conservative reservations. Total accounted **$0.99182325** is below
+$1; **$0.00817675** remains under the existing approval. Reservations are **not a bill**;
 actual invoice charges were not inspected. Count-only 404 attempts did not generate.
 
 Fresh review found two execution-script bugs: malformed response containers could

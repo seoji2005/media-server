@@ -7,9 +7,10 @@
     "planned_unique_cases": 80,
     "sensitive_cases_executed": 0,
     "successful_generate_requests": 1,
-    "failed_generate_requests": 3,
+    "failed_generate_requests": 4,
     "generation_http_statuses": [
       200,
+      503,
       503,
       503,
       503
@@ -18,9 +19,9 @@
     "gemini38_same_first8_generate_seconds": 14.688945639005397,
     "gemini38_same_first8_count_seconds": 13.764058559005207,
     "successful_usage_price_estimate_usd": "0.00164250",
-    "unknown_failure_reservations_usd": "0.74275275",
-    "conservative_total_accounted_usd": "0.74439525",
-    "remaining_approved_budget_usd": "0.25560475",
+    "unknown_failure_reservations_usd": "0.99018075",
+    "conservative_total_accounted_usd": "0.99182325",
+    "remaining_approved_budget_usd": "0.00817675",
     "limit_usd": "1",
     "limits": "One successful 8-unit English film batch; API round trip versus Linux CPU local execution, not RTX. No full-film time, Japanese cloud quality, sensitive-content refusal rate or invoice charge verified."
   },
@@ -444,5 +445,62 @@
       "finding": "Dismissive Whatever becomes 마음대로 해 instead of local reassuring 괜찮아."
     }
   ],
-  "review": "Fresh reviewer found malformed-envelope accounting and escaped-key redaction bugs at3b05df4; fixed/rechecked ata4afd8c. Model-specific endpoint/rates reviewed at0cd885e, no residual findings. Stub reviews do not prove provider billing or quality."
+  "review": "Fresh reviewer found malformed-envelope accounting and escaped-key redaction bugs at3b05df4; fixed/rechecked ata4afd8c. Model-specific endpoint/rates reviewed at0cd885e, no residual findings. Stub reviews do not prove provider billing or quality.",
+  "replacement_credential_attempt": {
+    "code": "1133f4f (unchanged reviewed runner)",
+    "preflight": {
+      "status": 200,
+      "seconds": 17.321081007998146,
+      "name": "models/gemini-3.8-flash",
+      "methods": [
+        "generateContent",
+        "countTokens",
+        "createCachedContent",
+        "batchGenerateContent"
+      ]
+    },
+    "run": {
+      "model": "gemini-3.8-flash",
+      "fixture_sha256": "d6a3734789dd02e5d9425635e81484fa187e1fdf58163e3e05dda55955501dec",
+      "limit_usd": "0.25560475",
+      "input_per_million_usd": "0.75",
+      "output_per_million_usd": "3.75",
+      "safety": "provider default; no override",
+      "state": "request_or_accounting_failure",
+      "requests": [
+        {
+          "index": 0,
+          "group": "film",
+          "repetition": 0,
+          "input_tokens_before": 433,
+          "count_seconds": 16.528003585997794,
+          "reserved_usd": "0.24742800",
+          "request_sha256": "42c9d0a8f1aa45eb49edfccde7c53850b976116c92eba605a98f6782249f5c74",
+          "error": "http_error",
+          "http_status": 503,
+          "seconds": 16.45470245600154,
+          "accounted_usd": "0.24742800",
+          "usage_missing": true,
+          "assessment": {
+            "expected_ids": [
+              "tos_08",
+              "tos_09",
+              "tos_10",
+              "tos_11",
+              "tos_12",
+              "tos_13",
+              "tos_14",
+              "tos_15"
+            ],
+            "valid": false,
+            "prompt_feedback": null,
+            "model_version": null,
+            "problem": "candidate_count"
+          }
+        }
+      ],
+      "accounted_usd": "0.24742800"
+    },
+    "result": "Replacement credential authenticated and counted433 input tokens; one previously failed8-unit generation again returned503. No new translated units. No automatic retry."
+  }
 }
