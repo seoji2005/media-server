@@ -79,6 +79,32 @@ Linux/Python 3.12.13/FFmpeg 6.1.1; actual installed CPU model runtime, no Window
 These short clips exercise the real format/model/browser path, not long-film quality,
 audible/headful human evaluation, Windows codec behavior or RTX 12 GB suitability.
 
+## Viewing controls follow-up
+
+PR #8's UI follow-up to `7570493` keeps caption selection visible and puts preparation,
+scene search and taste in native disclosure panels. Collapsed preparation still shows
+progress, errors and caption review notices. Runtime checks moved to Settings. Search
+and button text is 14 px, card titles 16 px and metadata 12 px; controls are at least
+44 px tall. CSS rules are now individually searchable. Backend/schema behavior is unchanged.
+
+- Four DOM flows passed again: `npm test --prefix tests/ui` and
+  `node tests/ui/recommendations.cjs`. Subtitle assertions cover collapsed defaults
+  and visible processing/import/readability notices. Earlier Python evidence still applies.
+- Actual Linux Chromium 149.0.7827.0 exercised Settings via keyboard, diagnostic
+  completion, Escape/focus return, native captions, Off/On, search seek, taste controls,
+  invalid-import feedback inside the modal, and 4.25 s playback resume. Inspection
+  found lost focus after diagnostics; the fix restores it without stealing user navigation.
+- The existing 10.44 s public Japanese fixture ran through real CPU ASR/translation
+  using the relocated start/pause/resume controls. A QA browser process exit interrupted
+  the probe; production-server restart recovered the job, and UI resume completed attempt 2.
+  Its generated track rendered: 338 decoded frames, 284,716 decoded audio bytes, two cues.
+  Exact comparison preserved 17 earlier tracks and added one. Logs stayed zero bytes.
+- Browser viewport/DPR cases 3840×2160/1, 3072×1728/1.25 and 390×844/1 had no horizontal
+  overflow; screenshots were inspected. Page errors and external page requests were zero.
+  After the initial QA crash, Chromium's single-process flag was removed; the completed
+  probe also kept same-origin checks enabled. These are simulated screen sizes, not
+  Windows scaling, target hardware, headful/audible or human readability acceptance.
+
 ## Long-input gate remains blocked
 
 The planned non-repeated 60+ minute CPU ASR/translation/time/memory/recovery run did not

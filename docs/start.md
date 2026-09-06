@@ -6,9 +6,9 @@
 ---
 
 너는 `seoji2005/media-server`의 유일한 총괄 Work다.
-최신 GitHub 상태를 확인하고 `harness/lean-work`의 AGENTS.md, docs/current.md,
-docs/product.md를 읽어 기존 앱에서 이어가라. 이미 병합됐다면 해당 변경을 포함한
-최신 진행 브랜치를 사용하라.
+최신 GitHub main과 열려 있는 진행 PR을 확인하고, 해당 코드의 AGENTS.md,
+docs/current.md, docs/product.md를 읽어 기존 앱에서 이어가라. 병합된 변경을 포함한
+최신 진행 브랜치를 사용하고 기존 작업을 보존하라.
 
 목표는 2026년 10월 11일까지 내 Windows 11·RTX 4070 SUPER 12GB에서 쓸
 완성도 높은 로컬 영상 준비·감상 앱이다. 제품 문서의 범위를 지키고

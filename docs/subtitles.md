@@ -111,7 +111,7 @@ it is not a Windows/CUDA lockfile. `pip check` reported no broken requirements.
 
 ## Runtime preflight
 
-Open **자막 만들기 준비 → 실행 환경 확인** in the library. `/api/session` reports the
+Open **설정 → 자막 실행 환경 → 실행 환경 확인** from the library. `/api/session` reports the
 selected device and whether it came from the default or explicit settings, without
 importing the heavy runtimes. The button runs an isolated check; it never loads large
 ASR/translation weights or reads a video. It does not change devices automatically.
