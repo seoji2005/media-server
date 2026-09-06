@@ -35,6 +35,9 @@ class SceneTests(unittest.TestCase):
 
     def setUp(self):
         fixtures.PreviewTests.setUp(self)
+        # These tests own scene children; an empty subtitle poll can briefly hold
+        # jobs.lock. Subtitle supervision is exercised in test_subtitles.py.
+        self.app.state.jobs.close()
         self.item=self.load(self.source)['id']
         self.url=f'/api/library/{self.item}/scenes'
         p=self.app.state.previews
@@ -155,7 +158,7 @@ except MediaError as e:print(e.code)
                 self.app.state.scenes.run(self.item,'비공개 검색어')
         self.assertIsNone(self.app.state.scenes.process)
         def acquire_elsewhere():
-            acquired=self.app.state.jobs.lock.acquire(timeout=2)  # Allow a normal supervisor iteration to finish.
+            acquired=self.app.state.jobs.lock.acquire(timeout=2)
             if acquired:self.app.state.jobs.lock.release()
             return acquired
         with ThreadPoolExecutor(1) as pool:
