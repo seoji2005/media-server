@@ -123,12 +123,10 @@ class SubtitleTests(unittest.TestCase):
         original_import = builtins.__import__
         def checked_import(name, *args, **kwargs):
             if name == 'onnxruntime':
-                self.assertEqual(os.environ['ORT_DISABLE_TELEMETRY'], '1')
-                observed['guarded_import'] = True
+                raise AssertionError('ORT must not be loaded')
             if name == 'faster_whisper':
-                self.assertTrue(observed['telemetry_disabled'])
+                self.assertIsNone(sys.modules['onnxruntime'])
             return original_import(name, *args, **kwargs)
-        ort=types.SimpleNamespace(disable_telemetry_events=lambda:observed.update(telemetry_disabled=True))
         class WhisperStub:
             def __init__(inner, model, **options):
                 observed['options'] = options
@@ -142,26 +140,44 @@ class SubtitleTests(unittest.TestCase):
         backend=object.__new__(LocalModels)
         backend.paths={'asr':self.root/'unused-model'};backend.device='cpu'
         np=types.SimpleNamespace(frombuffer=lambda data,dtype:memoryview(data).cast('f'))
-        with patch('media_clarity.models.require_private_runtime'), patch.dict(os.environ,{'ORT_DISABLE_TELEMETRY':'0'}), patch.dict(sys.modules,{'onnxruntime':ort,'numpy':np,'faster_whisper':types.SimpleNamespace(WhisperModel=WhisperStub)}), patch('builtins.__import__',side_effect=checked_import):
+        with patch.dict(sys.modules,{'onnxruntime':None,'numpy':np,'faster_whisper':types.SimpleNamespace(WhisperModel=WhisperStub)}), patch('builtins.__import__',side_effect=checked_import), patch.object(backend,'speech_clips',return_value=[.1,1.9,2.,3.5]):
             cues=backend.transcribe(self.source,4)
-        self.assertTrue(observed['guarded_import'])
+        self.assertFalse(observed['transcribe']['vad_filter'])
+        self.assertEqual(observed['transcribe']['clip_timestamps'],[.1,1.9,2.,3.5])
         self.assertTrue(observed['options']['local_files_only'])
         self.assertTrue(observed['transcribe']['multilingual'])
         self.assertGreater(observed['samples'],60000)
         self.assertLess(observed['samples'],70000)
         self.assertTrue(observed['materialized']);self.assertEqual(cues[0]['text'],'synthetic ASR')
 
-    def test_windows_runtime_is_rejected_before_model_import_or_job_creation(self):
+    def test_loaded_ort_is_rejected_before_model_import_or_job_creation(self):
         from media_clarity.models import LocalModels
-        with patch('media_clarity.models.sys.platform','win32'), patch('builtins.__import__',side_effect=AssertionError('unexpected runtime import')):
+        with patch.dict(sys.modules,{'onnxruntime':object()}), patch('builtins.__import__',side_effect=AssertionError('unexpected runtime import')):
             with self.assertRaisesRegex(MediaError,'model_privacy_setup_required'):
                 LocalModels(self.root)
             with self.assertRaisesRegex(MediaError,'model_privacy_setup_required'):
                 object.__new__(LocalModels).transcribe(self.source,4)
-        with patch('media_clarity.models.sys.platform','win32'):
+        with patch.dict(sys.modules,{'onnxruntime':object()}):
             with self.assertRaisesRegex(MediaError,'model_privacy_setup_required'):
                 self.jobs.enqueue(self.item['id'])
         self.assertEqual(self.jobs.status(self.item['id'])['jobs'],[])
+
+    def test_clean_windows_process_can_check_setup_but_cannot_import_ort(self):
+        import importlib
+        from media_clarity.models import require_private_runtime
+        with patch.dict(sys.modules,{'onnxruntime':None}), patch('media_clarity.models.sys.platform','win32'):
+            require_private_runtime()
+            with self.assertRaises(ModuleNotFoundError):importlib.import_module('onnxruntime')
+            # Missing weights are now the setup diagnostic, not a blanket OS veto.
+            with self.assertRaisesRegex(MediaError,'local_models_missing'):self.jobs.enqueue(self.item['id'])
+
+    def test_no_detected_speech_does_not_load_asr(self):
+        from media_clarity.models import LocalModels
+        backend=object.__new__(LocalModels);backend.device='cpu'
+        whisper=types.SimpleNamespace(WhisperModel=lambda *a,**kw:self.fail('ASR loaded for silence'))
+        np=types.SimpleNamespace(frombuffer=lambda data,dtype:memoryview(data).cast('f'))
+        with patch.dict(sys.modules,{'onnxruntime':None,'numpy':np,'faster_whisper':whisper}),patch.object(backend,'speech_clips',return_value=[]):
+            self.assertEqual(backend.transcribe(self.source,4),[])
 
     def test_restart_preserves_failed_checkpoint_and_existing_subtitles(self):
         job_id=self.enqueue(); (self.root/'fail').touch(); self.run_job(job_id)
@@ -359,6 +375,25 @@ class SubtitleTests(unittest.TestCase):
 
 
 class TranslationUnitTests(unittest.TestCase):
+    def test_torch_vad_preserves_original_clips_and_thread_setting_on_error(self):
+        from media_clarity.models import LocalModels
+        observed={};changes=[]
+        model=types.SimpleNamespace(eval=lambda:object())
+        torch=types.SimpleNamespace(get_num_threads=lambda:4,set_num_threads=changes.append,
+            from_numpy=lambda a:a,jit=types.SimpleNamespace(load=lambda path,**kw:model))
+        def speech(audio,model,**options):
+            observed.update(options);return [{'start':64000,'end':176000},{'start':240000,'end':336000}]
+        backend=object.__new__(LocalModels);backend.paths={'vad':Path('fixture')}
+        audio=types.SimpleNamespace(copy=lambda:object())
+        with patch.dict(sys.modules,{'onnxruntime':None,'torch':torch,'silero_vad':types.SimpleNamespace(get_speech_timestamps=speech)}):
+            self.assertEqual(backend.speech_clips(audio),[4.,11.,15.,21.])
+        self.assertEqual(changes,[1,4]);self.assertEqual(observed['min_speech_duration_ms'],0)
+        self.assertEqual(observed['min_silence_duration_ms'],2000);self.assertEqual(observed['speech_pad_ms'],400)
+        changes.clear()
+        with patch.dict(sys.modules,{'onnxruntime':None,'torch':torch,'silero_vad':types.SimpleNamespace(get_speech_timestamps=lambda *a,**kw:(_ for _ in ()).throw(RuntimeError('private detail')))}):
+            with self.assertRaises(RuntimeError):backend.speech_clips(audio)
+        self.assertEqual(changes,[1,4])
+
     def test_model_identity_uses_metadata_without_reading_weights(self):
         from media_clarity.models import LocalModels
         with tempfile.TemporaryDirectory() as temp:

@@ -147,7 +147,7 @@ document.addEventListener("drop",e=>{e.preventDefault();dragDepth=0;$("drop-over
 
 let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null;
 const subtitleMessages={
-  model_privacy_setup_required:"Windows 자막 처리에는 진단 전송 없는 추론 엔진 검증이 필요합니다. 현재는 가진 자막 파일을 열어 감상할 수 있습니다.",
+  model_privacy_setup_required:"현재 프로세스에 허용되지 않은 추론 엔진이 로드됐습니다. 앱을 종료하고 안내된 로컬 모델 환경으로 다시 실행해 주세요. 가진 자막과 원본은 보존됩니다.",
   processing_worker_active:"이전 처리 프로세스가 종료되는 중입니다. 원본은 감상할 수 있으며, 종료 후 처리를 재개할 수 있습니다.",
   processing_busy:"이 영상의 다른 자막 작업이 있습니다. 현재 작업에서 재개해 주세요.",
   processing_checkpoint_invalid:"저장된 처리 정보가 올바르지 않아 재사용을 중단했습니다. 기존 자막과 원본은 보존했습니다.",

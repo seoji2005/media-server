@@ -13,15 +13,16 @@ import sys
 from .storage import MediaError, file_signature, no_symlink, run_media
 from .subtitles import MAX_CUES
 
-PIPELINE = 'korean-subtitles-v3:sentence-12s-400ch-gap0.8:madlad-ko-bf16-beam4-512-batch2:stat-identity'
-PACKAGES = ('faster-whisper','ctranslate2','transformers','torch','sentencepiece','tokenizers','numpy','onnxruntime','av')
+PIPELINE = 'korean-subtitles-v4:silero6-jit-0.5-2000ms-pad400ms:source-clips:sentence-12s-400ch-gap0.8:madlad-ko-bf16-beam4-512-batch2:stat-identity'
+PACKAGES = ('faster-whisper','ctranslate2','transformers','torch','torchaudio','silero-vad','sentencepiece','tokenizers','numpy','av')
 
 
 def require_private_runtime():
-    # Official Windows ORT wheels may emit ETW initialization before the disable
-    # API is callable. Keep inference closed until a telemetry-free build is verified.
-    if sys.platform == 'win32':
+    # Keep ORT entirely out of this process, including its pre-API native telemetry.
+    # VAD uses the official local TorchScript model on every platform instead.
+    if sys.modules.get('onnxruntime') is not None:
         raise MediaError('model_privacy_setup_required', 503)
+    sys.modules['onnxruntime'] = None  # Python refuses subsequent ORT imports.
 
 
 def local_models(root, check_packages=False):
@@ -40,8 +41,13 @@ def local_models(root, check_packages=False):
                 raise MediaError('local_models_missing', 503)
     if not any(paths['translation'].glob('*.safetensors')):
         raise MediaError('local_models_missing', 503)
-    if check_packages and any(importlib.util.find_spec(n) is None for n in ('faster_whisper','transformers','torch','sentencepiece')):
-        raise MediaError('model_runtime_missing', 503)
+    if check_packages:
+        if any(importlib.util.find_spec(n) is None for n in ('faster_whisper','transformers','torch','torchaudio','silero_vad','sentencepiece')):
+            raise MediaError('model_runtime_missing', 503)
+        paths['vad'] = Path(importlib.metadata.distribution('silero-vad').locate_file('silero_vad/data'))
+        no_symlink(paths['vad'] / 'silero_vad.jit')
+        if not (paths['vad'] / 'silero_vad.jit').is_file():
+            raise MediaError('model_runtime_missing', 503)
     return paths
 
 
@@ -85,11 +91,6 @@ class LocalModels:
 
     def transcribe(self, path, duration):
         require_private_runtime()
-        # ORT's initialization can send telemetry before its Python API is callable.
-        # Disable that path before import, then also disable platform trace events.
-        os.environ['ORT_DISABLE_TELEMETRY'] = '1'
-        import onnxruntime
-        onnxruntime.disable_telemetry_events()
         import numpy as np
         from faster_whisper import WhisperModel
         # Decode with the same local protocol/container restrictions as import.
@@ -102,11 +103,16 @@ class LocalModels:
         if not raw or len(raw) % 4:
             raise MediaError('invalid_media', 422)
         audio = np.frombuffer(raw, dtype='<f4')
+        clips = self.speech_clips(audio)
+        if not clips:
+            return []
         model = WhisperModel(str(self.paths['asr']), device=self.device,
                              compute_type='int8_float16' if self.device == 'cuda' else 'int8',
                              local_files_only=True)
         try:
-            segments, _ = model.transcribe(audio, beam_size=5, vad_filter=True,
+            # Source-time clips retain silence offsets without ORT or an
+            # application-level waveform/timestamp-remapping layer.
+            segments, _ = model.transcribe(audio, beam_size=5, vad_filter=False, clip_timestamps=clips,
                                            task='transcribe', language=None, multilingual=True)
             cues = []
             for s in segments:  # Materialize lazy inference before checkpointing.
@@ -119,6 +125,26 @@ class LocalModels:
             # Never hold the ASR and translation GPU weights simultaneously.
             del model
             gc.collect()
+
+    def speech_clips(self, audio):
+        require_private_runtime()
+        import torch
+        threads = torch.get_num_threads()
+        model = None
+        try:
+            from silero_vad import get_speech_timestamps
+            # CPU VAD stays small; do not occupy the ASR/translation GPU.
+            torch.set_num_threads(1)
+            model = torch.jit.load(str(self.paths['vad'] / 'silero_vad.jit'), map_location='cpu').eval()
+            chunks = get_speech_timestamps(torch.from_numpy(audio.copy()), model,
+                sampling_rate=16000, threshold=.5, min_speech_duration_ms=0,
+                min_silence_duration_ms=2000, speech_pad_ms=400, return_seconds=False)
+            return [chunk[key] / 16000 for chunk in chunks for key in ('start','end')]
+        finally:
+            del model
+            # Silero's import changes this globally; retain the caller's CPU
+            # configuration for later ASR/translation, including on failure.
+            torch.set_num_threads(threads)
 
     def translate(self, text):
         result = self.translate_many([text])[0]
