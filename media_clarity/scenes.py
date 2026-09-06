@@ -88,6 +88,14 @@ def unpack(raw):
     return values
 
 
+def black_preview(raw):
+    """Exclude only essentially black images; retain dark scenes and title cards."""
+    from PIL import Image
+    with Image.open(io.BytesIO(raw)) as picture:
+        # This is an image usability check, never a query-relevance threshold.
+        return picture.convert('L').getextrema()[1] <= 8
+
+
 def saved(store, preview, frames, model_sha):
     with store.db() as db:
         rows = {r['ordinal']:r for r in db.execute('SELECT * FROM scene_vectors WHERE set_id=?',(preview['id'],))}
@@ -174,6 +182,11 @@ def execute(store, item_id, query=None, encoder_type=Encoder):
     pending = [f for f in frames if f['ordinal'] not in vectors][:PER_REQUEST]
     if query is None and not pending:
         return status(store,item_id)
+    candidates = [f for f in frames if not black_preview(f['image'])] if query is not None else frames
+    counts = {'sampled':preview['total'], 'searched':len(candidates),
+              'black_skipped':len(frames)-len(candidates)}
+    if query is not None and not candidates:
+        return {**counts, 'candidates':[]}
     # Analyze the already saved/hashed images, without rescanning a long video
     # in every short-lived model process. Image serving keeps its existing checks.
     encoder = encoder_type(path,device)
@@ -206,9 +219,9 @@ def execute(store, item_id, query=None, encoder_type=Encoder):
     _, latest, current = snapshot(store,item_id)
     if latest != preview or [(f['ordinal'],f['sha256'],f['time']) for f in current] != [(f['ordinal'],f['sha256'],f['time']) for f in frames]:
         raise MediaError('preview_changed',409)
-    scores = {f['ordinal']:sum(a*b for a,b in zip(text,vectors[f['ordinal']])) for f in frames}
-    ranked = sorted(frames,key=lambda f:(-scores[f['ordinal']],f['ordinal']))[:5]
-    return {'sampled':preview['total'], 'searched':len(frames), 'candidates':[
+    scores = {f['ordinal']:sum(a*b for a,b in zip(text,vectors[f['ordinal']])) for f in candidates}
+    ranked = sorted(candidates,key=lambda f:(-scores[f['ordinal']],f['ordinal']))[:5]
+    return {**counts, 'candidates':[
         {'ordinal':f['ordinal'],'time':f['time'],
          'image':f"/api/library/{item_id}/previews/{preview['id']}/{f['ordinal']}.jpg"} for f in ranked]}
 

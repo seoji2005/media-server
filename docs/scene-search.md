@@ -7,6 +7,7 @@ and preparing resumes. Enter a short description and choose a candidate image/ti
 to seek and play. This works without subtitles. Queries clear on leaving the video.
 
 This is approximate search of at most 120 sampled frames from **one selected video**.
+Essentially black frames are excluded from candidates; chronological previews retain them.
 It can miss short scenes and returns nearest candidates even when the requested scene
 is absent. The UI says so, shows evidence images/times, and does not display confidence
 percentages or claim “no match.” Opening the panel can expose later scenes. No global
@@ -87,3 +88,6 @@ regression resolved it. At fixed `029f9e0`, independent reproduction confirmed l
 release and no additional actionable findings in that delta. Final changes after this
 code revision are documentation only. Windows/RTX, held-out content, long-ASR recovery
 and an acceptable enhancement preset remain open.
+
+A subsequent [different-film and whole-input quality check](quality-check.md) records
+a conservative black-frame exclusion and remaining action/translation weaknesses.

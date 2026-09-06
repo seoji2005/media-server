@@ -602,7 +602,7 @@ $("scene-form").addEventListener("submit",async event=>{
         catch{toast("이 시점으로 이동하지 못했습니다.",true);}
       });row.append(button);$("scene-results").append(row);
     }
-    $("scene-state").textContent=`${data.searched}/${data.sampled}개 화면에서 찾은 후보 · 이미지로 확인하고 선택하세요.`;
+    $("scene-state").textContent=data.searched?`${data.searched}/${data.sampled}개 화면에서 찾은 후보${data.black_skipped?` · 검은 화면 ${data.black_skipped}개 제외`:""} · 이미지로 확인하고 선택하세요.`:"저장된 미리보기가 모두 검은 화면이라 비교할 이미지가 없습니다. 영상 전체에 장면이 없다는 뜻은 아닙니다. 직접 재생하거나 시간별 미리보기로 확인해 주세요.";
   }catch(e){if(sceneCurrent(view)&&view.version===version){$("scene-state").textContent=e.message;if(["scene_index_required","scene_model_changed","scene_previews_required"].includes(e.code))view.ready=false;}}
   finally{if(sceneCurrent(view)){view.busy=false;sceneControls(view);if(view.version!==version)$("scene-state").textContent="검색어가 바뀌었습니다. 후보 찾기를 다시 눌러 주세요.";}}
 });

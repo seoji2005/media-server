@@ -79,3 +79,7 @@ to published `5ea410c`. That review supplies no real-model/browser/Windows evide
 Remaining gates: natural rapid language changes, omissions/proper nouns, fluent Korean,
 long-cue readability, long films, actual browser caption playback/seek/resume, Windows
 setup, CUDA bfloat16 and 12 GB fit. Successful jobs do not make these gates complete.
+
+The [12-minute viewing quality check](quality-check.md) extends real execution to an
+entire short film and records conditional translation errors and browser caption playback.
+It does not establish 60+ minute recovery or target Windows/RTX readiness.

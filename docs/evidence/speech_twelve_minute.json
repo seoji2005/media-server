@@ -1,0 +1,159 @@
+{
+  "code": "bfce827300388068a3afb8cedb2b7d72776c65f7 (ASR/translation code unchanged through b20fd99)",
+  "machine": "Linux CPU, Python3.12.13, four Torch threads; not Windows/RTX",
+  "duration": 734.167,
+  "elapsed_seconds": 559.3913912773132,
+  "asr_seconds": 346.83443047900073,
+  "translation_seconds": 210.35408321901195,
+  "peak_process_rss_mib": 12945.953125,
+  "source_cues": 56,
+  "translation_units": 56,
+  "display_cues": 57,
+  "fallback_count": 0,
+  "fast_display_cues": 3,
+  "state": "succeeded",
+  "transcript_sha256": "fbf91bbc10ebbac29bbb0c7c793b69d9bef3bd5df7aa2bc44e941369b78622c7",
+  "translation_batches": [
+    {
+      "stage": "translation",
+      "seconds": 15.646826531999977,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 19.536934853000275,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 8.739128976005304,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 12.600443339993944,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 9.510590574005619,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 6.274157122999895,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 9.75448997499916,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 6.599746730003972,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 4.837267750001047,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 4.813289684003394,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 4.4210151369989035,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 5.492727310003829,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 8.3453214129986,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 6.658200086996658,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 3.749209747002169,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 7.191636575000302,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 9.266423936001956,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 4.660866002996045,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 6.242548472000635,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 11.154558567002823,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 4.4144523729992216,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 6.9238169149975874,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 6.18124395400082,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 6.411543875001371,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 5.793158535998373,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 5.688021139001648,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 4.276957207999658,
+      "units": 2
+    },
+    {
+      "stage": "translation",
+      "seconds": 5.169506434998766,
+      "units": 2
+    }
+  ],
+  "interruption": "No successful interruption on this input. A signal attempt returned ProcessLookupError; a subsequent resume wrapper lacked its expected checkpoint file. Before cooperative pause could run, the job had already succeeded. Do not count this as new interruption/recovery evidence."
+}

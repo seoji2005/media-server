@@ -1,5 +1,6 @@
 """Real SQLite/checkpoint/lifetime boundaries. Test encoders do not claim retrieval quality."""
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -154,8 +155,33 @@ except MediaError as e:print(e.code)
                 self.app.state.scenes.run(self.item,'비공개 검색어')
         self.assertIsNone(self.app.state.scenes.process)
         def acquire_elsewhere():
-            acquired=self.app.state.jobs.lock.acquire(blocking=False)
+            acquired=self.app.state.jobs.lock.acquire(timeout=2)  # Allow a normal supervisor iteration to finish.
             if acquired:self.app.state.jobs.lock.release()
             return acquired
         with ThreadPoolExecutor(1) as pool:
             self.assertTrue(pool.submit(acquire_elsewhere).result(5))
+
+    def test_black_frame_is_excluded_but_dark_detail_and_titles_are_kept(self):
+        from PIL import Image,ImageDraw
+        def jpeg(image):
+            output=io.BytesIO();image.save(output,format='JPEG',quality=95);return output.getvalue()
+        black=jpeg(Image.new('RGB',(160,90),(1,1,1)))
+        self.assertTrue(scenes.black_preview(black))
+        title=Image.new('RGB',(160,90));ImageDraw.Draw(title).text((10,30),'TITLE',fill='white')
+        self.assertFalse(scenes.black_preview(jpeg(title)))
+        dark=Image.new('RGB',(160,90));ImageDraw.Draw(dark).rectangle((20,30,40,60),fill=(16,16,16))
+        self.assertFalse(scenes.black_preview(jpeg(dark)))
+        with self.store.db() as db:
+            db.execute('UPDATE preview_frames SET image=?,sha256=? WHERE ordinal=2',(black,hashlib.sha256(black).hexdigest()));db.commit()
+        scenes.execute(self.store,self.item,encoder_type=Encoder)
+        result=scenes.execute(self.store,self.item,'frame',Encoder)
+        self.assertEqual((result['searched'],result['sampled'],result['black_skipped']),(4,5,1))
+        self.assertNotIn(2,[f['ordinal'] for f in result['candidates']])
+        # Still available in chronological previews; source/caption data untouched.
+        self.assertEqual(self.app.state.previews.status(self.item)['completed'],5)
+        with self.store.db() as db:
+            db.execute('UPDATE preview_frames SET image=?,sha256=?',(black,hashlib.sha256(black).hexdigest()));db.commit()
+        scenes.execute(self.store,self.item,encoder_type=Encoder)
+        with patch.object(Encoder,'text',side_effect=AssertionError('needless query inference')):
+            result=scenes.execute(self.store,self.item,'frame',Encoder)
+        self.assertEqual(result['candidates'],[]);self.assertEqual(result['searched'],0)
