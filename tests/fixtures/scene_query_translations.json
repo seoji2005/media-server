@@ -1,0 +1,145 @@
+{
+  "note": "Observed MADLAD query outputs; not adopted and not edited to improve retrieval. Original fixed relevance stays in scene_retrieval.json.",
+  "pairs": [
+    {
+      "id": "bridge_ko",
+      "source": "다리 난간에 기대어 서 있는 두 사람",
+      "translated": "Two men standing leaning on the bridge railing"
+    },
+    {
+      "id": "rope_ko",
+      "source": "밧줄을 붙잡고 몸을 숙인 흰머리 남자",
+      "translated": "White-haired man leaning down, holding a rope"
+    },
+    {
+      "id": "redshirt_ko",
+      "source": "실내에서 다른 사람들과 함께 있는 붉은 무늬 셔츠 남자",
+      "translated": "Man in red shirt with other people indoors"
+    },
+    {
+      "id": "robot_ko",
+      "source": "다리 위에서 정면을 향한 거대한 로봇",
+      "translated": "A huge robot on a bridge facing the front"
+    },
+    {
+      "id": "alone_ko",
+      "source": "다리 위에 혼자 서 있는 검은 머리 남자의 전신",
+      "translated": "Body of black-haired man standing alone on a bridge"
+    },
+    {
+      "id": "neon_ko",
+      "source": "어두운 거대한 실내와 분홍색 네온 빛",
+      "translated": "Dark huge interior with pink neon lights"
+    },
+    {
+      "id": "glasses_ko",
+      "source": "안경 쓴 남자 앞에 여러 색의 컴퓨터 화면이 겹쳐 보인다",
+      "translated": "Overlapping computer screens of different colors in front of a man wearing glasses"
+    },
+    {
+      "id": "manface_ko",
+      "source": "검은 머리 젊은 남자의 얼굴 클로즈업",
+      "translated": "Close-up of face of black-haired young man"
+    },
+    {
+      "id": "eye_ko",
+      "source": "남자의 한쪽 눈 주위에 기계 장치가 붙어 있다",
+      "translated": "There's a machine around one of the men's eyes."
+    },
+    {
+      "id": "scarf_ko",
+      "source": "실내에 서 있는 목도리를 두른 여자",
+      "translated": "Woman with necktie standing indoors"
+    },
+    {
+      "id": "metalhand_ko",
+      "source": "여자의 얼굴 옆에 기계 손이 크게 보인다",
+      "translated": "The machine hand is visible next to the woman's face."
+    },
+    {
+      "id": "kiss_ko",
+      "source": "남자가 기계 손에 입을 맞춘다",
+      "translated": "Man kissing machine hand"
+    },
+    {
+      "id": "white_ko",
+      "source": "흰 옷을 입은 긴 머리 남자가 기계를 들고 있다",
+      "translated": "Long-haired man in white clothes holding a machine"
+    },
+    {
+      "id": "sparks_ko",
+      "source": "어두운 곳에서 불꽃과 파편이 튄다",
+      "translated": "Flames and debris in a dark place"
+    },
+    {
+      "id": "closeman_ko",
+      "source": "이마에 땀이 맺힌 짧은 머리 남자의 얼굴 클로즈업",
+      "translated": "Closeup of face of man with short hair and sweat on forehead"
+    },
+    {
+      "id": "smoke_ko",
+      "source": "연기 속에 둥근 주황색 로봇들이 있다",
+      "translated": "There are round orange robots in the smoke."
+    },
+    {
+      "id": "console_ko",
+      "source": "흰머리 남자가 서서 커다란 기계 장치를 만지고 있다",
+      "translated": "White-haired man standing and touching a large machine device"
+    },
+    {
+      "id": "crowdrobots_ko",
+      "source": "안개 낀 도시 광장에 많은 로봇이 모여 있다",
+      "translated": "Many robots are gathered in a foggy city square"
+    },
+    {
+      "id": "bluegraphic_ko",
+      "source": "검은 배경에 파란 선으로 그려진 기계 그림",
+      "translated": "Machine picture drawn with blue lines on black background"
+    },
+    {
+      "id": "credits_ko",
+      "source": "영화 제작진의 이름이 여러 줄로 나오는 엔딩 크레딧",
+      "translated": "End credits with the name of the film crew in multiple lines"
+    },
+    {
+      "id": "absent_dog_ko",
+      "source": "눈밭에서 뛰어노는 강아지",
+      "translated": "Dog jumping in snow field"
+    },
+    {
+      "id": "absent_beach_ko",
+      "source": "햇빛이 비치는 모래사장과 바다",
+      "translated": "Sunlit sandy beach and sea"
+    },
+    {
+      "id": "absent_fish_ko",
+      "source": "물속에서 헤엄치는 물고기",
+      "translated": "Fish swimming in the water"
+    },
+    {
+      "id": "absent_football_ko",
+      "source": "축구 경기장에서 공을 차는 선수들",
+      "translated": "Players picking up the ball on a football field"
+    },
+    {
+      "id": "absent_cooking_ko",
+      "source": "프라이팬에 달걀을 굽는 요리사",
+      "translated": "Cook baking eggs in frying pan"
+    },
+    {
+      "id": "absent_racing_ko",
+      "source": "고속도로에서 달리는 경주용 자동차",
+      "translated": "Racing car racing on the highway"
+    },
+    {
+      "id": "absent_mismatch_ko",
+      "source": "다리 위에 서 있는 빨간 셔츠 남자",
+      "translated": "Man in red shirt standing on a bridge"
+    },
+    {
+      "id": "absent_womancomputer_ko",
+      "source": "컴퓨터 앞에 앉아 타자를 치는 여자",
+      "translated": "Woman sitting in front of computer typing"
+    }
+  ]
+}

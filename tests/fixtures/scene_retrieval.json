@@ -1,0 +1,629 @@
+{
+  "note": "Development set: one CC-BY film, 36 sparse frames, manually judged relevance before full-set inference; no held-out/general quality claim. Absent means absent in sampled frames, not necessarily the whole film.",
+  "source": {
+    "title": "Tears of Steel",
+    "credit": "(CC) Blender Foundation | mango.blender.org",
+    "license": "CC BY 3.0",
+    "url": "https://media.xiph.org/tearsofsteel/tears_of_steel_1080p.webm",
+    "attribution_url": "https://media.xiph.org/tearsofsteel/README.txt",
+    "bytes": 571346576
+  },
+  "frames": [
+    {
+      "id": "f005",
+      "time": 5,
+      "image": "frames/f005.jpg"
+    },
+    {
+      "id": "f025",
+      "time": 25,
+      "image": "frames/f025.jpg"
+    },
+    {
+      "id": "f045",
+      "time": 45,
+      "image": "frames/f045.jpg"
+    },
+    {
+      "id": "f065",
+      "time": 65,
+      "image": "frames/f065.jpg"
+    },
+    {
+      "id": "f085",
+      "time": 85,
+      "image": "frames/f085.jpg"
+    },
+    {
+      "id": "f105",
+      "time": 105,
+      "image": "frames/f105.jpg"
+    },
+    {
+      "id": "f125",
+      "time": 125,
+      "image": "frames/f125.jpg"
+    },
+    {
+      "id": "f145",
+      "time": 145,
+      "image": "frames/f145.jpg"
+    },
+    {
+      "id": "f165",
+      "time": 165,
+      "image": "frames/f165.jpg"
+    },
+    {
+      "id": "f185",
+      "time": 185,
+      "image": "frames/f185.jpg"
+    },
+    {
+      "id": "f205",
+      "time": 205,
+      "image": "frames/f205.jpg"
+    },
+    {
+      "id": "f225",
+      "time": 225,
+      "image": "frames/f225.jpg"
+    },
+    {
+      "id": "f245",
+      "time": 245,
+      "image": "frames/f245.jpg"
+    },
+    {
+      "id": "f265",
+      "time": 265,
+      "image": "frames/f265.jpg"
+    },
+    {
+      "id": "f285",
+      "time": 285,
+      "image": "frames/f285.jpg"
+    },
+    {
+      "id": "f305",
+      "time": 305,
+      "image": "frames/f305.jpg"
+    },
+    {
+      "id": "f325",
+      "time": 325,
+      "image": "frames/f325.jpg"
+    },
+    {
+      "id": "f345",
+      "time": 345,
+      "image": "frames/f345.jpg"
+    },
+    {
+      "id": "f365",
+      "time": 365,
+      "image": "frames/f365.jpg"
+    },
+    {
+      "id": "f385",
+      "time": 385,
+      "image": "frames/f385.jpg"
+    },
+    {
+      "id": "f405",
+      "time": 405,
+      "image": "frames/f405.jpg"
+    },
+    {
+      "id": "f425",
+      "time": 425,
+      "image": "frames/f425.jpg"
+    },
+    {
+      "id": "f445",
+      "time": 445,
+      "image": "frames/f445.jpg"
+    },
+    {
+      "id": "f465",
+      "time": 465,
+      "image": "frames/f465.jpg"
+    },
+    {
+      "id": "f485",
+      "time": 485,
+      "image": "frames/f485.jpg"
+    },
+    {
+      "id": "f505",
+      "time": 505,
+      "image": "frames/f505.jpg"
+    },
+    {
+      "id": "f525",
+      "time": 525,
+      "image": "frames/f525.jpg"
+    },
+    {
+      "id": "f545",
+      "time": 545,
+      "image": "frames/f545.jpg"
+    },
+    {
+      "id": "f565",
+      "time": 565,
+      "image": "frames/f565.jpg"
+    },
+    {
+      "id": "f585",
+      "time": 585,
+      "image": "frames/f585.jpg"
+    },
+    {
+      "id": "f605",
+      "time": 605,
+      "image": "frames/f605.jpg"
+    },
+    {
+      "id": "f625",
+      "time": 625,
+      "image": "frames/f625.jpg"
+    },
+    {
+      "id": "f645",
+      "time": 645,
+      "image": "frames/f645.jpg"
+    },
+    {
+      "id": "f665",
+      "time": 665,
+      "image": "frames/f665.jpg"
+    },
+    {
+      "id": "f685",
+      "time": 685,
+      "image": "frames/f685.jpg"
+    },
+    {
+      "id": "f705",
+      "time": 705,
+      "image": "frames/f705.jpg"
+    }
+  ],
+  "queries": [
+    {
+      "id": "bridge_ko",
+      "language": "ko",
+      "text": "다리 난간에 기대어 서 있는 두 사람",
+      "relevant": [
+        "f025"
+      ]
+    },
+    {
+      "id": "bridge_en",
+      "language": "en",
+      "text": "Two people leaning on a bridge railing",
+      "relevant": [
+        "f025"
+      ]
+    },
+    {
+      "id": "rope_ko",
+      "language": "ko",
+      "text": "밧줄을 붙잡고 몸을 숙인 흰머리 남자",
+      "relevant": [
+        "f125",
+        "f145"
+      ]
+    },
+    {
+      "id": "rope_en",
+      "language": "en",
+      "text": "A grey-haired man leaning over and holding a rope",
+      "relevant": [
+        "f125",
+        "f145"
+      ]
+    },
+    {
+      "id": "redshirt_ko",
+      "language": "ko",
+      "text": "실내에서 다른 사람들과 함께 있는 붉은 무늬 셔츠 남자",
+      "relevant": [
+        "f205",
+        "f245"
+      ]
+    },
+    {
+      "id": "redshirt_en",
+      "language": "en",
+      "text": "A man in a red patterned shirt indoors with other people",
+      "relevant": [
+        "f205",
+        "f245"
+      ]
+    },
+    {
+      "id": "robot_ko",
+      "language": "ko",
+      "text": "다리 위에서 정면을 향한 거대한 로봇",
+      "relevant": [
+        "f225"
+      ]
+    },
+    {
+      "id": "robot_en",
+      "language": "en",
+      "text": "A large robot facing forward on a bridge",
+      "relevant": [
+        "f225"
+      ]
+    },
+    {
+      "id": "alone_ko",
+      "language": "ko",
+      "text": "다리 위에 혼자 서 있는 검은 머리 남자의 전신",
+      "relevant": [
+        "f265"
+      ]
+    },
+    {
+      "id": "alone_en",
+      "language": "en",
+      "text": "Full body view of a dark-haired man standing alone on a bridge",
+      "relevant": [
+        "f265"
+      ]
+    },
+    {
+      "id": "neon_ko",
+      "language": "ko",
+      "text": "어두운 거대한 실내와 분홍색 네온 빛",
+      "relevant": [
+        "f045"
+      ]
+    },
+    {
+      "id": "neon_en",
+      "language": "en",
+      "text": "A vast dark interior with bright pink neon light",
+      "relevant": [
+        "f045"
+      ]
+    },
+    {
+      "id": "glasses_ko",
+      "language": "ko",
+      "text": "안경 쓴 남자 앞에 여러 색의 컴퓨터 화면이 겹쳐 보인다",
+      "relevant": [
+        "f305",
+        "f425",
+        "f505"
+      ]
+    },
+    {
+      "id": "glasses_en",
+      "language": "en",
+      "text": "A man wearing glasses behind colorful computer displays",
+      "relevant": [
+        "f305",
+        "f425",
+        "f505"
+      ]
+    },
+    {
+      "id": "manface_ko",
+      "language": "ko",
+      "text": "검은 머리 젊은 남자의 얼굴 클로즈업",
+      "relevant": [
+        "f325",
+        "f405"
+      ]
+    },
+    {
+      "id": "manface_en",
+      "language": "en",
+      "text": "A close-up of a young dark-haired man",
+      "relevant": [
+        "f325",
+        "f405"
+      ]
+    },
+    {
+      "id": "eye_ko",
+      "language": "ko",
+      "text": "남자의 한쪽 눈 주위에 기계 장치가 붙어 있다",
+      "relevant": [
+        "f345"
+      ]
+    },
+    {
+      "id": "eye_en",
+      "language": "en",
+      "text": "A man with a mechanical device around one eye",
+      "relevant": [
+        "f345"
+      ]
+    },
+    {
+      "id": "scarf_ko",
+      "language": "ko",
+      "text": "실내에 서 있는 목도리를 두른 여자",
+      "relevant": [
+        "f365",
+        "f565"
+      ]
+    },
+    {
+      "id": "scarf_en",
+      "language": "en",
+      "text": "A woman wearing a scarf standing indoors",
+      "relevant": [
+        "f365",
+        "f565"
+      ]
+    },
+    {
+      "id": "metalhand_ko",
+      "language": "ko",
+      "text": "여자의 얼굴 옆에 기계 손이 크게 보인다",
+      "relevant": [
+        "f385"
+      ]
+    },
+    {
+      "id": "metalhand_en",
+      "language": "en",
+      "text": "A large mechanical hand beside a woman face",
+      "relevant": [
+        "f385"
+      ]
+    },
+    {
+      "id": "kiss_ko",
+      "language": "ko",
+      "text": "남자가 기계 손에 입을 맞춘다",
+      "relevant": [
+        "f405"
+      ]
+    },
+    {
+      "id": "kiss_en",
+      "language": "en",
+      "text": "A man kissing a mechanical hand",
+      "relevant": [
+        "f405"
+      ]
+    },
+    {
+      "id": "white_ko",
+      "language": "ko",
+      "text": "흰 옷을 입은 긴 머리 남자가 기계를 들고 있다",
+      "relevant": [
+        "f445"
+      ]
+    },
+    {
+      "id": "white_en",
+      "language": "en",
+      "text": "A long-haired man in white holding a machine",
+      "relevant": [
+        "f445"
+      ]
+    },
+    {
+      "id": "sparks_ko",
+      "language": "ko",
+      "text": "어두운 곳에서 불꽃과 파편이 튄다",
+      "relevant": [
+        "f465"
+      ]
+    },
+    {
+      "id": "sparks_en",
+      "language": "en",
+      "text": "Sparks and debris flying in a dark scene",
+      "relevant": [
+        "f465"
+      ]
+    },
+    {
+      "id": "closeman_ko",
+      "language": "ko",
+      "text": "이마에 땀이 맺힌 짧은 머리 남자의 얼굴 클로즈업",
+      "relevant": [
+        "f485"
+      ]
+    },
+    {
+      "id": "closeman_en",
+      "language": "en",
+      "text": "A close-up of a short-haired man with sweat on his forehead",
+      "relevant": [
+        "f485"
+      ]
+    },
+    {
+      "id": "smoke_ko",
+      "language": "ko",
+      "text": "연기 속에 둥근 주황색 로봇들이 있다",
+      "relevant": [
+        "f525"
+      ]
+    },
+    {
+      "id": "smoke_en",
+      "language": "en",
+      "text": "Round orange robots in smoke",
+      "relevant": [
+        "f525"
+      ]
+    },
+    {
+      "id": "console_ko",
+      "language": "ko",
+      "text": "흰머리 남자가 서서 커다란 기계 장치를 만지고 있다",
+      "relevant": [
+        "f545"
+      ]
+    },
+    {
+      "id": "console_en",
+      "language": "en",
+      "text": "A grey-haired man standing and operating a large machine",
+      "relevant": [
+        "f545"
+      ]
+    },
+    {
+      "id": "crowdrobots_ko",
+      "language": "ko",
+      "text": "안개 낀 도시 광장에 많은 로봇이 모여 있다",
+      "relevant": [
+        "f585"
+      ]
+    },
+    {
+      "id": "crowdrobots_en",
+      "language": "en",
+      "text": "Many robots gathered in a foggy city square",
+      "relevant": [
+        "f585"
+      ]
+    },
+    {
+      "id": "bluegraphic_ko",
+      "language": "ko",
+      "text": "검은 배경에 파란 선으로 그려진 기계 그림",
+      "relevant": [
+        "f605",
+        "f625"
+      ]
+    },
+    {
+      "id": "bluegraphic_en",
+      "language": "en",
+      "text": "A machine drawn with blue outlines on a black background",
+      "relevant": [
+        "f605",
+        "f625"
+      ]
+    },
+    {
+      "id": "credits_ko",
+      "language": "ko",
+      "text": "영화 제작진의 이름이 여러 줄로 나오는 엔딩 크레딧",
+      "relevant": [
+        "f645",
+        "f665",
+        "f685"
+      ]
+    },
+    {
+      "id": "credits_en",
+      "language": "en",
+      "text": "End credits listing film crew names in many lines",
+      "relevant": [
+        "f645",
+        "f665",
+        "f685"
+      ]
+    },
+    {
+      "id": "absent_dog_ko",
+      "language": "ko",
+      "text": "눈밭에서 뛰어노는 강아지",
+      "relevant": []
+    },
+    {
+      "id": "absent_dog_en",
+      "language": "en",
+      "text": "A dog playing in the snow",
+      "relevant": []
+    },
+    {
+      "id": "absent_beach_ko",
+      "language": "ko",
+      "text": "햇빛이 비치는 모래사장과 바다",
+      "relevant": []
+    },
+    {
+      "id": "absent_beach_en",
+      "language": "en",
+      "text": "A sunny sandy beach by the sea",
+      "relevant": []
+    },
+    {
+      "id": "absent_fish_ko",
+      "language": "ko",
+      "text": "물속에서 헤엄치는 물고기",
+      "relevant": []
+    },
+    {
+      "id": "absent_fish_en",
+      "language": "en",
+      "text": "Fish swimming underwater",
+      "relevant": []
+    },
+    {
+      "id": "absent_football_ko",
+      "language": "ko",
+      "text": "축구 경기장에서 공을 차는 선수들",
+      "relevant": []
+    },
+    {
+      "id": "absent_football_en",
+      "language": "en",
+      "text": "Players kicking a ball on a football field",
+      "relevant": []
+    },
+    {
+      "id": "absent_cooking_ko",
+      "language": "ko",
+      "text": "프라이팬에 달걀을 굽는 요리사",
+      "relevant": []
+    },
+    {
+      "id": "absent_cooking_en",
+      "language": "en",
+      "text": "A cook frying eggs in a pan",
+      "relevant": []
+    },
+    {
+      "id": "absent_racing_ko",
+      "language": "ko",
+      "text": "고속도로에서 달리는 경주용 자동차",
+      "relevant": []
+    },
+    {
+      "id": "absent_racing_en",
+      "language": "en",
+      "text": "Racing cars driving on a highway",
+      "relevant": []
+    },
+    {
+      "id": "absent_mismatch_ko",
+      "language": "ko",
+      "text": "다리 위에 서 있는 빨간 셔츠 남자",
+      "relevant": []
+    },
+    {
+      "id": "absent_mismatch_en",
+      "language": "en",
+      "text": "A man in a red shirt standing on a bridge",
+      "relevant": []
+    },
+    {
+      "id": "absent_womancomputer_ko",
+      "language": "ko",
+      "text": "컴퓨터 앞에 앉아 타자를 치는 여자",
+      "relevant": []
+    },
+    {
+      "id": "absent_womancomputer_en",
+      "language": "en",
+      "text": "A woman sitting at a computer and typing",
+      "relevant": []
+    }
+  ]
+}
