@@ -1,3 +1,4 @@
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -200,7 +201,7 @@ prepare(s,sys.argv[2])
         jobs.import_srt(legacy['id'], '1\n00:00:00,500 --> 00:00:02,000\n보존할 자막\n'.encode())
         with other.db() as db: before = tuple(db.execute('SELECT * FROM subtitle_tracks').fetchone())
         other.close()
-        with sqlite3.connect(other.root/'library.sqlite3') as db:
+        with closing(sqlite3.connect(other.root/'library.sqlite3')) as db, db:
             db.execute('PRAGMA user_version=0')
             db.execute('ALTER TABLE files DROP COLUMN preparation')
             db.execute('ALTER TABLE files DROP COLUMN preparation_error')
@@ -236,7 +237,7 @@ prepare(s,sys.argv[2])
         ffmpeg('-i',self.multi,'-map','0','-c','copy',source)
         other = Store(Path(self.temp.name)/'legacy');other.start()
         item = other.import_path(source)['item'];other.save_position(item['id'],2.25);other.close()
-        with sqlite3.connect(other.root/'library.sqlite3') as db:
+        with closing(sqlite3.connect(other.root/'library.sqlite3')) as db, db:
             db.execute('PRAGMA user_version=0')
             db.execute('ALTER TABLE files DROP COLUMN preparation')
             db.execute('ALTER TABLE files DROP COLUMN preparation_error')

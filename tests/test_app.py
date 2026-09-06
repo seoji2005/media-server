@@ -174,6 +174,22 @@ s.save_position(sys.argv[2],3.25)
         self.assertEqual(self.store.list_items(),[])
         self.assertEqual(list((self.root/"staging").iterdir()),[])
 
+    def test_source_metadata_change_with_restored_mtime_does_not_publish(self):
+        source = Path(self.temp.name) / 'touched.mp4'
+        source.write_bytes(self.video_bytes)
+        before = source.stat()
+        def touch_and_restore():
+            os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns - 1_000_000_000))
+            os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+        self.assert_code('source_changed', self.store.import_path, source,
+                         after_chunk=touch_and_restore)
+        self.assertEqual(source.read_bytes(), self.video_bytes)
+        self.assertEqual(source.stat().st_mtime_ns, before.st_mtime_ns)
+        self.assertEqual(self.store.list_items(), [])
+        self.assertEqual(list((self.root / 'staging').iterdir()), [])
+        # A previously changed, now stable file must still be importable.
+        self.assertEqual(self.store.import_path(source)['item']['sha256'], self.digest)
+
     def test_destination_collision_never_overwrites(self):
         collision="a"*32
         destination=self.root/"files"/collision
