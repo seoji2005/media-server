@@ -19,7 +19,8 @@
   adopted preset. Earlier long-film download/larger-encoder requests ended in cancelled
   approval; a separate public short-film download succeeded. HEVC/10-bit policy, spending
   and scope cuts require owner decisions.
-- **Next action:** reuse the saved ASR and frozen dialogue cases to compare one local
-  translation candidate with conversation context; check separate dialogue before adoption.
+- **Next action:** owner requested [local versus Gemini Flash translation](translation-comparison.md)
+  on time, quality and censorship. Public inputs/request bodies are prepared; API execution
+  awaits a key and spending approval. Select only after actual outputs; private egress stays opt-in.
   Prioritize Windows/RTX and long-input recovery when access/input becomes available.
   Keep enhancement and semantic retrieval included; do not expand diagnostics/harness.
