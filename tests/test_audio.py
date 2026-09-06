@@ -19,7 +19,7 @@ from media_clarity.renditions import prepare
 from media_clarity.storage import MediaError, Store
 
 ffmpeg = fixtures.ffmpeg
-decoded_hash = fixtures.decoded_hash
+assert_stream_copy = fixtures.assert_stream_copy
 
 
 class AudioTests(unittest.TestCase):
@@ -40,8 +40,7 @@ class AudioTests(unittest.TestCase):
         item = self.load(self.multi)
         first = self.convert(item); first_bytes=self.store.file_path(first).read_bytes()
         second = self.select(item,1); second_bytes=self.store.file_path(second).read_bytes()
-        self.assertEqual(decoded_hash(self.multi, '0:a:1'),
-                         decoded_hash(self.store.file_path(second), '0:a:0'))
+        assert_stream_copy(self.multi, self.store.file_path(second), '0:a:1', '0:a:0')
         self.assertNotEqual(first['file_id'],second['file_id'])
         for index,data,ready in [(0,first_bytes,first),(1,second_bytes,second)]:
             response=self.client.get(f"/api/media/{item['id']}/content?audio_index={index}",headers={'Range':'bytes=100-200'})
@@ -133,8 +132,7 @@ prepare(s,sys.argv[2],1)
             def identity(self):return 'audio-fixture-v1'
             def transcribe(self,path,duration,index):
                 calls.append(index)
-                self_bytes=decoded_hash(path, f'0:a:{index}')
-                if self_bytes!=decoded_hash(AudioTests.multi, '0:a:1'):raise AssertionError('wrong audio')
+                assert_stream_copy(AudioTests.multi, path, '0:a:1', f'0:a:{index}')
                 return [{'start':.1,'end':1.8,'text':'hello.'},{'start':2.,'end':3.7,'text':'next.'}]
             def translate(self,text):
                 if text=='next.' and len(calls)==1:raise RuntimeError('fixture interruption')
