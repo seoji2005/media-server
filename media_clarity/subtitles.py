@@ -8,6 +8,7 @@ from .storage import MediaError
 
 MAX_SUBTITLE_BYTES = 2 * 1024 * 1024
 MAX_CUES = 20000
+NUMERIC_UNIT = re.compile(r'(?<=[0-9])\s*(?:mm|cm|km|m|kg|mg|g|mL|ml|L|ms|s|kHz|MHz|GHz|Hz|KB|MB|GB|TB|°C|°F)(?![A-Za-z])')
 
 
 def validate_cues(cues, duration):
@@ -84,7 +85,10 @@ def translation_units(cues):
 
 def korean_text(text):
     """Conservative pass-through; never classify an entire mixed-language video as Korean."""
-    letters = [c for c in text if c.isalpha()]
+    # Whisper may write Korean measurements as "15m". Ignore only explicit numeric
+    # units for classification; preserve the text and require all remaining letters
+    # to be Hangul. Do not consume prefixes of foreign words such as "15minutes".
+    letters = [c for c in NUMERIC_UNIT.sub('', text) if c.isalpha()]
     return bool(letters) and all('\uac00' <= c <= '\ud7a3' or '\u1100' <= c <= '\u11ff'
                                  or '\u3130' <= c <= '\u318f' for c in letters)
 

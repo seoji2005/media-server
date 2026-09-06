@@ -13,7 +13,7 @@ import sys
 from .storage import MediaError, file_signature, no_symlink, run_media
 from .subtitles import MAX_CUES
 
-PIPELINE = 'korean-subtitles-v4:silero6-jit-0.5-2000ms-pad400ms:source-clips:sentence-12s-400ch-gap0.8:madlad-ko-bf16-beam4-512-batch2:stat-identity'
+PIPELINE = 'korean-subtitles-v5:silero6-jit-0.5-2000ms-pad400ms:source-clips:sentence-12s-400ch-gap0.8:ko-numeric-units:madlad-ko-bf16-beam4-512-batch2:plaintext-entities-once:stat-identity'
 PACKAGES = ('faster-whisper','ctranslate2','transformers','torch','torchaudio','silero-vad','sentencepiece','tokenizers','numpy','av')
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import hashlib
+import html
 import json
 import os
 from pathlib import Path
@@ -368,7 +369,10 @@ def translate_chunk(backend, units):
         if len(values) != len(foreign):
             raise MediaError('processing_failed', 500)
         for i, value in zip(foreign, values):
-            results[i] = value
+            # Model output is plain text, but MADLAD sometimes emits HTML entities.
+            # Decode once before validation; webvtt() still escapes all markup.
+            # Source passthrough/fallback text never takes this path.
+            results[i] = html.unescape(value) if isinstance(value, str) else value
     cues, codes = [], []
     for index, (unit, value) in enumerate(zip(units, results)):
         code = None

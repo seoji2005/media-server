@@ -329,6 +329,40 @@ class SubtitleTests(unittest.TestCase):
             db.execute('UPDATE subtitle_tracks SET warnings=NULL WHERE id=?',(track['id'],));db.commit()
         with self.assertRaisesRegex(MediaError,'subtitle_changed'):self.jobs.track(self.item['id'],track['id'])
 
+    def test_generated_plaintext_and_korean_units_survive_resume_as_saved(self):
+        supplied=self.jobs.import_srt(self.item['id'],SRT.encode())
+        original=self.jobs.track(self.item['id'],supplied)
+        class Content(FixtureModel):
+            batch_size=2;checkpoint_size=20
+            def transcribe(inner,path,duration):
+                return [{'start':i,'end':i+.8,'text':text} for i,text in enumerate(
+                    ['Hello.','한국어 15m입니다.','Keep &quot;.','Finish.'])]
+            def translate_many(inner,texts):
+                if texts==['Hello.']:return ['&quot;안녕&quot; &lt;b&gt;']
+                raise RuntimeError('interrupted')
+        with patch('media_clarity.models.local_models'):
+            job=self.jobs.enqueue(self.item['id'],force=True)
+        execute(self.store,job,Content)
+        self.assertEqual(self.jobs.row(job)['completed'],2)
+        with self.store.db() as db:
+            saved=[tuple(r) for r in db.execute('SELECT * FROM subtitle_batches WHERE job_id=?',(job,))]
+        class Resumed(Content):
+            def transcribe(inner,*args):raise AssertionError('ASR repeated')
+            def translate_many(inner,texts):
+                self.assertEqual(texts,['Keep &quot;.','Finish.'])
+                return [MediaError('translation_empty',422),'&amp;lt;끝&amp;gt;']
+        with patch('media_clarity.models.local_models'):self.jobs.action(job,'resume')
+        execute(self.store,job,Resumed)
+        self.assertEqual(self.jobs.row(job)['state'],'succeeded')
+        with self.store.db() as db:
+            after=[tuple(r) for r in db.execute('SELECT * FROM subtitle_batches WHERE job_id=? ORDER BY first_index',(job,))]
+            track=db.execute('SELECT id FROM subtitle_tracks WHERE job_id=?',(job,)).fetchone()[0]
+        self.assertEqual(after[:len(saved)],saved)
+        vtt=self.jobs.track(self.item['id'],track)
+        self.assertIn('"안녕" &lt;b&gt;',vtt);self.assertIn('한국어 15m입니다.',vtt)
+        self.assertIn('[원문] Keep &amp;quot;.',vtt);self.assertIn('&amp;lt;끝&amp;gt;',vtt)
+        self.assertEqual(self.jobs.track(self.item['id'],supplied),original)
+
     def test_append_checkpoints_and_legacy_track_compatibility(self):
         class Many(FixtureModel):
             batch_size=2;checkpoint_size=20
@@ -430,5 +464,37 @@ class TranslationUnitTests(unittest.TestCase):
         self.assertEqual(observed,['Hello 한국어.','Long.'])
         self.assertEqual(cues[0]['text'],'안녕 2026!');self.assertEqual(cues[2]['text'],'Long.')
         self.assertEqual(codes,[None,None,'translation_truncated'])
+
+    def test_korean_measurements_pass_through_without_skipping_foreign_words(self):
+        preserved=['다리 밑 수직 간격은 15m이며 공사는 2011년 8월에 마무리되었다.',
+                   '거리는 1.5 km, 질량은 20kg, 기온은 25°C입니다.', '길이는 20cm & 30mm입니다.']
+        foreign=['15minutes 기다리세요.', '25miles 거리입니다.', '15m away입니다.',
+                 '높이 15mですが。', '15m', '50GB Download 완료.']
+        observed=[]
+        class Model:
+            def translate_many(self,texts):observed.extend(texts);return ['번역됨.']*len(texts)
+        units=[{'start':i,'end':i+.8,'text':t} for i,t in enumerate(preserved+foreign)]
+        before=document(units);cues,codes=translate_chunk(Model(),units)
+        self.assertEqual([c['text'] for c in cues[:len(preserved)]],preserved)
+        self.assertEqual(observed,foreign);self.assertEqual(codes,[None]*len(units))
+        self.assertEqual(document(units),before)
+
+    def test_generated_entities_decode_once_and_markup_stays_literal(self):
+        class Model:
+            def translate_many(self,texts):
+                return ['&quot;안녕&#33;&quot; &amp; &lt;script&gt;alert(1)&lt;/script&gt;',
+                        '&amp;lt;b&amp;gt;', MediaError('translation_empty',422), '&nbsp;']
+        units=[{'start':i,'end':i+.8,'text':t} for i,t in enumerate(
+            ['Hello.', 'Nested.', 'Keep &quot; source.', 'Empty.', '한국어 & 15m.'])]
+        before=document(units);cues,codes=translate_chunk(Model(),units)
+        self.assertEqual(cues[0]['text'],'"안녕!" & <script>alert(1)</script>')
+        self.assertEqual(cues[1]['text'],'&lt;b&gt;')
+        self.assertEqual(cues[2:],units[2:])
+        self.assertEqual(codes,[None,None,'translation_empty','translation_empty',None])
+        vtt=webvtt(validate_cues(cues,5),{2,3})
+        self.assertIn('"안녕!" &amp; &lt;script&gt;alert(1)&lt;/script&gt;',vtt)
+        self.assertNotIn('<script>',vtt);self.assertIn('&amp;lt;b&amp;gt;',vtt)
+        self.assertIn('[원문] Keep &amp;quot; source.',vtt)
+        self.assertEqual(document(units),before)
 
 if __name__=='__main__':unittest.main()
