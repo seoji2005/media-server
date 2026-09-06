@@ -67,10 +67,12 @@ def byte_range(header: str | None, size: int) -> tuple[int, int, int]:
 
 def create_app(data_dir: Path | None = None) -> FastAPI:
     from .previews import Previews
+    from .scenes import Scenes, status as scene_status, query_text
     store = Store(data_dir if data_dir is not None else default_data_dir())
     jobs = Jobs(store)
     recommendations = Recommendations(store)
     previews = Previews(store)
+    scenes = Scenes(store,jobs)
     token = secrets.token_urlsafe(32)
 
     @asynccontextmanager
@@ -81,6 +83,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             jobs.start()
             yield
         finally:
+            scenes.close()
             previews.close()
             jobs.close()
             store.close()
@@ -89,6 +92,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     app.state.store = store
     app.state.jobs = jobs
     app.state.previews = previews
+    app.state.scenes = scenes
 
     @app.middleware("http")
     async def local_boundary(request: Request, call_next):
@@ -183,6 +187,30 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     def preview_image(item_id: str, set_id: str, ordinal: int):
         data, digest = previews.image(item_id,set_id,ordinal)
         return Response(data, media_type='image/jpeg', headers={'ETag':'"'+digest+'"'})
+
+    @app.get('/api/library/{item_id}/scenes')
+    def scene_state(item_id: str):
+        store._row(item_id)
+        return scene_status(store,item_id)
+
+    @app.post('/api/library/{item_id}/scenes/prepare')
+    def prepare_scenes(item_id: str):
+        return scenes.run(item_id)
+
+    @app.post('/api/library/{item_id}/scenes/search')
+    async def search_scenes(item_id: str, request: Request):
+        payload = bytearray()
+        async for chunk in request.stream():
+            if len(payload)+len(chunk)>2048:
+                raise MediaError('scene_query_invalid',422)
+            payload.extend(chunk)
+        try:
+            body = json.loads(payload)
+        except (ValueError,UnicodeError):
+            raise MediaError('scene_query_invalid',422) from None
+        if type(body) is not dict or set(body) != {'query'}:
+            raise MediaError('scene_query_invalid',422)
+        return await run_in_threadpool(scenes.run,item_id,query_text(body['query']))
 
     @app.get("/api/recommendations")
     def suggested_items():

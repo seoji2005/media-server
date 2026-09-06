@@ -1,7 +1,7 @@
 """Transactional SQLite upgrades, including pre-versioned local libraries."""
 from .storage import MediaError
 
-VERSION = 3
+VERSION = 4
 
 
 def _statements(db, sql):
@@ -141,6 +141,14 @@ def migrate(db):
             _audio_tracks(db)
         if version < 3:
             _previews(db)
+        if version < 4:
+            db.execute('''CREATE TABLE IF NOT EXISTS scene_vectors (
+                set_id TEXT NOT NULL, ordinal INTEGER NOT NULL,
+                model_sha TEXT NOT NULL, frame_sha TEXT NOT NULL,
+                vector BLOB NOT NULL, sha256 TEXT NOT NULL,
+                PRIMARY KEY(set_id,ordinal),
+                FOREIGN KEY(set_id,ordinal) REFERENCES preview_frames(set_id,ordinal)
+            )''')
         db.execute(f'PRAGMA user_version={VERSION}')
         db.commit()
     except BaseException:

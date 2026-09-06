@@ -11,6 +11,17 @@ const video = $("video"), dialog = $("player-dialog");
 $("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
 const errors = {
+  scene_model_missing:"장면 검색 모델이 아직 설치되지 않았습니다. 설치 안내의 로컬 장면 검색 준비를 확인해 주세요.",
+  scene_runtime_missing:"장면 검색 실행 패키지가 필요합니다. 설치 안내를 확인해 주세요.",
+  scene_model_changed:"장면 검색 모델이 변경됐거나 지원하지 않는 구성입니다. 설치 상태를 확인하고 다시 준비해 주세요.",
+  scene_previews_required:"장면 검색 준비를 누르면 미리보기부터 이어서 만듭니다.",
+  scene_index_required:"새로 만들거나 변경된 미리보기가 있습니다. 장면 검색을 다시 준비해 주세요.",
+  scene_index_changed:"저장된 분석을 확인할 수 없습니다. 장면 검색을 다시 준비해 주세요.",
+  scene_failed:"장면 검색을 완료하지 못했습니다. 로컬 모델 설치를 확인하고 다시 시도해 주세요. 저장한 분석과 영상은 유지됩니다.",
+  scene_timeout:"장면 검색이 제한 시간을 넘겼습니다. 완료한 분석은 저장됐으니 다시 준비할 수 있습니다.",
+  scene_query_invalid:"찾고 싶은 화면을 200자 이내로 입력해 주세요.",
+  scene_query_too_long:"검색 문장이 너무 깁니다. 찾고 싶은 대상과 장소를 짧게 적어 주세요.",
+  scene_network_disabled:"검색 엔진의 외부 연결 시도를 차단했습니다. 로컬 모델 설치를 확인해 주세요.",
   preview_busy:"다른 미리보기를 준비 중입니다. 잠시 후 이어서 만들어 주세요.",
   preview_changed:"저장된 미리보기를 확인할 수 없습니다. 원본 재생은 계속 사용할 수 있습니다.",
   preview_input_changed:"영상과 미리보기 정보가 일치하지 않습니다. 원본 상태를 확인해 주세요.",
@@ -455,6 +466,7 @@ video.textTracks?.addEventListener?.("change",()=>{
 
 let previewView={version:0,data:null,building:false,paused:false,owner:null,readVersion:0};
 function resetPreviews(){
+  resetScenes();
   previewView={version:previewView.version+1,data:null,building:false,paused:false,owner:null,readVersion:0};
   $("preview-panel").open=false;$("preview-grid").replaceChildren();$("preview-state").textContent="이 영상의 미리보기를 확인합니다.";$("preview-build").hidden=false;$("preview-build").disabled=false;$("preview-build").textContent="미리보기 만들기";$("preview-pause").hidden=true;
 }
@@ -520,3 +532,77 @@ async function buildPreviews(retry=null){
 }
 $("preview-build").addEventListener("click",()=>buildPreviews());
 $("preview-pause").addEventListener("click",()=>{previewView.paused=true;$("preview-state").textContent="현재 묶음을 저장한 뒤 멈춥니다.";});
+
+let sceneView={owner:null,busy:false,ready:false,paused:false,version:0};
+function sceneCurrent(view){return sceneView===view&&activeItem?.id===view.owner;}
+function sceneControls(view){
+  if(!sceneCurrent(view))return;
+  $("scene-prepare").disabled=view.busy;$("scene-prepare").hidden=view.ready;
+  $("scene-pause").hidden=!view.building;$("scene-search").disabled=view.busy||!view.ready;
+}
+function resetScenes(){
+  sceneView={owner:null,busy:false,ready:false,paused:false,version:0};
+  $("scene-panel").open=false;$("scene-query").value="";$("scene-results").replaceChildren();
+  $("scene-prepare").hidden=false;$("scene-prepare").disabled=false;$("scene-pause").hidden=true;$("scene-search").disabled=true;
+  $("scene-state").textContent="검색 준비와 검색은 이 기기에서만 실행합니다.";
+}
+$("scene-panel").addEventListener("toggle",async()=>{
+  if(!$("scene-panel").open){sceneView.paused=true;return;}
+  if(!activeItem||sceneView.busy)return;
+  const view=sceneView;view.owner=activeItem.id;const readVersion=view.readVersion=(view.readVersion||0)+1;
+  try{const data=await api(`/api/library/${view.owner}/scenes`);
+    if(!sceneCurrent(view)||view.readVersion!==readVersion)return;
+    view.ready=data.state==="ready";$("scene-state").textContent=`${data.completed}/${data.total}개 화면 분석 준비됨 · 검색어는 저장하지 않습니다.`;sceneControls(view);
+  }catch(e){if(sceneCurrent(view)&&view.readVersion===readVersion){view.ready=false;sceneControls(view);$("scene-state").textContent=e.message;}}
+});
+$("scene-prepare").addEventListener("click",async()=>{
+  const view=sceneView;if(!sceneCurrent(view)||view.busy)return;
+  view.busy=true;view.building=true;view.paused=false;view.version++;view.readVersion=(view.readVersion||0)+1;sceneControls(view);
+  $("scene-results").replaceChildren();$("scene-state").textContent="저장된 미리보기부터 확인하고 있어요.";
+  try{
+    // Detect missing models before spending time making a new preview grid.
+    try{await api(`/api/library/${view.owner}/scenes`);}catch(e){if(e.code!=="scene_previews_required")throw e;}
+    let grid=await api(`/api/library/${view.owner}/previews`);
+    while(sceneCurrent(view)&&!view.paused&&grid.state!=="ready"){
+      grid=await api(`/api/library/${view.owner}/previews`,{method:"POST"});
+      if(sceneCurrent(view))$("scene-state").textContent=`미리보기 ${grid.completed}/${grid.total}개 저장됨 · 닫거나 멈추면 현재 묶음까지 저장합니다.`;
+    }
+    while(sceneCurrent(view)&&!view.paused){
+      $("scene-state").textContent="화면을 분석하고 있어요. 영상은 계속 감상할 수 있습니다.";
+      const data=await api(`/api/library/${view.owner}/scenes/prepare`,{method:"POST"});
+      if(!sceneCurrent(view))return;
+      view.ready=data.state==="ready";$("scene-state").textContent=`${data.completed}/${data.total}개 화면 분석 저장됨`;
+      if(view.ready){$("scene-state").textContent+=` · 준비됐어요. 찾고 싶은 화면을 적어 주세요.`;break;}
+    }
+    if(sceneCurrent(view)&&view.paused)$("scene-state").textContent+=" · 멈췄습니다. 다시 준비하면 이어집니다.";
+  }catch(e){if(sceneCurrent(view))$("scene-state").textContent=e.message;}
+  finally{if(sceneCurrent(view)){view.busy=false;view.building=false;sceneControls(view);}}
+});
+$("scene-pause").addEventListener("click",()=>{sceneView.paused=true;$("scene-state").textContent="현재 묶음을 저장한 뒤 멈춥니다.";});
+$("subtitle-search-panel").addEventListener("toggle",()=>{if(!$("subtitle-search-panel").open)sceneView.paused=true;});
+$("scene-query").addEventListener("input",()=>{sceneView.version++;$("scene-results").replaceChildren();});
+$("scene-form").addEventListener("submit",async event=>{
+  event.preventDefault();const view=sceneView,query=$("scene-query").value.trim();
+  if(!sceneCurrent(view)||view.busy||!view.ready||!query)return;
+  view.busy=true;view.readVersion=(view.readVersion||0)+1;const version=++view.version;sceneControls(view);$("scene-results").replaceChildren();$("scene-state").textContent="이 영상에서 비슷한 화면을 찾고 있어요.";
+  try{
+    const data=await api(`/api/library/${view.owner}/scenes/search`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query})});
+    if(!sceneCurrent(view)||view.version!==version||!$("scene-panel").open)return;
+    for(const [index,frame] of data.candidates.entries()){
+      const row=document.createElement("li"),button=document.createElement("button"),picture=document.createElement("span"),img=document.createElement("img"),stamp=document.createElement("span");
+      button.type="button";button.className="preview-frame";button.setAttribute("aria-label",`후보 ${index+1}, ${time(frame.time)} 시점으로 이동`);
+      picture.className="preview-picture";img.alt="";img.src=frame.image;picture.append(img);
+      img.addEventListener("error",()=>{picture.textContent="이미지 확인 실패";button.disabled=true;});
+      stamp.className="preview-time";stamp.textContent=`후보 ${index+1} · ${time(frame.time)}`;button.append(picture,stamp);
+      button.addEventListener("click",()=>{
+        if(!sceneCurrent(view)||view.version!==version)return;
+        if(video.readyState<1||!Number.isFinite(video.duration))return toast("영상이 준비된 뒤 다시 선택해 주세요.");
+        if(!Number.isFinite(frame.time)||frame.time<0||frame.time>=video.duration)return toast("현재 재생 구간 밖의 후보입니다.");
+        try{video.currentTime=frame.time;video.play().catch(()=>toast("시점을 찾았습니다. 재생 버튼을 눌러 주세요."));video.scrollIntoView({block:"center"});}
+        catch{toast("이 시점으로 이동하지 못했습니다.",true);}
+      });row.append(button);$("scene-results").append(row);
+    }
+    $("scene-state").textContent=`${data.searched}/${data.sampled}개 화면에서 찾은 후보 · 이미지로 확인하고 선택하세요.`;
+  }catch(e){if(sceneCurrent(view)&&view.version===version){$("scene-state").textContent=e.message;if(["scene_index_required","scene_model_changed","scene_previews_required"].includes(e.code))view.ready=false;}}
+  finally{if(sceneCurrent(view)){view.busy=false;sceneControls(view);if(view.version!==version)$("scene-state").textContent="검색어가 바뀌었습니다. 후보 찾기를 다시 눌러 주세요.";}}
+});

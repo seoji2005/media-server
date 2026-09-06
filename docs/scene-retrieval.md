@@ -1,9 +1,9 @@
 # Local scene retrieval evaluation · 2026-09-06
 
-A real inference checkpoint, **not yet app-integrated search or model adoption**.
-PR #8 is merged into main `f0b0010`; its saved previews supply a useful input size.
-This experiment tests whether an image/text encoder can rank the frame the viewer
-means. Existing playback, captions, jobs, database and recommendations are unchanged.
+This records the evaluation-only checkpoint before [app integration](scene-search.md).
+PR #8 merged into main `f0b0010`; its saved previews supplied a useful input size.
+The experiment tested whether an image/text encoder could rank the frame the viewer
+means, without changing playback, captions, jobs, database or recommendations.
 
 ## Candidate and sample
 
@@ -90,6 +90,6 @@ rerun retained 16/20 and 19/20. The original full-sample CPU run encoded 36 imag
 These are short batches with warm file caches, not end-to-end interactive latency.
 Fresh review verified hashes/ranking and found misleading revision provenance; the
 explicit fields/local input descriptions fixed it. Limited rereview: no remaining
-findings, with the translated-label ambiguity above retained. No app regression rerun
-was needed because application code is unchanged; previous [109-test/browser evidence](previews.md)
-remains applicable. Windows/RTX, held-out retrieval, long-film ASR and enhancement remain open.
+findings, with the translated-label ambiguity above retained. That evaluation-only checkpoint did not change application code; its previous
+[109-test/browser evidence](previews.md) remained applicable. The subsequent
+[app integration and separate verification](scene-search.md) now connects these candidates to viewing. Windows/RTX, held-out retrieval, long-film ASR and enhancement remain open.
