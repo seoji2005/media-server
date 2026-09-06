@@ -1,0 +1,10 @@
+# Optional local adapters. CPU has real inference evidence; target CUDA remains open.
+# Install the appropriate CPU/CUDA torch wheel first (docs/subtitles.md).
+torch==2.8.0
+torchaudio==2.8.0
+silero-vad==6.0.0
+faster-whisper==1.2.1
+# Transitive requirement only: the app blocks its import and uses JIT VAD.
+onnxruntime==1.29.0
+transformers==4.57.1
+sentencepiece>=0.2,<0.3
