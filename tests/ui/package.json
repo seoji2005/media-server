@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "node player.cjs && node subtitles.cjs && node subtitle-search.cjs && node audio.cjs && node previews.cjs && node scenes.cjs"
+    "test": "node player.cjs && node subtitles.cjs && node subtitle-search.cjs && node audio.cjs && node previews.cjs && node scenes.cjs && node recommendations.cjs"
   },
   "devDependencies": {
-    "jsdom": "30.0.1"
+    "jsdom": "30.0.1",
+    "playwright": "1.63.0"
   }
 }

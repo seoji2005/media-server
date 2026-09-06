@@ -86,8 +86,8 @@ native 재생 버튼·탐색 막대·전체 화면을 사용합니다. 자막 �
 자막 준비가 접혀 있어도 처리 상태와 확인할 구간 안내는 표시합니다.
 **장면 찾기 → 시간별 미리보기**에서 필요할 때 작은 프레임을 만들고 선택한 시점으로
 이동할 수 있습니다. 멈추거나 닫으면 현재 묶음까지 저장하며, 앱을 재시작해도 이어 만듭니다.
-뒤의 장면이 보일 수 있으며, 일정 간격의 이미지 탐색입니다. 내용·의미를 이해하는 검색은
-아직 별도 미완료 범위입니다. [미리보기 동작과 실제 검증](docs/previews.md)을 참고하세요.
+뒤의 장면이 보일 수 있으며, 일정 간격의 이미지 탐색입니다. 화면 내용으로 찾기는 이 표본을
+검색하므로 짧은 장면을 놓칠 수 있습니다. [미리보기 동작과 실제 검증](docs/previews.md)을 참고하세요.
 
 시청 위치는 약 4초마다, 일시정지·탐색·창을 닫을 때 저장합니다. 화면에 표시된 마지막
 **저장됨** 위치가 복원 기준입니다. 강제 종료 시 마지막 미확인 몇 초는 남지 않을 수
@@ -134,27 +134,41 @@ CLI 성공 출력은 항목 ID와 중복 여부만 포함합니다. 로그에 �
 
 ```sh
 python -m pip install -r requirements-dev.txt
-python -m unittest discover -s tests -q
-python scripts/harness.py check
-python scripts/harness.py status
+npm ci --prefix tests/ui --no-audit --no-fund
 python scripts/harness.py run test
-python scripts/harness.py run start
 ```
 
 위 `python`은 활성화한 `.venv`의 Python이어야 합니다. 활성화하지 않을 때는 앞의
 venv Python 명령으로 직접 테스트·시작하세요. 하네스도 호출한 Python을 그대로 사용합니다.
-테스트는 FFmpeg 합성 fixture를 임시
-폴더에 만들며 개인 영상이 필요 없습니다. `check`는 문서·설정 검사입니다.
+검증에는 Node.js **24**, FFmpeg/ffprobe와 설치된 **Chrome**이 필요합니다.
+Edge를 쓰려면 `MEDIA_TEST_BROWSER_CHANNEL=msedge`, 별도 Chromium 실행 파일은
+`MEDIA_TEST_BROWSER_EXECUTABLE` 환경 변수로 지정합니다. 실행 파일·코덱이 없으면 실패하며
+브라우저 검사를 조용히 건너뛰지 않습니다. 실제 Windows/RTX 검증을 대신하지 않습니다.
 
-선택 UI 이벤트 회귀: Node.js와 `tests/ui/package.json`의 jsdom으로
-`npm install --prefix tests/ui`, `npm test --prefix tests/ui`를 실행합니다.
-이는 mocked media/HTTP를 사용하는 DOM 검사이며 실제 브라우저 재생 검증이 아닙니다.
+기본 명령은 Python 검사 → 추천 포함 DOM 검사 7개 → 실제 브라우저 검사를 실행합니다.
+브라우저 검사는 임시 폴더의 20초 H.264/AAC 합성 영상·한국어 SRT만 사용해 UI 가져오기,
+native 자막, Range 재생, 탐색, 닫기/열기, 서버 프로세스 재시작 후 7초 위치 복원,
+원본/보관 사본 보존과 빈 서버 로그를 확인합니다. 모델·개인 영상·API 키는 필요 없습니다.
+DOM 검사는 mocked media/HTTP이며 디코딩 증거가 아닙니다.
+좁은 변경에는 `python -m unittest discover -s tests -q` 또는
+`npm test --prefix tests/ui`만 실행할 수 있습니다. 문서 링크 검사는 `python scripts/harness.py check`입니다.
 
-현재 증거: Python 3.12.13/Linux, FFmpeg 6.1.1에서 합성 영상 API/실제 HTTP Range,
-원본·사본 해시, 강제 프로세스 종료/재시작과 트랜잭션 복구를 확인했습니다.
-실제 Linux Chromium에서 H.264/AAC 디코딩·한국어 native 자막·탐색·이어보기를
-확인했습니다. 짧은 공개 음성/합성 영상이며 장편·Windows·RTX·사람의 감상 품질 평가는
-남아 있습니다. DOM 검사는 영상 디코딩 증거가 아닙니다. [현재 인계](docs/current.md) 참고.
+[GitHub CI](.github/workflows/verify.yml)는 같은 명령을 Linux와 Windows Server 2025/CPU에서
+실행하도록 준비했습니다. 두 작업 각각 최대 10분이며 모델 다운로드·캐시·artifact 업로드는 없습니다.
+**현재 원격 실행은 비활성**입니다. 비공개 저장소의 무료 잔여량을 확인하거나 오너의 실행 비용
+승인을 받은 뒤 repository Actions variable `MEDIA_CI_ENABLED=true`로 활성화합니다.
+이 연결 도구는 계정 billing 조회를 허용하지 않습니다. Windows CI가 통과해도 Windows 11/RTX
+실행·실제 소리·모니터 배율·감상 품질은 별도로 확인해야 합니다.
+
+2026-09-06 검증: `2a45773`에서 위 기본 명령으로 Python **131개/39.861초**, DOM **7개**,
+브라우저 최초/재시작 검사가 통과했습니다. 환경은 Python 3.12.13/Linux, FFmpeg 6.1.1,
+Node 24.19.0, Playwright 1.63.0, 별도 Chromium 149 실행 파일입니다.
+독립 검토에서 테스트 서버 포트 인계 중 다른 로컬 앱을 사용할 가능성을 발견했습니다.
+`1abf072`는 자식이 소켓을 계속 소유하도록 수정했고, 해당 브라우저 검사를 다시 통과했습니다.
+검토자도 경쟁 bind 거절·자식 종료·빈 로그를 확인했습니다. 이후 전체 Python/DOM 재실행은
+하지 않았습니다. 원격 CI·Chrome·Windows·RTX·실제 소리·사람의 가독성 평가는 미검증입니다.
+브라우저 재현 명령은 `python tests/browser_smoke.py`이며 cloud에서는 위 실행 파일 환경 변수를
+지정했습니다. 장편·실모델 실험은 이 합성 검사와 별개입니다. [현재 인계](docs/current.md) 참고.
 
 한 Work가 총괄·구현하고 위험한 변경에만 fresh reviewer subagent를 사용합니다.
 GitHub는 checkpoint를 보관하며 두 Work 사이 이벤트 왕복은 사용하지 않습니다.

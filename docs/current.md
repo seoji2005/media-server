@@ -1,31 +1,28 @@
 # Current work
 
-- **Milestone:** #9 merged; a different-film retrieval check and whole 12-minute real
-  subtitle execution are complete. Near-black images no longer become search candidates.
-  Korean dialogue naturalness is the clearest newly measured quality gap.
+- **Milestone:** preserve the working viewing flow with repeatable checks. #9 is merged;
+  #10 includes different-film retrieval, whole 12-minute subtitles and partial translation comparison.
 - **Branch / PR / HEAD:** `app/scene-quality`; resolve its live Draft PR/HEAD in
   [open PRs](https://github.com/seoji2005/media-server/pulls). Base main `bfce827` includes
-  owner-approved #9. Verified code `b20fd99`, followed by evidence/docs; the new PR needs
-  separate merge approval. One writer; AGENTS.md and [product contract](product.md) govern.
+  owner-approved #9. The Draft needs separate merge approval. One writer;
+  AGENTS.md and [product contract](product.md) govern; no harness redesign.
 - **What works:** import/compatible copies, shared audio, playback/resume, real ASR/Korean
   captions and recoverable jobs, literal/visual scene search, previews and explicit-feedback
   recommendations. [New quality findings](quality-check.md), [scene setup](scene-search.md),
   [ASR/runtime](subtitles.md), [readability](subtitle-readability.md),
-  [renditions/audio/UI](compatible-renditions.md).
-- **Current blockers:** no Windows/RTX access or suitable local 60+ minute speech input.
-  The 12-minute run finished before the planned interruption, so it supplies no new
-  interruption proof; ASR interruption still repeats its stage. Action/absent-scene search
-  and natural Korean dialogue remain weak. [Enhancement](enhancement-spike.md) has no
-  adopted preset. Earlier long-film download/larger-encoder requests ended in cancelled
-  approval; a separate public short-film download succeeded. HEVC/10-bit policy, spending
-  and scope cuts require owner decisions.
-- **Next action:** owner requested [local versus Gemini Flash translation](translation-comparison.md)
-  on time, quality and censorship. After owner-reported payment, a small probe and the
-  previously failed 8-unit translation succeeded: now 16/80 cloud units. Earlier 503
-  root cause remains unconfirmed; [diagnosis](translation-comparison.md#post-payment-diagnosis)
-  separates working API access from unverified billing activation. Keep local pending
-  complete comparison. $1 approved; successful usage priced at $0.00300525, plus old
-  unknown-charge reserves gives $0.993186 accounted / $0.006814 remaining (not a bill).
-  Private egress stays opt-in.
-  Prioritize Windows/RTX and long-input recovery when access/input becomes available.
-  Keep enhancement and semantic retrieval included; do not expand diagnostics/harness.
+  [renditions/audio/UI](compatible-renditions.md). [One verification command](../README.md#검증과-작업-방식)
+  now includes all seven DOM suites and real browser import/captions/playback/server restart.
+- **Current blockers:** no Windows/RTX access or natural 60+ minute speech input. ASR
+  interruption repeats its stage; the 12-minute run supplied no interruption proof.
+  [Enhancement](enhancement-spike.md) has no adopted preset. Action/absent-scene search
+  and natural Korean dialogue remain weak. CI runner jobs are disabled until included
+  minutes or spending are confirmed; prepared Windows checks are not execution evidence.
+  Earlier long-film/larger-encoder requests ended in cancelled approval; do not bypass them.
+- **Next action:** activate/run the prepared Linux/Windows checks after the cost boundary
+  is resolved. Then measure long-timeline interruption/repeated work using existing permitted
+  media (operational evidence only); use natural long dialogue separately for ASR quality.
+  Avoid chunked ASR design before measuring loss. Next product experiment is one
+  compression-aware enhancement candidate against the failed baseline. Windows/RTX
+  access takes priority whenever available. Keep all October features included.
+  [Gemini comparison/budget](translation-comparison.md#post-payment-diagnosis) remains
+  incomplete (16/80); local stays default and private egress remains opt-in.
