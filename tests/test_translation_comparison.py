@@ -116,6 +116,60 @@ class ComparisonTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compare.request('dummy', 'generateContent', {}, 'unapproved')
 
+    def test_http_error_retains_only_fixed_diagnostic_labels(self):
+        for status, message, signal in (
+                ('UNAVAILABLE', 'This model is overloaded.', 'capacity'),
+                ('RESOURCE_EXHAUSTED', 'Your prepayment credits are depleted.', 'billing'),
+                ('NOT_FOUND', 'Model is not found for API version v1beta.', 'model_or_method')):
+            payload = json.dumps({'error': {'status': status,
+                'message': message + ' project: private-project key: dummy-secret',
+                'details': [{'secret': 'dummy-secret'}]}}).encode()
+            stream = io.BytesIO(payload)
+            class Opener:
+                def open(self, *args, **kwargs):
+                    raise compare.urllib.error.HTTPError('private-url', 503,
+                        'private-reason', {'private-header': 'dummy-secret'}, stream)
+            with patch.object(compare.urllib.request, 'build_opener', return_value=Opener()):
+                result = compare.request('dummy-secret', 'generateContent', {})
+            self.assertEqual(result['api_status'], status)
+            self.assertIn(signal, result['message_signals'])
+            self.assertEqual(result['http_status'], 503)
+            self.assertTrue(stream.closed)
+            self.assertNotIn('dummy-secret', json.dumps(result))
+            self.assertNotIn('private', json.dumps(result))
+
+    def test_error_body_malformed_or_arbitrary_values_never_escape(self):
+        for value in (None, [], {'error': None}, {'error': []},
+                {'error': {'status': ['UNAVAILABLE'], 'message': []}},
+                {'error': {'status': 'private-secret', 'message': 'private-secret'}}):
+            result = compare.error_summary(json.dumps(value))
+            self.assertNotIn('private-secret', json.dumps(result))
+        for payload in (b'<html>private-secret</html>', b'\xff', b'[' * 2000):
+            self.assertEqual(compare.error_summary(payload), {'error_body': 'unrecognized'})
+
+    def test_error_close_failure_still_saves_failed_request(self):
+        class BrokenClose(io.BytesIO):
+            def close(self):
+                super().close()
+                raise OSError('private cleanup detail')
+        class Opener:
+            def open(self, request, timeout):
+                if request.full_url.endswith(':countTokens'):
+                    return io.BytesIO(b'{"totalTokens":300}')
+                raise compare.urllib.error.HTTPError('private-url', 503, 'private', {},
+                    BrokenClose(b'{"error":{"status":"UNAVAILABLE","message":"overloaded"}}'))
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'GEMINI_API_KEY': 'dummy'}), \
+                patch.object(compare.urllib.request, 'build_opener', return_value=Opener()), \
+                contextlib.redirect_stdout(io.StringIO()):
+            out = Path(temp) / 'result'
+            report = compare.run(out, Decimal('1'))
+            self.assertEqual(report['state'], 'request_or_accounting_failure')
+            saved = json.loads((out / 'report.json').read_text())
+            self.assertEqual(len(saved['requests']), 1)
+            self.assertEqual(saved['requests'][0]['api_status'], 'UNAVAILABLE')
+            self.assertGreater(Decimal(saved['accounted_usd']), 0)
+            self.assertNotIn('private', json.dumps(saved))
+
 
 if __name__ == '__main__':
     unittest.main()

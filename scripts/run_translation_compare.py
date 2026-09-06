@@ -42,6 +42,39 @@ def redact(value, key):
     return value
 
 
+def error_summary(payload):
+    """Keep fixed diagnostic labels, never provider text/account IDs/headers."""
+    result = {'error_body': 'unrecognized'}
+    try:
+        data = json.loads(payload)
+        error = data.get('error') if type(data) is dict else None
+        if type(error) is not dict:
+            return result
+        result['error_body'] = 'json_error'
+        status = error.get('status')
+        if type(status) is str and status in {
+                'INVALID_ARGUMENT', 'FAILED_PRECONDITION', 'UNAUTHENTICATED',
+                'PERMISSION_DENIED', 'NOT_FOUND', 'RESOURCE_EXHAUSTED',
+                'INTERNAL', 'UNAVAILABLE', 'DEADLINE_EXCEEDED'}:
+            result['api_status'] = status
+        message = error.get('message')
+        if type(message) is str:
+            message = message.lower()
+            signals = {
+                'capacity': ('overloaded', 'high demand', 'capacity'),
+                'billing': ('billing', 'prepayment', 'prepay', 'credits'),
+                'quota': ('quota', 'rate limit'),
+                'credential': ('api key', 'api_key'),
+                'location': ('location is not supported', 'unsupported location'),
+                'model_or_method': ('not found for api version', 'not supported for'),
+            }
+            result['message_signals'] = [label for label, phrases in signals.items()
+                                         if any(p in message for p in phrases)]
+    except (ValueError, TypeError, RecursionError):
+        pass
+    return result
+
+
 def request(key, method, body, model=MODEL):
     if method not in ('countTokens', 'generateContent') or model not in RATES:
         raise ValueError('invalid_method')
@@ -60,9 +93,19 @@ def request(key, method, body, model=MODEL):
                 return {'error': 'invalid_response_envelope', 'seconds': time.monotonic() - start}
             return {'data': data, 'seconds': time.monotonic() - start}
     except urllib.error.HTTPError as error:
-        # Error bodies/headers may contain account details. Never log them.
+        # Read a bounded body only to classify it; retain no raw text or headers.
+        try:
+            payload = error.read(16385)
+            detail = error_summary(payload) if len(payload) <= 16384 else {'error_body': 'too_large'}
+        except Exception:
+            detail = {'error_body': 'unreadable'}
+        finally:
+            try:
+                error.close()
+            except Exception:
+                pass  # Cleanup must not discard the failed request/accounting.
         return {'error': 'http_error', 'http_status': error.code,
-                'seconds': time.monotonic() - start}
+                'seconds': time.monotonic() - start, **detail}
     except Exception:
         return {'error': 'transport_or_json_error', 'seconds': time.monotonic() - start}
 

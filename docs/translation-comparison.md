@@ -3,8 +3,9 @@
 Owner requested a decision based on **time, Korean quality and censorship**, with an
 API key and a $1 budget supplied on 2026-09-06. This is a developer comparison of permitted public text;
 it does not authorize sending the private library or change the app's offline default.
-**Current decision: retain local translation. Gemini adoption is blocked by incomplete
-execution, despite better Korean phrasing in the one successful batch.**
+**Current decision: retain local translation pending complete comparison. API access
+recovered in the [post-payment diagnosis](#post-payment-diagnosis); 16/80 units completed,
+with Japanese and sensitive probes still untested.**
 
 ## Frozen comparison
 
@@ -92,6 +93,8 @@ Do not equate no safety filter or successful generation with faithful translatio
 
 ## Actual API attempt · 2026-09-06
 
+This section records the initial failures, before the later recovery below.
+
 [Raw results, errors and accounting](evidence/translation_gemini_attempt.json):
 3.8 model metadata and token counting succeeded; its first **8/80** dialogue units
 translated successfully. The next generation returned HTTP **503**, and one explicit
@@ -140,6 +143,47 @@ Tests/review do not validate Google availability or billing. Credential scanning
 the temporary key copy was removed after execution. No key or private library input
 was committed, and the app remains offline by default.
 
-Next: keep the local adapter; revisit the remaining frozen comparison when API service
-works, respecting the remaining approved budget and retained unknown-charge reserves.
-Do not rerun completed ASR or silently make private media use cloud translation.
+## Post-payment diagnosis
+
+The owner reported a KRW 16,000 payment and asked for the cause. Two requests using the
+replacement credential then returned **200 / STOP**: plain `Reply only OK.` in **12.408 s**,
+and the previously failed `tos_08..15` translation in **13.201 s**. All eight IDs and
+nonempty translations validated. [Evidence](evidence/translation_gemini_diagnosis.json).
+No automatic retry or private input was used; the temporary credential copy was removed.
+
+**Established:** access currently works, including the same failed public dialogue,
+context and JSON schema. The translation output cap changed from 4096 to 1024, so this
+was not an exact controlled replay. There is no evidence that a rejected credential,
+unsupported Korean output or content filtering explains the earlier 503s.
+**Unresolved:** billing activation versus a transient provider recovery. The earlier
+runner discarded the error bodies, and no billing console or invoice was accessed.
+Do not claim that payment caused the recovery merely because it preceded it.
+
+[Google's error guide](https://ai.google.dev/gemini-api/docs/api-errors) distinguishes
+503 service unavailability from billing prerequisites, authentication and quota errors.
+[Billing documentation](https://ai.google.dev/gemini-api/docs/billing) says keys inherit
+their project's billing account, Prepay needs a positive balance, and tier updates
+usually reflect within 10 minutes after successful payment. The owner's account status
+must be checked in AI Studio to distinguish payment confirmation from credit activation.
+The public status page did not expose usable incident data in this environment.
+
+The experiment now retains only fixed error categories and allowlisted API status values
+from a bounded 16 KiB error body. Provider messages, headers, account IDs and credentials
+are still discarded. Fresh review of `c04761c` found that error-stream cleanup could
+skip the failed-call report; fixed and rechecked at `59b00c3`. **9 focused tests passed**,
+including malformed/private bodies and cleanup failure. This changes only the developer
+experiment; the app's local adapter and privacy boundary are unchanged.
+
+The two diagnostic requests used explicit output caps 128/1024, reserving those caps
+plus input margin under the remaining approval. Previous full-model reservations were
+not released. Added successful usage priced at **$0.00136275**; all successful responses
+now total **$0.00300525**. With old unknown-charge reserves, accounted total is
+**$0.99318600**, leaving **$0.00681400** under the original $1 approval. These are token-price
+calculations and conservative reservations, **not invoice charges**. Reporting roughly
+$0.99 as a budget blocker hid how small the observed usage was; do not imply it required
+the owner's subsequent payment. No further payment is justified by these measurements.
+
+Next: retain local pending the incomplete comparison; use the saved 16 cloud outputs and
+80 local baselines. Before more calls, reconcile old reservations against the documented
+request limits or billing usage. Do not reset the $1 cap because the owner funded an account,
+rerun completed ASR, or silently make private media use cloud translation.

@@ -20,9 +20,12 @@
   approval; a separate public short-film download succeeded. HEVC/10-bit policy, spending
   and scope cuts require owner decisions.
 - **Next action:** owner requested [local versus Gemini Flash translation](translation-comparison.md)
-  on time, quality and censorship. Only 8/80 cloud units completed; repeated 503 responses
-  blocked the rest. Keep local; revisit when API works. $1 approved, conservative accounted
-  $0.99182325 (mostly unknown-charge reserves), $0.00817675 remains. A replacement
-  key authenticated/counts succeeded; generation again 503. No more calls under this reserve. Private egress stays opt-in.
+  on time, quality and censorship. After owner-reported payment, a small probe and the
+  previously failed 8-unit translation succeeded: now 16/80 cloud units. Earlier 503
+  root cause remains unconfirmed; [diagnosis](translation-comparison.md#post-payment-diagnosis)
+  separates working API access from unverified billing activation. Keep local pending
+  complete comparison. $1 approved; successful usage priced at $0.00300525, plus old
+  unknown-charge reserves gives $0.993186 accounted / $0.006814 remaining (not a bill).
+  Private egress stays opt-in.
   Prioritize Windows/RTX and long-input recovery when access/input becomes available.
   Keep enhancement and semantic retrieval included; do not expand diagnostics/harness.
