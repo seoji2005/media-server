@@ -336,8 +336,9 @@ class Store:
             track = video[0]
             duration = float(result["format"]["duration"])
             start = float(result['format'].get('start_time',0))
+            video_start = float(track.get('start_time',start))
             width, height = int(track["width"]), int(track["height"])
-            if not math.isfinite(start) or not math.isfinite(duration) or duration <= 0 or not (0 < width <= 8192 and 0 < height <= 8192):
+            if not math.isfinite(start) or not math.isfinite(video_start) or not math.isfinite(duration) or duration <= 0 or not (0 < width <= 8192 and 0 < height <= 8192):
                 raise ValueError
         except (ValueError, KeyError, TypeError, IndexError):
             raise MediaError("invalid_media", 422) from None
@@ -365,6 +366,8 @@ class Store:
         return {"duration": duration, "width": width, "height": height,
                 "extension": extension, "mime": {'mp4':'video/mp4', 'mkv':'video/x-matroska', 'webm':'video/webm'}[extension],
                 "preparation": preparation, 'selected_duration':selected_duration(track,selected,start),
+                'video_duration':selected_duration(track,[],start),
+                'start_time':start, 'video_start':video_start,
                 'audio_tracks':tracks}
 
     def finish_import(self, stage: Path, digest: str, size: int, title: str) -> dict:

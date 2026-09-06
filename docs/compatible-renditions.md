@@ -43,7 +43,7 @@ runtime package is needed. This is local preparation, not a downloading feature.
   avoiding a full-library startup probe. Existing item IDs, watch history and caption
   rows are preserved. Stored original duration stays intact; the player uses the
   rendition duration when the omitted streams made the original container longer.
-- SQLite upgrades are centralized in `migrations.py` using `PRAGMA user_version=2` and
+- SQLite upgrades are centralized in `migrations.py` using `PRAGMA user_version` and
   one transaction. Pre-versioned libraries retain IDs, history, caption/checkpoint bytes
   and ready first-audio copies. Renditions are unique per item/audio; unknown newer
   schema versions are refused without writes. Content URLs pin audio choice so later

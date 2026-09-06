@@ -1,7 +1,7 @@
 """Transactional SQLite upgrades, including pre-versioned local libraries."""
 from .storage import MediaError
 
-VERSION = 2
+VERSION = 3
 
 
 def _statements(db, sql):
@@ -112,6 +112,21 @@ def _audio_tracks(db):
         db.execute('DROP TABLE renditions_v1')
 
 
+def _previews(db):
+    _statements(db, '''
+        CREATE TABLE IF NOT EXISTS preview_sets (
+            id TEXT PRIMARY KEY, item_id TEXT NOT NULL UNIQUE REFERENCES items(id),
+            input_sha TEXT NOT NULL, duration REAL NOT NULL, total INTEGER NOT NULL,
+            profile TEXT NOT NULL, start REAL NOT NULL, seek_offset REAL NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS preview_frames (
+            set_id TEXT NOT NULL REFERENCES preview_sets(id), ordinal INTEGER NOT NULL,
+            time REAL NOT NULL, image BLOB, sha256 TEXT, error TEXT,
+            PRIMARY KEY(set_id,ordinal)
+        );
+    ''')
+
+
 def migrate(db):
     db.execute('BEGIN IMMEDIATE')
     try:
@@ -124,6 +139,8 @@ def migrate(db):
             _legacy_recommendations(db)
         if version < 2:
             _audio_tracks(db)
+        if version < 3:
+            _previews(db)
         db.execute(f'PRAGMA user_version={VERSION}')
         db.commit()
     except BaseException:

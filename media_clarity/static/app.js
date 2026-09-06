@@ -11,6 +11,12 @@ const video = $("video"), dialog = $("player-dialog");
 $("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
 const errors = {
+  preview_busy:"다른 미리보기를 준비 중입니다. 잠시 후 이어서 만들어 주세요.",
+  preview_changed:"저장된 미리보기를 확인할 수 없습니다. 원본 재생은 계속 사용할 수 있습니다.",
+  preview_input_changed:"영상과 미리보기 정보가 일치하지 않습니다. 원본 상태를 확인해 주세요.",
+  preview_interrupted:"미리보기 준비가 중단됐습니다. 저장한 프레임부터 이어 만들 수 있습니다.",
+  preview_not_found:"이 미리보기를 찾을 수 없습니다. 목록을 다시 열어주세요.",
+  preview_timing_unavailable:"이 영상의 미리보기 시점을 확인할 수 없습니다. 원본 재생은 계속 사용할 수 있습니다.",
   invalid_audio_track: "선택할 수 없는 오디오입니다. 영상의 오디오 목록을 다시 확인해 주세요.",
   processing_audio_conflict: "다른 오디오의 자막 작업이 남아 있습니다. 해당 작업을 완료한 뒤 새 자막을 만들어 주세요.",
   preference_changed: "다른 저장으로 선호가 바뀌었습니다. 저장 상태를 다시 확인해 주세요.",
@@ -177,6 +183,7 @@ async function openPlayer(id) {
     if(request !== playerRequest)return;
     if(!item.available) return toast(message(item.unavailable_reason || "managed_file_missing"),true);
     for(const panel of ["audio-panel","subtitle-preparation","subtitle-search-panel","preference-panel"])$(panel).open=false;
+    resetPreviews();
     activeItem=item; lastQueuedPosition=null; $("player-title").textContent=item.title; renderAudio(item);
     $("video-error").hidden=true; $("save-state").textContent=continuing(item) ? `${time(item.position)}에서 이어보기` : "준비 중";
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
@@ -224,7 +231,7 @@ function savePosition(keepalive=false) {
   }).catch(e=>{lastQueuedPosition=null;if(activeItem?.id===id) $("save-state").textContent="저장 실패 · 연결 확인";toast(e.message,true);});
   return saveChain;
 }
-async function closePlayer() { playerRequest++; video.pause(); clearTimeout(saveTimer); saveTimer=null; await savePosition(); activeItem=null; resetSubtitles(); resetPreference(); video.removeAttribute("src"); video.load(); dialog.close(); if(filter === "recommended") refreshRecommendations(); else render(); }
+async function closePlayer() { playerRequest++; resetPreviews(); video.pause(); clearTimeout(saveTimer); saveTimer=null; await savePosition(); activeItem=null; resetSubtitles(); resetPreference(); video.removeAttribute("src"); video.load(); dialog.close(); if(filter === "recommended") refreshRecommendations(); else render(); }
 $("player-close").addEventListener("click",closePlayer);
 dialog.addEventListener("cancel",e=>{e.preventDefault();closePlayer();});
 $("restart-video").addEventListener("click",()=>{video.currentTime=0;savePosition();video.play().catch(()=>{});});
@@ -445,3 +452,71 @@ video.textTracks?.addEventListener?.("change",()=>{
   // Native caption controls also invalidate retained result callbacks.
   subtitleSearch={...subtitleSearch};renderSubtitleSearch();
 });
+
+let previewView={version:0,data:null,building:false,paused:false,owner:null,readVersion:0};
+function resetPreviews(){
+  previewView={version:previewView.version+1,data:null,building:false,paused:false,owner:null,readVersion:0};
+  $("preview-panel").open=false;$("preview-grid").replaceChildren();$("preview-state").textContent="이 영상의 미리보기를 확인합니다.";$("preview-build").hidden=false;$("preview-build").disabled=false;$("preview-build").textContent="미리보기 만들기";$("preview-pause").hidden=true;
+}
+function previewCurrent(view){return previewView===view&&activeItem?.id===view.owner;}
+function renderPreviews(view){
+  if(!previewCurrent(view))return;
+  const data=view.data,grid=$("preview-grid"),build=$("preview-build");
+  build.hidden=data?.state==="ready";build.disabled=view.building;build.textContent=data?.completed?"이어서 만들기":"미리보기 만들기";$("preview-pause").hidden=!view.building;
+  $("preview-state").textContent=view.building?`${data?.completed||0}/${data?.total||"…"}개 저장됨 · 닫거나 멈추면 현재 묶음까지 저장합니다.`:data?.state==="ready"?`${data.completed}개 준비됨${data.failed?` · ${data.failed}개는 프레임을 만들지 못했습니다`:""} · 선택하면 해당 시점으로 이동합니다.`:data?.completed?`${data.completed}/${data.total}개 저장됨 · 이어서 만들 수 있습니다.`:"필요할 때 이 기기에서 최대 120개의 작은 미리보기를 만듭니다.";
+  // Append checkpoints without replacing focused/visible earlier tiles on every batch.
+  for(const frame of data?.frames||[]){
+    let row=grid.querySelector(`[data-ordinal="${frame.ordinal}"]`);
+    if(row&&row.dataset.available===String(frame.available))continue;
+    const wasFocused=row?.contains(document.activeElement);
+    const next=document.createElement("li");next.dataset.ordinal=frame.ordinal;next.dataset.available=frame.available;
+    function addRetry(){if(next.querySelector(".preview-retry"))return;const retry=document.createElement("button");retry.type="button";retry.className="button button-quiet preview-retry";retry.textContent="다시 만들기";retry.setAttribute("aria-label",`${time(frame.time)} 미리보기 다시 만들기`);retry.disabled=view.building;retry.addEventListener("click",()=>{if(previewCurrent(view))buildPreviews(frame.ordinal);});next.append(retry);}
+    const button=document.createElement("button");button.type="button";button.className="preview-frame";button.setAttribute("aria-label",`${time(frame.time)} 시점으로 이동`);
+    const picture=document.createElement("span");picture.className="preview-picture";
+    if(frame.available){const img=document.createElement("img");img.alt="";img.loading="lazy";img.src=frame.image;img.addEventListener("error",()=>{img.hidden=true;picture.textContent="미리보기 표시 실패";addRetry();});picture.append(img);}
+    else picture.textContent="프레임 없음";
+    const stamp=document.createElement("span");stamp.className="preview-time";stamp.textContent=time(frame.time);button.append(picture,stamp);
+    button.addEventListener("click",()=>{
+      if(!previewCurrent(view))return;
+      if(video.readyState<1||!Number.isFinite(video.duration))return toast("영상이 준비된 뒤 다시 선택해 주세요.");
+      if(!Number.isFinite(frame.time)||frame.time<0||frame.time>=video.duration)return toast("현재 재생 구간 밖의 미리보기입니다.");
+      try{video.currentTime=frame.time;video.play().catch(()=>toast("시점을 찾았습니다. 재생 버튼을 눌러 주세요."));video.scrollIntoView({block:"center"});}
+      catch{toast("이 시점으로 이동하지 못했습니다.",true);}
+    });next.append(button);
+    if(!frame.available)addRetry();
+    if(row)row.replaceWith(next);else grid.append(next);
+    if(wasFocused)button.focus();
+  }
+  grid.querySelectorAll(".preview-retry").forEach(button=>button.disabled=view.building);
+}
+$("preview-panel").addEventListener("toggle",async()=>{
+  if(!$("preview-panel").open){previewView.paused=true;return;}
+  if(!activeItem)return;
+  const view=previewView;view.owner=activeItem.id;
+  if(view.building)return;
+  const readVersion=++view.readVersion;
+  $("preview-state").textContent="저장된 미리보기를 불러오고 있어요.";
+  try{const data=await api(`/api/library/${view.owner}/previews`);if(!previewCurrent(view)||view.readVersion!==readVersion)return;view.data=data;renderPreviews(view);}
+  catch(e){if(previewCurrent(view)&&view.readVersion===readVersion)$("preview-state").textContent=e.message;}
+});
+async function buildPreviews(retry=null){
+  const view=previewView;if(!activeItem||view.building)return;view.owner=activeItem.id;view.building=true;view.paused=false;
+  view.readVersion++;
+  const hadFocus=$("preview-build")===document.activeElement||document.activeElement?.classList.contains("preview-retry");renderPreviews(view);
+  try{
+    do{
+      const suffix=retry===null?"":`/${retry}/retry`;
+      const data=await api(`/api/library/${view.owner}/previews${suffix}`,{method:"POST"});
+      if(!previewCurrent(view))return;
+      if(retry!==null){const row=$("preview-grid").querySelector(`[data-ordinal="${retry}"]`);if(row)row.dataset.available="refresh";}
+      view.data=data;renderPreviews(view);
+    }while(retry===null&&view.data.state!=="ready"&&!view.paused&&$("preview-panel").open&&$("subtitle-search-panel").open);
+  }catch(e){if(previewCurrent(view)){view.building=false;renderPreviews(view);$("preview-state").textContent=e.message+" 저장된 미리보기와 원본 재생은 유지됩니다.";}return;}
+  finally{
+    if(previewCurrent(view)){view.building=false;$("preview-build").disabled=false;$("preview-pause").hidden=true;}
+    if(hadFocus&&previewCurrent(view)&&document.activeElement===document.body)$("preview-panel").querySelector("summary").focus();
+  }
+  renderPreviews(view);
+}
+$("preview-build").addEventListener("click",()=>buildPreviews());
+$("preview-pause").addEventListener("click",()=>{previewView.paused=true;$("preview-state").textContent="현재 묶음을 저장한 뒤 멈춥니다.";});

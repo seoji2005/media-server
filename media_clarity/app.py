@@ -66,9 +66,11 @@ def byte_range(header: str | None, size: int) -> tuple[int, int, int]:
 
 
 def create_app(data_dir: Path | None = None) -> FastAPI:
+    from .previews import Previews
     store = Store(data_dir if data_dir is not None else default_data_dir())
     jobs = Jobs(store)
     recommendations = Recommendations(store)
+    previews = Previews(store)
     token = secrets.token_urlsafe(32)
 
     @asynccontextmanager
@@ -79,12 +81,14 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             jobs.start()
             yield
         finally:
+            previews.close()
             jobs.close()
             store.close()
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store = store
     app.state.jobs = jobs
+    app.state.previews = previews
 
     @app.middleware("http")
     async def local_boundary(request: Request, call_next):
@@ -162,6 +166,23 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     @app.get("/api/library/{item_id}")
     def item(item_id: str):
         return store.item(item_id)
+
+    @app.get('/api/library/{item_id}/previews')
+    def preview_status(item_id: str):
+        return previews.status(item_id)
+
+    @app.post('/api/library/{item_id}/previews')
+    def prepare_previews(item_id: str):
+        return previews.prepare(item_id)
+
+    @app.post('/api/library/{item_id}/previews/{ordinal}/retry')
+    def retry_preview(item_id: str, ordinal: int):
+        return previews.prepare(item_id, retry=ordinal)
+
+    @app.get('/api/library/{item_id}/previews/{set_id}/{ordinal}.jpg')
+    def preview_image(item_id: str, set_id: str, ordinal: int):
+        data, digest = previews.image(item_id,set_id,ordinal)
+        return Response(data, media_type='image/jpeg', headers={'ETag':'"'+digest+'"'})
 
     @app.get("/api/recommendations")
     def suggested_items():
