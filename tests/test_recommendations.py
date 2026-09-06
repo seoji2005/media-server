@@ -179,6 +179,7 @@ class RecommendationTests(unittest.TestCase):
         iid=self.add('저장한 선호');self.save(iid,'like',False)
         self.client.__exit__(None,None,None)
         with sqlite3.connect(self.root/'library.sqlite3') as db:
+            db.execute('PRAGMA user_version=0')
             db.execute('ALTER TABLE item_preferences DROP COLUMN revision')
         self.start()
         self.assertEqual(self.client.get(f'/api/library/{iid}/preference').json(),{'included':False,'preference':'like','revision':0})

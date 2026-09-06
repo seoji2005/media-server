@@ -4,9 +4,11 @@
 
 H.264 8-bit 4:2:0 in MKV can now be watched without manual FFmpeg conversion.
 H.264 stays stream-copied. AAC/MP3 is copied; AC3/EAC3, DTS, FLAC, Opus/Vorbis and
-listed PCM formats use AAC 192 kbit/s stereo. New multi-audio MP4/MKV and supported
-WebM get one selected audio stream: the first, matching existing ASR `0:a:0`.
-This is explicit in the player. An audio selector remains future viewing work.
+listed PCM formats use AAC 192 kbit/s stereo. Multi-audio MP4/MKV and supported WebM
+default to the first audio. **오디오 → 들을 음성 → 적용** prepares/reuses a copy for the
+selected voice and switches only after success. Current playback survives preparation
+failure; each selected audio can require another copy's disk space. No originals or
+earlier copies are removed. New ASR jobs use that voice; existing jobs keep theirs.
 HEVC and unsupported depth/chroma get distinct fixed messages; no video encoding.
 
 [FFmpeg stream selection and streamcopy](https://ffmpeg.org/ffmpeg.html#Stream-selection)
@@ -18,7 +20,8 @@ runtime package is needed. This is local preparation, not a downloading feature.
 ## Storage and recovery
 
 - Original import commits before preparation. Browser upload then calls the protected
-  `POST /api/library/{item_id}/playback`; CLI import performs both phases.
+  `POST /api/library/{item_id}/playback`; CLI import performs both phases. The protected
+  `/api/library/{item_id}/audio/{audio_index}` prepares and commits an audio selection.
 - A separate rendition ID, SHA, size, duration and source SHA live in SQLite. Each
   file has its own exclusive directory. Content/Range/ETag use the selected rendition;
   source transcript, existing caption records and job input identity retain the original.
@@ -40,6 +43,11 @@ runtime package is needed. This is local preparation, not a downloading feature.
   avoiding a full-library startup probe. Existing item IDs, watch history and caption
   rows are preserved. Stored original duration stays intact; the player uses the
   rendition duration when the omitted streams made the original container longer.
+- SQLite upgrades are centralized in `migrations.py` using `PRAGMA user_version=2` and
+  one transaction. Pre-versioned libraries retain IDs, history, caption/checkpoint bytes
+  and ready first-audio copies. Renditions are unique per item/audio; unknown newer
+  schema versions are refused without writes. Content URLs pin audio choice so later
+  Range requests and another tab's selection cannot mix files.
 
 ## Evidence
 
@@ -104,6 +112,39 @@ and button text is 14 px, card titles 16 px and metadata 12 px; controls are at 
   After the initial QA crash, Chromium's single-process flag was removed; the completed
   probe also kept same-origin checks enabled. These are simulated screen sizes, not
   Windows scaling, target hardware, headful/audible or human readability acceptance.
+
+## Audio selection follow-up
+
+Local verification checkpoints: backend `3c3aae4`, UI correction `b045283`, following
+published `f5b72fa` in the same PR; the published follow-up contains those trees' changes.
+No new runtime package/model; FFmpeg's [timestamp options](https://ffmpeg.org/ffmpeg.html#Advanced-options)
+and [audio resampling](https://ffmpeg.org/ffmpeg-filters.html#aresample) preserve delayed
+audio in decoded samples. A real delayed-track probe exposed the old one-second shift;
+the regression compares ASR and prepared playback onset within 50 ms. This is not a
+word-alignment or broad subtitle-quality result.
+
+- Full Python: **101 passed / 24.418 s** at `3c3aae4`. Six new tests cover real AAC/AC3
+  selection, pinned Range/ETag, retry, subprocess exit between copy/selection commit,
+  job audio/checkpoint binding and atomic legacy-schema rollback. Backend unchanged at
+  `b045283`. Five DOM flows passed, including a preference regression that failed before
+  the fix and now covers delayed GET and PUT during audio switching.
+- Actual Linux Chromium 149.0.7827.0 + installed CPU Whisper/MADLAD: a public 10.44 s
+  Japanese FLEURS voice was audio 2 beside a synthetic tone. Start → saved ASR → pause
+  → watch audio 1 → server restart → resume published audio 2's Korean track. After a
+  QA async-wait error stopped the first continuation probe, attempt 3 completed with
+  a byte-identical saved transcript. **19 earlier caption rows unchanged, one new row**;
+  73 decoded frames, 63,495 decoded audio bytes, two Korean cues, Off/On and 4.25 s resume.
+  Desktop/mobile screenshots inspected; no horizontal overflow, page errors, external
+  page requests or server log bytes in the completed probe. Short headless CPU evidence
+  does not establish audible/human quality, long-video behavior or Windows/RTX fit.
+- Fresh bounded review found a pending preference response leaving controls disabled
+  after audio switching. The UI correction reloads preference state for the new player
+  owner and waits for existing saves. Limited rereview: no actionable findings; independent
+  legacy-transcript resume check passed without ASR or transcript mutation.
+- Final actual browser probe at `b045283`: delayed preference GET recovered; keyboard
+  audio switching returned focus to the selector. Updated desktop/mobile screenshots
+  were inspected. The first QA assertion used a locator disabled predicate that did not
+  reflect the fieldset property; checking that property passed. No app errors/egress/logs.
 
 ## Long-input gate remains blocked
 

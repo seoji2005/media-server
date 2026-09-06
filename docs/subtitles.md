@@ -262,6 +262,12 @@ the number left as source text. Such segments show **[원문]** in the actual ca
 
 ## Recovery and limits
 
+- Playback audio is selectable; new jobs freeze that original audio ordinal. Switching
+  playback does not change a running/paused job or its restart. Caption versions show
+  their audio; another voice's track is not auto-selected. New audio decode preserves
+  start offsets and gaps. Saved pre-upgrade transcripts can finish translation unchanged;
+  an older interrupted ASR without a transcript may require **처음부터 다시 만들기**.
+  [Audio selection, migration and real playback evidence](compatible-renditions.md#audio-selection-follow-up).
 - An OS worker lock survives server death and native inference stalls. A new server
   waits for the old worker to exit before recovery or another inference; original
   watching stays available. Attempts also condition checkpoint/publication writes

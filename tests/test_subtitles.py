@@ -23,7 +23,7 @@ class FixtureModel:
         self.root = root
     def identity(self):
         return 'fixture-v1'
-    def transcribe(self, path, duration):
+    def transcribe(self, path, duration, audio_index=0):
         with (self.root/'calls').open('a') as f:
             f.write('asr\n')
         return [{'start':.1,'end':1.9,'text':'hello.'}, {'start':2.,'end':3.5,'text':'next.'}]
@@ -301,7 +301,7 @@ class SubtitleTests(unittest.TestCase):
     def test_failed_translation_units_publish_marked_source_and_resume(self):
         class Batched(FixtureModel):
             batch_size=2;checkpoint_size=20
-            def transcribe(inner,path,duration):
+            def transcribe(inner,path,duration,audio_index=0):
                 self.assertEqual(path,self.store.file_path(self.store._row(self.item['id'])))
                 return [{'start':i*.5,'end':i*.5+.4,'text':text} for i,text in enumerate(['Hello.','Too long.','Empty.','Truncated.','안녕하세요.','Finish.'])]
             def translate_many(inner,texts):
@@ -336,7 +336,7 @@ class SubtitleTests(unittest.TestCase):
         original=self.jobs.track(self.item['id'],supplied)
         class Content(FixtureModel):
             batch_size=2;checkpoint_size=20
-            def transcribe(inner,path,duration):
+            def transcribe(inner,path,duration,audio_index=0):
                 return [{'start':i,'end':i+.8,'text':text} for i,text in enumerate(
                     ['Hello.','한국어 15m입니다.','Keep &quot;.','Finish.'])]
             def translate_many(inner,texts):
@@ -368,7 +368,7 @@ class SubtitleTests(unittest.TestCase):
     def test_append_checkpoints_and_legacy_track_compatibility(self):
         class Many(FixtureModel):
             batch_size=2;checkpoint_size=20
-            def transcribe(inner,path,duration):
+            def transcribe(inner,path,duration,audio_index=0):
                 return [{'start':i*.03,'end':i*.03+.02,'text':'A.'} for i in range(100)]
             def translate_many(inner,texts):return ['가.']*len(texts)
         job=self.enqueue();execute(self.store,job,Many)
@@ -400,7 +400,7 @@ class SubtitleTests(unittest.TestCase):
 
     def test_source_change_during_decode_prevents_checkpoint_and_publish(self):
         class Changed(FixtureModel):
-            def transcribe(inner,path,duration):
+            def transcribe(inner,path,duration,audio_index=0):
                 data=bytearray(path.read_bytes());data[-1]^=1;path.write_bytes(data)
                 return super().transcribe(path,duration)
         job=self.enqueue();execute(self.store,job,Changed)

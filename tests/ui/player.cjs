@@ -73,7 +73,7 @@ async function run(js) {
   assert.match(d.getElementById('toast').textContent,/보관된 원본은 유지/);
   assert.match(d.getElementById('library-grid').textContent,/재생 준비 실패/);
   await w.__qa.openPlayer('fixture-b');assert.equal(dialog.open,true);
-  assert.match(d.getElementById('player-meta').textContent,/첫 번째 오디오를 AAC/);
+  assert.match(d.getElementById('player-meta').textContent,/AAC 스테레오/);
   await w.__qa.closePlayer();
   w.close();return {checks:['safe title text','library search','continue filter','metadata resume','close and reopen autosave','ordered seek/pause writes','missing-file feedback','changed-file feedback','media error refreshes library'],writes};
 }

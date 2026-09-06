@@ -11,6 +11,8 @@ const video = $("video"), dialog = $("player-dialog");
 $("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
 const errors = {
+  invalid_audio_track: "선택할 수 없는 오디오입니다. 영상의 오디오 목록을 다시 확인해 주세요.",
+  processing_audio_conflict: "다른 오디오의 자막 작업이 남아 있습니다. 해당 작업을 완료한 뒤 새 자막을 만들어 주세요.",
   preference_changed: "다른 저장으로 선호가 바뀌었습니다. 저장 상태를 다시 확인해 주세요.",
   local_origin_required: "이 기기의 로컬 주소에서 다시 열어주세요.", session_required: "앱이 재시작되었습니다. 페이지를 새로고침해 주세요.",
   unsupported_container: "지원하지 않는 형식입니다. MP4·MKV 또는 WebM 영상을 선택해 주세요.", unsupported_codec: "현재 브라우저 감상용 코덱을 지원하지 않습니다. H.264/AAC MP4 또는 VP8·VP9 WebM이 필요합니다.",
@@ -168,30 +170,55 @@ async function openPlayer(id) {
   const request = ++playerRequest;
   try {
     let item = await api(`/api/library/${id}`);
-    if(item.unavailable_reason === "rendition_required") {
+    if(item.unavailable_reason === "rendition_required" || item.audio_tracks === null) {
       if(!await preparePlayback(id))return;
       item = await api(`/api/library/${id}`);
     }
     if(request !== playerRequest)return;
     if(!item.available) return toast(message(item.unavailable_reason || "managed_file_missing"),true);
-    for(const panel of ["subtitle-preparation","subtitle-search-panel","preference-panel"])$(panel).open=false;
-    activeItem=item; lastQueuedPosition=null; $("player-title").textContent=item.title; $("player-meta").textContent=`${item.width} × ${item.height} · ${time(item.duration)} · ${{remux_mp4:"재생용 MP4 · 영상 그대로 · 첫 번째 오디오",audio_mp4:"재생용 MP4 · 영상 그대로 · 첫 번째 오디오를 AAC 스테레오로 변환",remux_webm:"재생용 WebM · 영상 그대로 · 첫 번째 오디오"}[item.preparation] || "원본 사본"}`;
+    for(const panel of ["audio-panel","subtitle-preparation","subtitle-search-panel","preference-panel"])$(panel).open=false;
+    activeItem=item; lastQueuedPosition=null; $("player-title").textContent=item.title; renderAudio(item);
     $("video-error").hidden=true; $("save-state").textContent=continuing(item) ? `${time(item.position)}에서 이어보기` : "준비 중";
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
-    resetSubtitles(); video.src=`/api/media/${id}/content`; dialog.showModal(); dialog.scrollTop=0; refreshSubtitles(item);
+    resetSubtitles(); video.src=`/api/media/${id}/content${audioQuery(item)}`; dialog.showModal(); dialog.scrollTop=0; refreshSubtitles(item);
     refreshPreference(item);
     video.addEventListener("loadedmetadata", function restore(){ if(!activeItem||activeItem.id!==id) return; const start=continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
     // Autoplay is optional; browser policy may require the native play button.
     video.play().catch(()=>{});
   } catch(e) { toast(e.message,true); }
 }
+function audioQuery(item){return Number.isInteger(item.audio_index)?`?audio_index=${item.audio_index}`:"";}
+function audioLabel(track){const language={jpn:"일본어",ja:"일본어",eng:"영어",en:"영어",kor:"한국어",ko:"한국어"}[track.language]||track.language;return [`오디오 ${track.index+1}`,language,track.title,track.codec?.toUpperCase(),track.channels?`${track.channels}채널`:"",track.error?"지원되지 않음":""].filter(Boolean).join(" · ");}
+function renderAudio(item){
+  const tracks=item.audio_tracks||[],select=$("audio-select"),index=item.audio_index||0;
+  select.replaceChildren();for(const track of tracks){const option=new Option(audioLabel(track),String(track.index));option.disabled=!!track.error;select.add(option);}
+  select.value=String(index);select.disabled=false;$("audio-apply").disabled=true;
+  $("audio-panel").hidden=tracks.length<2;$("audio-brief").textContent=tracks[index]?audioLabel(tracks[index]):"";
+  $("audio-state").textContent="선택한 음성으로 재생하고 새 자막을 만듭니다. 처음 선택할 때 재생용 사본을 준비하며 추가 저장 공간을 사용합니다.";
+  const kind={remux_mp4:"재생용 MP4 · 영상 그대로",audio_mp4:"재생용 MP4 · 영상 그대로 · AAC 스테레오",remux_webm:"재생용 WebM · 영상 그대로"}[item.preparation]||"원본 사본";
+  $("player-meta").textContent=`${item.width} × ${item.height} · ${time(item.duration)} · ${kind}${tracks.length?` · 오디오 ${index+1}`:""}`;
+}
+$("audio-select").addEventListener("change",()=>{$("audio-apply").disabled=!activeItem||Number($("audio-select").value)===(activeItem.audio_index||0);});
+$("audio-apply").addEventListener("click",async()=>{
+  const owner=activeItem;if(!owner)return;const index=Number($("audio-select").value),hadFocus=document.activeElement===$("audio-apply");
+  $("audio-select").disabled=true;$("audio-apply").disabled=true;$("audio-state").textContent="오디오를 준비하고 있어요. 지금 영상은 계속 감상할 수 있습니다.";
+  try{
+    const ready=await api(`/api/library/${owner.id}/audio/${index}`,{method:"POST"});if(activeItem!==owner)return;
+    const position=video.currentTime,playing=!video.paused;video.pause();await savePosition();if(activeItem!==owner)return;
+    activeItem=ready;lastQueuedPosition=null;renderAudio(ready);resetSubtitles();refreshPreference(ready);$("video-error").hidden=true;
+    video.addEventListener("loadedmetadata",()=>{if(activeItem!==ready)return;video.currentTime=Math.min(position,ready.duration);savePosition();if(playing)video.play().catch(()=>{});},{once:true});
+    video.src=`/api/media/${owner.id}/content${audioQuery(ready)}`;video.load();refreshSubtitles(ready);
+    $("audio-state").textContent=`오디오 ${index+1}로 변경했습니다. 진행 중인 자막 작업은 시작할 때 선택한 음성을 유지합니다.`;
+    if(hadFocus&&document.activeElement===document.body)$("audio-select").focus();
+  }catch(e){if(activeItem===owner){$("audio-state").textContent=e.message+" 현재 재생은 유지됩니다.";$("audio-select").disabled=false;$("audio-apply").disabled=false;if(hadFocus&&document.activeElement===document.body)$("audio-apply").focus();}}
+});
 function savePosition(keepalive=false) {
   if(!activeItem||!Number.isFinite(video.currentTime)||video.readyState<1) return saveChain;
-  const id=activeItem.id, position=Math.min(activeItem.duration,Math.max(0,video.currentTime));
+  const id=activeItem.id, audio_index=activeItem.audio_index, position=Math.min(activeItem.duration,Math.max(0,video.currentTime));
   if(lastQueuedPosition===position) return saveChain;
   lastQueuedPosition=position; $("save-state").textContent="시청 위치 저장 중…";
   // Serialize saves so a delayed older write cannot overwrite a later seek/pause.
-  saveChain=saveChain.catch(()=>{}).then(()=>api(`/api/library/${id}/position`,{method:"PUT",keepalive,headers:{"Content-Type":"application/json"},body:JSON.stringify({position})})).then(()=>{
+  saveChain=saveChain.catch(()=>{}).then(()=>api(`/api/library/${id}/position`,{method:"PUT",keepalive,headers:{"Content-Type":"application/json"},body:JSON.stringify({position,audio_index})})).then(()=>{
     const item=items.find(i=>i.id===id); if(item){item.position=position;item.watched_at=new Date().toISOString();}
     if(activeItem?.id===id) $("save-state").textContent=`${time(position)} 저장됨`;
   }).catch(e=>{lastQueuedPosition=null;if(activeItem?.id===id) $("save-state").textContent="저장 실패 · 연결 확인";toast(e.message,true);});
@@ -294,19 +321,22 @@ function renderSubtitleNotes(){
     if(imported.settings)notes.push(`파일 위치 설정 ${imported.settings}개 생략`);
     if(notes.length)notes.push("가져온 SRT 원본은 그대로 보존했습니다.");
   }
+  if(track&&(track.audio_index||0)!==(activeItem?.audio_index||0))notes.unshift(`오디오 ${(track.audio_index||0)+1}에서 만든 자막입니다. 현재 음성과 다를 수 있습니다.`);
   $("subtitle-notes").textContent=notes.join(" · ");$("subtitle-notes").hidden=!notes.length;
   renderPreparationSummary();
 }
 function renderPreparationSummary(){
   const j=subtitleJob,track=subtitleTracks.find(t=>t.id===subtitleLoaded);
-  let label=subtitleTracks.length?"자막 준비됨":"파일 열기 · 자동 생성";
+  let label=subtitleTracks.some(t=>(t.audio_index||0)===(activeItem?.audio_index||0))?"자막 준비됨":"파일 열기 · 자동 생성";
   if(track?.import_notes&&Object.values(track.import_notes).some(Boolean))label="가져온 자막 보정 내역";
   if(track?.fallback_count)label=`원문 ${track.fallback_count}구간`;
   if(track?.review_count)label=`표시 확인 ${track.review_count}구간`;
+  if(track&&(track.audio_index||0)!==(activeItem?.audio_index||0))label=`다른 오디오의 자막 · ${(track.audio_index||0)+1}`;
   if(j?.state==="paused")label="일시정지";
   if(j?.state==="queued")label="대기 중";
   if(j?.state==="running")label=j.stage==="translation"?`번역 중 · ${j.completed}/${j.total}`:"음성 인식 중";
   if(j?.error)label="처리 확인 필요";
+  if(j&&["queued","running","paused"].includes(j.state)&&(j.audio_index||0)!==(activeItem?.audio_index||0))label=`오디오 ${(j.audio_index||0)+1} · ${label}`;
   if($("subtitle-brief").textContent!==label)$("subtitle-brief").textContent=label;
 }
 function subtitleError(text){$("subtitle-state").textContent=text;$("subtitle-brief").textContent="자막 확인 필요";}
@@ -335,19 +365,21 @@ async function refreshSubtitles(owner){
     subtitleTracks=data.tracks;
     const select=$("subtitle-select"),was=select.value;
     select.replaceChildren(new Option("자막 끄기",""));
-    for(const [i,t] of data.tracks.entries())select.add(new Option(`${t.source==="supplied"?"가져온 자막":"자동 생성 자막"} · ${data.tracks.length-i}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));
-    const chosen=subtitleLoaded===null?(data.tracks[0]?.id||""):was;
-    select.value=data.tracks.some(t=>t.id===chosen)?chosen:"";if(data.tracks.length)loadSubtitle(select.value);
-    subtitleJob=data.jobs.find(j=>["queued","running","paused"].includes(j.state))||data.jobs[0]||null;
+    for(const [i,t] of data.tracks.entries())select.add(new Option(`${t.source==="supplied"?"가져온 자막":"자동 생성 자막"} · ${data.tracks.length-i}${(owner.audio_tracks||[]).length>1?` · 오디오 ${(t.audio_index||0)+1}`:""}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));
+    const matching=data.tracks.filter(t=>(t.audio_index||0)===(owner.audio_index||0));
+    const chosen=subtitleLoaded===null?(matching[0]?.id||""):was;
+    select.value=data.tracks.some(t=>t.id===chosen)?chosen:"";if(data.tracks.length&&(chosen||subtitleLoaded!==null))loadSubtitle(select.value);
+    subtitleJob=data.jobs.find(j=>["queued","running","paused"].includes(j.state))||data.jobs.find(j=>(j.audio_index||0)===(owner.audio_index||0))||null;
     const j=subtitleJob,busy=j&&["queued","running"].includes(j.state);
     const generate=$("subtitle-generate");
     generate.hidden=!!(j&&["queued","running","paused"].includes(j.state));
-    generate.textContent=data.tracks.length?"새 자막 만들기":"한국어 자막 만들기";
-    generate.dataset.regenerate=data.tracks.length?"true":"false";
+    generate.textContent=matching.length?"새 자막 만들기":"한국어 자막 만들기";
+    generate.dataset.regenerate=matching.length?"true":"false";
     $("subtitle-pause").hidden=!busy;$("subtitle-resume").hidden=!j||!["paused","failed"].includes(j.state);$("subtitle-restart").hidden=$("subtitle-resume").hidden;
     const progress=$("subtitle-progress");progress.hidden=!busy;if(j?.stage==="translation"&&j.total)progress.value=j.completed/j.total*100;else progress.removeAttribute("value");
     $("subtitle-state").textContent=j?.error?(subtitleMessages[j.error]||message(j.error)):busy?(j.stage==="translation"?`한국어 번역 중 · ${j.completed}/${j.total} 구간 저장됨${j.fallback_count?` · 원문 ${j.fallback_count}구간`:""}`:"음성을 전사하고 있어요. 원본은 계속 감상할 수 있습니다."):j?.state==="paused"?"자막 처리를 일시정지했습니다. 완료한 전사·번역을 보존했습니다.":data.tracks.length?"자막이 준비됐습니다. 번역하지 못한 구간은 [원문]으로 표시합니다. 새로 만들어도 기존 자막은 보존됩니다.":"가진 한국어 SRT를 열거나 이 기기에서 자막을 만들 수 있습니다.";
     if(busy)subtitleTimer=setTimeout(()=>refreshSubtitles(owner),1500);
+    if(j&&(j.audio_index||0)!==(owner.audio_index||0))$("subtitle-state").textContent=`오디오 ${(j.audio_index||0)+1}의 자막 작업입니다. `+$("subtitle-state").textContent;
     renderPreparationSummary();
   }catch(e){if(activeItem===owner)subtitleError(e.message);}
 }
@@ -356,11 +388,11 @@ $("subtitle-import").addEventListener("click",()=>$("subtitle-input").click());
 $("subtitle-input").addEventListener("change",async()=>{
   const owner=activeItem,file=$("subtitle-input").files[0];if(!owner||!file)return;
   try{if(file.size>2*1024*1024)throw new Error(subtitleMessages.subtitles_too_large);
-    await api(`/api/library/${owner.id}/subtitles`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:file});
+    await api(`/api/library/${owner.id}/subtitles${audioQuery(owner)}`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:file});
     if(activeItem===owner){subtitleLoaded=null;await refreshSubtitles(owner);}
   }catch(e){toast(e.message,true);}finally{$("subtitle-input").value="";}
 });
-$("subtitle-generate").addEventListener("click",async()=>{const owner=activeItem;if(!owner)return;const suffix=$("subtitle-generate").dataset.regenerate==="true"?"/regenerate":"";try{await api(`/api/library/${owner.id}/subtitle-jobs${suffix}`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)subtitleError(e.message);}});
+$("subtitle-generate").addEventListener("click",async()=>{const owner=activeItem;if(!owner)return;const suffix=$("subtitle-generate").dataset.regenerate==="true"?"/regenerate":"";try{await api(`/api/library/${owner.id}/subtitle-jobs${suffix}${audioQuery(owner)}`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)subtitleError(e.message);}});
 for(const action of ["pause","resume","restart"])$("subtitle-"+action).addEventListener("click",async()=>{const owner=activeItem,job=subtitleJob;if(!owner||!job)return;try{await api(`/api/subtitle-jobs/${job.id}/${action}`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)subtitleError(e.message);}});
 
 let subtitleSearch={state:"empty",cues:[]}, subtitleSearchTimer=null;

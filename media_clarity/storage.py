@@ -277,35 +277,9 @@ class Store:
             connection.close()
 
     def _init_db(self):
+        from .migrations import migrate
         with self.db() as db:
-            db.executescript("""
-                CREATE TABLE IF NOT EXISTS files (
-                    id TEXT PRIMARY KEY, sha256 TEXT NOT NULL UNIQUE,
-                    size INTEGER NOT NULL, extension TEXT NOT NULL,
-                    mime TEXT NOT NULL, duration REAL NOT NULL,
-                    width INTEGER NOT NULL, height INTEGER NOT NULL,
-                    thumbnail INTEGER NOT NULL DEFAULT 0
-                );
-                CREATE TABLE IF NOT EXISTS items (
-                    id TEXT PRIMARY KEY, file_id TEXT NOT NULL UNIQUE REFERENCES files(id),
-                    title TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-                    position REAL NOT NULL DEFAULT 0,
-                    watched_at TEXT
-                );
-                CREATE TABLE IF NOT EXISTS renditions (
-                    id TEXT PRIMARY KEY, item_id TEXT NOT NULL UNIQUE REFERENCES items(id),
-                    input_sha TEXT NOT NULL, sha256 TEXT NOT NULL, size INTEGER NOT NULL,
-                    extension TEXT NOT NULL, mime TEXT NOT NULL, kind TEXT NOT NULL, duration REAL
-                );
-            """)
-            columns = {r['name'] for r in db.execute('PRAGMA table_info(files)')}
-            if 'preparation' not in columns:
-                db.execute("ALTER TABLE files ADD COLUMN preparation TEXT NOT NULL DEFAULT 'unchecked'")
-            if 'preparation_error' not in columns:
-                db.execute('ALTER TABLE files ADD COLUMN preparation_error TEXT')
-            if 'duration' not in {r['name'] for r in db.execute('PRAGMA table_info(renditions)')}:
-                db.execute('ALTER TABLE renditions ADD COLUMN duration REAL')
-            db.commit()
+            migrate(db)
 
     def _recover(self):
         # The instance lock excludes another local app process, not another Work.
@@ -340,7 +314,9 @@ class Store:
         no_symlink(path)
         path.unlink(missing_ok=True)
 
-    def probe(self, path: Path) -> dict:
+    def probe(self, path: Path, audio_index=0) -> dict:
+        if type(audio_index) is not int or not 0 <= audio_index < 128:
+            raise MediaError('invalid_audio_track', 422)
         with path.open("rb") as stream:
             magic = stream.read(12)
         if not (magic[4:8] == b"ftyp" or magic[:4] == b"\x1aE\xdf\xa3"):
@@ -348,7 +324,7 @@ class Store:
         raw = run_media([
             "ffprobe", "-v", "error", "-protocol_whitelist", "file,pipe",
             "-format_whitelist", "mov,matroska,webm", "-show_entries",
-            "format=format_name,duration,start_time:stream=codec_type,codec_name,width,height,pix_fmt,start_time,duration:stream_disposition=attached_pic:stream_tags=DURATION",
+            "format=format_name,duration,start_time:stream=codec_type,codec_name,width,height,pix_fmt,start_time,duration,channels:stream_disposition=attached_pic:stream_tags=DURATION,language,title",
             "-of", "json", str(path)], 25, 128 * 1024)
         try:
             result = json.loads(raw)
@@ -367,11 +343,29 @@ class Store:
             raise MediaError("invalid_media", 422) from None
         is_mp4 = magic[4:8] == b"ftyp"
         from .renditions import playback_plan, selected_duration
-        preparation = playback_plan(track, audio, is_mp4)
+        if len(audio) > 128 or audio_index >= max(1, len(audio)):
+            raise MediaError('invalid_audio_track', 422)
+        selected = audio[audio_index:audio_index+1]
+        preparation = playback_plan(track, selected, is_mp4, multiple=len(audio)>1)
+        def label(value, limit):
+            return ''.join(c for c in str(value) if c.isprintable())[:limit]
+        tracks = []
+        for index, stream in enumerate(audio):
+            error = None
+            try:
+                playback_plan(track, [stream], is_mp4, multiple=len(audio)>1)
+            except MediaError as exc:
+                error = exc.code
+            tags = stream.get('tags', {})
+            tracks.append({'index':index, 'language':label(tags.get('language',''),32),
+                           'title':label(tags.get('title',''),120),
+                           'codec':label(stream.get('codec_name',''),32),
+                           'channels':stream.get('channels'), 'error':error})
         extension = 'mp4' if is_mp4 else 'mkv' if track.get('codec_name') == 'h264' else 'webm'
         return {"duration": duration, "width": width, "height": height,
                 "extension": extension, "mime": {'mp4':'video/mp4', 'mkv':'video/x-matroska', 'webm':'video/webm'}[extension],
-                "preparation": preparation, 'selected_duration':selected_duration(track,audio,start)}
+                "preparation": preparation, 'selected_duration':selected_duration(track,selected,start),
+                'audio_tracks':tracks}
 
     def finish_import(self, stage: Path, digest: str, size: int, title: str) -> dict:
         if size <= 0:
@@ -413,6 +407,7 @@ class Store:
                 db.execute("INSERT INTO files (id,sha256,size,extension,mime,duration,width,height,thumbnail,preparation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                            (file_id, digest, size, metadata["extension"], metadata["mime"], metadata["duration"], metadata["width"], metadata["height"], thumbnail, metadata['preparation']))
                 db.execute("INSERT INTO items (id,file_id,title) VALUES (?,?,?)", (item_id, file_id, title))
+                db.execute('UPDATE files SET audio_tracks=? WHERE id=?', (json.dumps(metadata['audio_tracks']),file_id))
                 db.commit()
             except BaseException:
                 db.rollback()
@@ -463,7 +458,7 @@ class Store:
         if not ID.fullmatch(item_id):
             raise MediaError("item_not_found", 404)
         with self.db() as db:
-            row = db.execute("SELECT items.*, files.sha256,files.size,files.extension,files.mime,files.duration,files.width,files.height,files.thumbnail,files.preparation,files.preparation_error FROM items JOIN files ON items.file_id=files.id WHERE items.id=?", (item_id,)).fetchone()
+            row = db.execute("SELECT items.*, files.sha256,files.size,files.extension,files.mime,files.duration,files.width,files.height,files.thumbnail,files.preparation,files.preparation_error,files.audio_tracks FROM items JOIN files ON items.file_id=files.id WHERE items.id=?", (item_id,)).fetchone()
         if row is None:
             raise MediaError("item_not_found", 404)
         return dict(row)
@@ -492,29 +487,33 @@ class Store:
             if exc.code not in {"managed_file_missing", "managed_file_changed", "rendition_required"}:
                 raise
             unavailable_reason = exc.code
-        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "watched_at", "duration", "size", "width", "height", "sha256", "preparation", "preparation_error")} | {"available": unavailable_reason is None, "unavailable_reason": unavailable_reason, "thumbnail": bool(row["thumbnail"]), "mime": playback['mime'] if unavailable_reason is None else row['mime'], 'duration':playback['duration'] if unavailable_reason is None else row['duration']}
+        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "watched_at", "duration", "size", "width", "height", "sha256", "preparation", "preparation_error", "audio_index")} | {"available": unavailable_reason is None, "unavailable_reason": unavailable_reason, "thumbnail": bool(row["thumbnail"]), "mime": playback['mime'] if unavailable_reason is None else row['mime'], 'duration':playback['duration'] if unavailable_reason is None else row['duration'], 'audio_tracks':json.loads(row['audio_tracks']) if row['audio_tracks'] is not None else None, 'preparation':playback['preparation'] if unavailable_reason is None else row['preparation']}
 
-    def playback_row(self, item_id):
+    def playback_row(self, item_id, audio_index=None):
         source = self._row(item_id)
-        if source['preparation'] == 'original':
+        index = source['audio_index'] if audio_index is None else audio_index
+        if type(index) is not int or not 0 <= index < 128:
+            raise MediaError('invalid_audio_track', 422)
+        if source['preparation'] == 'original' and index == 0:
             return source
         with self.db() as db:
-            ready = db.execute('SELECT * FROM renditions WHERE item_id=?', (item_id,)).fetchone()
+            ready = db.execute('SELECT * FROM renditions WHERE item_id=? AND audio_index=?', (item_id,index)).fetchone()
         if ready is None:
             raise MediaError('rendition_required', 409)
-        if ready['input_sha'] != source['sha256'] or ready['kind'] != source['preparation']:
+        if (ready['input_sha'] != source['sha256'] or ready['kind'] not in {'remux_mp4','audio_mp4','remux_webm'}
+                or (index == 0 and ready['kind'] != source['preparation'])):
             raise MediaError('managed_file_changed', 409)
-        return source | {k:ready[k] for k in ('sha256','size','extension','mime')} | {'file_id':ready['id'], 'duration':ready['duration'] or source['duration']}
+        return source | {k:ready[k] for k in ('sha256','size','extension','mime')} | {'file_id':ready['id'], 'duration':ready['duration'] or source['duration'], 'audio_index':index, 'preparation':ready['kind']}
 
     def list_items(self) -> list[dict]:
         with self.db() as db:
             ids = [r[0] for r in db.execute("SELECT id FROM items ORDER BY created_at DESC, id DESC")]
         return [self.item(item_id) for item_id in ids]
 
-    def save_position(self, item_id: str, position) -> dict:
+    def save_position(self, item_id: str, position, audio_index=None) -> dict:
         row = self._row(item_id)
         try:
-            duration = self.playback_row(item_id)['duration']
+            duration = self.playback_row(item_id,audio_index)['duration']
         except MediaError as exc:
             if exc.code != 'rendition_required':
                 raise

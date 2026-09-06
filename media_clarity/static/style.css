@@ -234,7 +234,7 @@ nav{display:flex;gap:7px}
 .subtitle-panel{margin:0 28px 20px;padding:20px;border:1px solid #ffffff18;border-radius:16px;background:#ffffff04}
 .subtitle-heading,.subtitle-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .subtitle-heading{justify-content:space-between;margin-bottom:14px}
-.subtitle-panel select{color:#f3f3f3;background:#24242b;border:1px solid #ffffff25;border-radius:9px;padding:8px;max-width:100%}
+.subtitle-panel select,.audio-panel select{color:#f3f3f3;background:#24242b;border:1px solid #ffffff25;border-radius:9px;padding:8px;max-width:100%}
 .subtitle-panel p{font-size:16px;line-height:1.65;color:#b3b2c0}
 .subtitle-panel progress{width:100%;height:5px;accent-color:#9e91fc}
 video::cue{font-family:system-ui,sans-serif;background:rgba(0,0,0,.8);color:white}
@@ -314,4 +314,13 @@ video::cue{font-family:system-ui,sans-serif;background:rgba(0,0,0,.8);color:whit
   .sidebar-bottom small{font-size:12px}
   .player-info .button{font-size:14px}
   .settings-dialog{padding:20px}
+}
+.audio-panel {border-top:1px solid var(--line);margin:0 28px}
+.audio-panel .subtitle-heading {flex-wrap:wrap}
+.audio-panel select {min-width:0;max-width:100%;flex:1 1 180px}
+.audio-panel p {font-size:14px;line-height:1.6}
+@media(max-width:600px){
+  .audio-panel{margin:0 16px}
+  .audio-panel .subtitle-heading{display:grid;grid-template-columns:minmax(0,1fr) auto}
+  .audio-panel .subtitle-heading label{grid-column:1 / -1}
 }
