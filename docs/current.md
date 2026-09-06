@@ -3,11 +3,12 @@
 - **Milestone:** Korean-subtitle/recommendation checkpoint integrated; first conservative
   enhancement feasibility experiment. Target viewing and overall October acceptance
   remain incomplete. No included feature is dropped.
-- **Branch:** `app/enhancement-spike`, based on **main `ce6f2b6`**. Owner authorized
+- **Branch:** `app/enhancement-spike`, [Draft PR #5](https://github.com/seoji2005/media-server/pull/5)
+  targets **main `ce6f2b6`**. Experiment checkpoint: `3cc97ca`. Owner authorized
   merge of #4 at `e5fa042`; merged main has the identical reviewed tree. #1 is merged;
   #3's HEAD is an ancestor of main and its superseded PR was closed, preserving its
-  branch/history. #2 had merged into `harness/initial-workflow`. The new experiment
-  will use one Draft PR directly to main; no approval for its final merge is inferred.
+  branch/history. #2 had merged into `harness/initial-workflow`. No approval for the
+  new experiment PR's final merge is inferred.
 - **App:** import/library/original playback/Range/watch-position resume; UTF-8/CP949/
   EUC-KR SRT with original bytes and append-only versions. Explicit regeneration keeps
   previous captions available. Selected-caption text search/seek uses browser memory;
