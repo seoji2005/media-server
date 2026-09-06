@@ -1,0 +1,177 @@
+{
+  "candidate": "Swin2SR CompressedSR x4 then 8-bit Lanczos to x2",
+  "decision": "reject this general H.264 viewing configuration; stopped for visible detail loss",
+  "inference_revision": "4a2e67fd45118b12bee61af3c29d9daf07c30a75",
+  "whole_frame_guard_revision": "34bfc33605d8dd174409a4b672f06455c7c59f49",
+  "upstream_commit": "0abb1e009ce98f527a630f50fee0be37519938ff",
+  "network_sha256": "7fbc3315ef4b2a524de8eb600d6065ddf1c28a6a645d1aa4e5acdb14bddfcc4b",
+  "weights_sha256": "ed3f5dac3c1b9d07c9803f586cde6cdd75c96d975b6e50625afb623f22cf2a79",
+  "source": "Tears of Steel, Blender Foundation, CC BY3.0, see docs/enhancement-spike.md",
+  "conditions": {
+    "reference": [
+      768,
+      512
+    ],
+    "input": [
+      384,
+      256
+    ],
+    "native_output": [
+      1536,
+      1024
+    ],
+    "comparison_output": [
+      768,
+      512
+    ],
+    "tile": 128,
+    "overlap": 16,
+    "torch_threads": 4,
+    "device": "cpu",
+    "precision": "float32",
+    "codec": "H.264 CRF28 medium yuv420p"
+  },
+  "run": {
+    "session_interrupt_exit_code": 130,
+    "interruption": "stopped for visible quality regression; guarded PID stop found no process in its namespace, then execution-session Ctrl-C ended the session",
+    "complete_frames": [
+      "0000.png",
+      "0001.png",
+      "0002.png",
+      "0003.png",
+      "0004.png"
+    ],
+    "inputs_verified_unchanged": true,
+    "final_probe_report_present": false,
+    "planned_frames": 12,
+    "partial_run_not_completed": true
+  },
+  "frames": [
+    {
+      "frame": "0000.png",
+      "reference_sha256": "2f82e98c5d75e593bbc1414f424ce861b0f51def80bccbffc7f4d0118e05ce48",
+      "input_sha256": "6a14085dde4fb789065a8ad63a03177de1a02d8cac0321806578fe0a8c8875b0",
+      "candidate_sha256": "acd238a4334759593a44bf2db9f903e568eecbbba4362ba21ebd8ba8c795d2bf"
+    },
+    {
+      "frame": "0001.png",
+      "reference_sha256": "3bb9f813c64dd11a4de336c36b3d701faedb1178194e18af297d69c5df909bf2",
+      "input_sha256": "167ffd67ab2615f646e5e3ebad0f5d19877d0a1d009434ab21d7571930bd207d",
+      "candidate_sha256": "3304afd2ff72ebf61cf9d1f39d80836df5b4800a5c4a2856107d0e408b79b902"
+    },
+    {
+      "frame": "0002.png",
+      "reference_sha256": "225296e19470fe3a5d3cd1c776bfb6f8024abe83cb61e68cea4dfc938e562652",
+      "input_sha256": "864615d94201c4f75118bfd5baf2ee184c867528919471d77b5e7789c0f95a5b",
+      "candidate_sha256": "daa56ffc243789dd29a2b2ef3fed14d862d0836b6299276e19d04bfe478ff7ea"
+    },
+    {
+      "frame": "0003.png",
+      "reference_sha256": "dd12b6f184e4c568f74cc77694ee092e50bb5008395f1da3487fbe93c528d57a",
+      "input_sha256": "5e3e958b2c180c4612da367829add6413be17efc317a2c6ebb88db8aecf44d1a",
+      "candidate_sha256": "0fa932b77b9cc0e25e3d3d8fa84db07c38bab59d9c47b6eb78ed481a2bc2d333"
+    },
+    {
+      "frame": "0004.png",
+      "reference_sha256": "816cc0e1ef48615216cb86a521891e00e299861edbacbc0d388c3b268a6dea00",
+      "input_sha256": "f4c4deb617f4d540f44bf4b7977650eba3fd6deaab4b12e11ef27b1ad13084da",
+      "candidate_sha256": "a6f45864201ff1be10ffe7497c46c76ade43c3c0cb7b83509949aba878f6371d"
+    }
+  ],
+  "mean_rgb_psnr_db": {
+    "bicubic": 35.494,
+    "lanczos": 35.4777,
+    "swinir": 35.3013,
+    "swin2sr": 33.514,
+    "blend50": 35.1099
+  },
+  "rgb_psnr_db_per_frame": {
+    "bicubic": [
+      35.33244705200195,
+      35.33647918701172,
+      35.50812530517578,
+      35.5616455078125,
+      35.731319427490234
+    ],
+    "lanczos": [
+      35.31822967529297,
+      35.3262825012207,
+      35.49672317504883,
+      35.54281997680664,
+      35.70444107055664
+    ],
+    "swinir": [
+      35.053096771240234,
+      35.19292449951172,
+      35.32973861694336,
+      35.39893341064453,
+      35.53175354003906
+    ],
+    "swin2sr": [
+      33.380271911621094,
+      33.40052795410156,
+      33.53601837158203,
+      33.56227111816406,
+      33.691123962402344
+    ],
+    "blend50": [
+      34.93766403198242,
+      34.96466064453125,
+      35.13004684448242,
+      35.16917419433594,
+      35.34784698486328
+    ]
+  },
+  "temporal_residual_mae_8bit": {
+    "bicubic": 3.3461,
+    "lanczos": 3.3635,
+    "swinir": 3.4251,
+    "swin2sr": 3.3871,
+    "blend50": 3.2044
+  },
+  "timing_limits": "No successful final report or complete synchronized FPS/peak memory measurement; intentional session interruption. Do not extrapolate CPU or target throughput.",
+  "browser": {
+    "duration": 0.208333,
+    "decodedFrames": 15,
+    "observedMediaTimes": [
+      0.041667,
+      0.083333,
+      0.125,
+      0.166667,
+      0,
+      0.041667,
+      0.083333,
+      0.125,
+      0.166667,
+      0,
+      0.041667,
+      0.083333,
+      0.125,
+      0.166667
+    ],
+    "error": null,
+    "browser": "149.0.7827.0",
+    "range206": true,
+    "pageErrors": 0,
+    "externalPageRequests": 0,
+    "limit": "5 frames only, three repeated plays; no human viewing or temporal stability acceptance"
+  },
+  "verification": {
+    "same_saved_input_and_reference_bytes_as_prior_baseline": true,
+    "source_png_bytes_unchanged": true,
+    "geometry_stub_cases": 8,
+    "actual_checkpoint_strict_load": true,
+    "actual_aligned_32x40_forward": true,
+    "review": "Fresh review found unaligned whole-frame upstream bicubic distortion; explicit pre-inference rejection independently verified. Tiled run unaffected."
+  },
+  "failures": [
+    "Initial launcher exited127 because /usr/bin/time absent; changed to standard-library launcher before inference",
+    "Guarded PID stop found no target in its execution namespace; execution-session Ctrl-C then returned130; no success report emitted"
+  ],
+  "limits": [
+    "JPEG-trained image model evaluated on H.264; no general model ranking",
+    "Five frames, four temporal transitions; not a flicker/motion or human acceptance result",
+    "Observed smoothing of skin, hair and eye detail; pixels are compared to a lossy WebM reference",
+    "No Windows/RTX, full-frame speed/12 GB fit, or app enhancement adoption"
+  ]
+}
