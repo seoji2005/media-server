@@ -36,17 +36,27 @@ def assert_stream_copy(source, target, stream, target_stream=None):
             ffmpeg('-i', target, '-map', target_stream, '-c', 'copy', '-f', 'hash', 'pipe:1')):
         raise AssertionError('encoded packets changed')
     if ':a:' in stream:
-        trims = []
+        packets, priming, origins = [], [], []
         for path, selected in [(source, stream), (target, target_stream)]:
             audio = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', selected[2:],
-                '-show_packets', '-show_streams', '-of', 'json', str(path)]))
+                '-show_packets', '-show_streams', '-show_format', '-of', 'json', str(path)]))
             sides = [s for p in audio['packets'] for s in p.get('side_data_list', [])]
             rate = int(audio['streams'][0]['sample_rate'])
-            trims.append([sum(s.get(key, 0) for s in sides) / rate for key in ('skip_samples', 'discard_padding')])
-        # Preserve existing AAC priming/padding; only container timebase rounding
-        # may differ, by at most 1 ms at either end of these synthetic fixtures.
-        if any(abs(a - b) > .001 for a, b in zip(*trims)):
-            raise AssertionError('audio trim changed by more than 1 ms')
+            priming.append(sum(s.get('skip_samples', 0) for s in sides) / rate)
+            packets.append(audio['packets'])
+            origins.append(float(audio['format']['start_time']))
+        # FFmpeg 9 expresses a short final MKV packet as MP4 discard_padding.
+        # Compare every packet's declared time/duration and existing priming;
+        # rounding is bounded to the source Matroska timebase, never an AAC frame.
+        if abs(priming[0] - priming[1]) > .001001 or len(packets[0]) != len(packets[1]):
+            raise AssertionError('audio priming or packet count changed')
+        for before, after in zip(*packets):
+            for field in ('pts_time', 'duration_time'):
+                # Match the video's common playback origin, not each audio's
+                # first packet, so an independently shifted voice still fails.
+                shift = origins[0] - origins[1] if field == 'pts_time' else 0
+                if abs(float(before[field]) - float(after[field]) - shift) > .001001:
+                    raise AssertionError('audio packet timing changed by more than 1 ms')
 
 
 class RenditionTests(unittest.TestCase):

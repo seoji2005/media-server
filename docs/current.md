@@ -12,14 +12,14 @@
   [ASR/runtime](subtitles.md), [readability](subtitle-readability.md),
   [renditions/audio/UI](compatible-renditions.md). [One verification command](../README.md#검증과-작업-방식)
   now includes all seven DOM suites and real browser import/captions/playback/server restart.
-- **Current blockers:** no Windows/RTX access or natural 60+ minute speech input. ASR
+- **Current blockers:** no Windows 11/RTX access or natural 60+ minute speech input. ASR
   interruption repeats its stage; the 12-minute run supplied no interruption proof.
   [Enhancement](enhancement-spike.md) has no adopted preset. Action/absent-scene search
   and natural Korean dialogue remain weak. CI spending was approved on 2026-09-06;
-  remote jobs are enabled, but prepared Windows checks are not execution evidence.
+  Linux and Windows CPU jobs now execute; inspect [live results](https://github.com/seoji2005/media-server/actions/workflows/verify.yml).
   Earlier long-film/larger-encoder requests ended in cancelled approval; do not bypass them.
-- **Next action:** observe the first enabled Linux/Windows checks and fix actual failures.
-  Then measure long-timeline interruption/repeated work using existing permitted
+- **Next action:** resolve any failing live check before new implementation; measure
+  long-timeline interruption/repeated work using existing permitted
   media (operational evidence only); use natural long dialogue separately for ASR quality.
   Avoid chunked ASR design before measuring loss. Next product experiment is one
   compression-aware enhancement candidate against the failed baseline. Windows/RTX

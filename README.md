@@ -13,7 +13,7 @@
 확인 안내를 표시합니다. SRT의 순서·빈 구간·영상 끝 초과도 보정 내용을 알려 줍니다.
 [가독성 기준과 실제 브라우저 확인](docs/subtitle-readability.md)을 참고하세요.
 음성 검출은 로컬 PyTorch 모델을 사용하고 진단 전송 문제가 있던 ONNX Runtime은 로드하지
-않습니다. Windows의 일괄 차단은 제거했지만 **실제 Windows/RTX 실행은 아직 미검증**입니다.
+않습니다. Windows의 일괄 차단은 제거했지만 **목표 Windows 11/RTX 실모델 실행은 아직 미검증**입니다.
 **감상 취향**에서 선호와 추천 포함 여부를 저장하면 **추천**에서 다른 영상을 고를 수
 있습니다. [첫 로컬 추천](docs/recommendations.md)은 포함한 영상의 제목 단어와 직접 표시한
 선호만 사용합니다. 시청 기록·자막은 학습에 넣지 않으며, 새 영상은 기본적으로 제외됩니다.
@@ -154,21 +154,23 @@ DOM 검사는 mocked media/HTTP이며 디코딩 증거가 아닙니다.
 `npm test --prefix tests/ui`만 실행할 수 있습니다. 문서 링크 검사는 `python scripts/harness.py check`입니다.
 
 [GitHub CI](.github/workflows/verify.yml)는 같은 명령을 Linux와 Windows Server 2025/CPU에서
-실행하도록 준비했습니다. 두 작업 각각 최대 10분이며 모델 다운로드·캐시·artifact 업로드는 없습니다.
+자동 실행합니다. 두 작업 각각 최대 10분이며 모델 다운로드·캐시·artifact 업로드는 없습니다.
 오너가 2026-09-06 CI 실행 비용을 승인해 PR 변경과 main push에서 자동 실행합니다.
 이 연결 도구는 계정 billing 조회를 허용하지 않아 실제 청구액은 별도 확인이 필요합니다.
 Windows CI가 통과해도 Windows 11/RTX
 실행·실제 소리·모니터 배율·감상 품질은 별도로 확인해야 합니다.
 
-2026-09-06 검증: `2a45773`에서 위 기본 명령으로 Python **131개/39.861초**, DOM **7개**,
-브라우저 최초/재시작 검사가 통과했습니다. 환경은 Python 3.12.13/Linux, FFmpeg 6.1.1,
-Node 24.19.0, Playwright 1.63.0, 별도 Chromium 149 실행 파일입니다.
-독립 검토에서 테스트 서버 포트 인계 중 다른 로컬 앱을 사용할 가능성을 발견했습니다.
-`1abf072`는 자식이 소켓을 계속 소유하도록 수정했고, 해당 브라우저 검사를 다시 통과했습니다.
-검토자도 경쟁 bind 거절·자식 종료·빈 로그를 확인했습니다. 이후 전체 Python/DOM 재실행은
-하지 않았습니다. 원격 CI·Chrome·Windows·RTX·실제 소리·사람의 가독성 평가는 미검증입니다.
-브라우저 재현 명령은 `python tests/browser_smoke.py`이며 cloud에서는 위 실행 파일 환경 변수를
-지정했습니다. 장편·실모델 실험은 이 합성 검사와 별개입니다. [현재 인계](docs/current.md) 참고.
+2026-09-06 로컬 검증: `6741815`에서 기본 명령으로 Python **133개/39.144초**, DOM **7개**,
+Chromium 149 최초/재시작 검사가 통과했습니다(Python 3.12.13, FFmpeg 6.1.1, Node 24).
+실제 CI는 Windows 가져오기의 `stat/fstat` 시각 차이, 평가 자료의 CRLF 변환,
+테스트 SQLite 연결 누수를 발견했고 수정했습니다. 원본의 변경 감지는 유지합니다.
+FFmpeg 9.0.1 소스로 별도 실행해 AAC 지연·끝 패킷 표현 차이를 재현했습니다.
+리먹스 검사는 압축 데이터·전체 디코딩 프레임·공통 영상 시간축의 패킷 시각을 비교합니다.
+`32d0abb`에서 관련 16개 검사와 FFmpeg 9 입력 비교를 통과했습니다.
+별도 검토에서 발견한 원본 변경 시점 누락과 오디오 잘림 검증 공백도 보완했습니다.
+현재 OS별 원격 결과는 [CI 실행 기록](https://github.com/seoji2005/media-server/actions/workflows/verify.yml)을
+확인하세요. 브라우저 재현은 `python tests/browser_smoke.py`이며 실제 소리·모니터 배율·
+장편·실모델·목표 RTX 검증은 별도입니다. [현재 인계](docs/current.md) 참고.
 
 한 Work가 총괄·구현하고 위험한 변경에만 fresh reviewer subagent를 사용합니다.
 GitHub는 checkpoint를 보관하며 두 Work 사이 이벤트 왕복은 사용하지 않습니다.
