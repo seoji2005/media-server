@@ -15,11 +15,11 @@
 - **Current blockers:** no Windows/RTX access or natural 60+ minute speech input. ASR
   interruption repeats its stage; the 12-minute run supplied no interruption proof.
   [Enhancement](enhancement-spike.md) has no adopted preset. Action/absent-scene search
-  and natural Korean dialogue remain weak. CI runner jobs are disabled until included
-  minutes or spending are confirmed; prepared Windows checks are not execution evidence.
+  and natural Korean dialogue remain weak. CI spending was approved on 2026-09-06;
+  remote jobs are enabled, but prepared Windows checks are not execution evidence.
   Earlier long-film/larger-encoder requests ended in cancelled approval; do not bypass them.
-- **Next action:** activate/run the prepared Linux/Windows checks after the cost boundary
-  is resolved. Then measure long-timeline interruption/repeated work using existing permitted
+- **Next action:** observe the first enabled Linux/Windows checks and fix actual failures.
+  Then measure long-timeline interruption/repeated work using existing permitted
   media (operational evidence only); use natural long dialogue separately for ASR quality.
   Avoid chunked ASR design before measuring loss. Next product experiment is one
   compression-aware enhancement candidate against the failed baseline. Windows/RTX

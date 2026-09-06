@@ -155,9 +155,9 @@ DOM 검사는 mocked media/HTTP이며 디코딩 증거가 아닙니다.
 
 [GitHub CI](.github/workflows/verify.yml)는 같은 명령을 Linux와 Windows Server 2025/CPU에서
 실행하도록 준비했습니다. 두 작업 각각 최대 10분이며 모델 다운로드·캐시·artifact 업로드는 없습니다.
-**현재 원격 실행은 비활성**입니다. 비공개 저장소의 무료 잔여량을 확인하거나 오너의 실행 비용
-승인을 받은 뒤 repository Actions variable `MEDIA_CI_ENABLED=true`로 활성화합니다.
-이 연결 도구는 계정 billing 조회를 허용하지 않습니다. Windows CI가 통과해도 Windows 11/RTX
+오너가 2026-09-06 CI 실행 비용을 승인해 PR 변경과 main push에서 자동 실행합니다.
+이 연결 도구는 계정 billing 조회를 허용하지 않아 실제 청구액은 별도 확인이 필요합니다.
+Windows CI가 통과해도 Windows 11/RTX
 실행·실제 소리·모니터 배율·감상 품질은 별도로 확인해야 합니다.
 
 2026-09-06 검증: `2a45773`에서 위 기본 명령으로 Python **131개/39.861초**, DOM **7개**,

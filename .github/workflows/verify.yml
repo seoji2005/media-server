@@ -14,8 +14,6 @@ concurrency:
 
 jobs:
   verify:
-    # Enable after owner confirms included minutes or approves runner spending.
-    if: ${{ vars.MEDIA_CI_ENABLED == 'true' }}
     strategy:
       fail-fast: false
       matrix:
