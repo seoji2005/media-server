@@ -142,7 +142,7 @@ try:socket.create_connection(('private-query.invalid',443))
 except MediaError as e:print(e.code)
 '''
         result=subprocess.run([sys.executable,'-c',code],capture_output=True)
-        self.assertEqual(result.returncode,0);self.assertEqual(result.stdout,b'scene_network_disabled\n');self.assertEqual(result.stderr,b'')
+        self.assertEqual(result.returncode,0);self.assertEqual(result.stdout,('scene_network_disabled' + os.linesep).encode());self.assertEqual(result.stderr,b'')
 
     def test_child_exits_before_input_flush_still_releases_supervisor(self):
         actual=subprocess.Popen

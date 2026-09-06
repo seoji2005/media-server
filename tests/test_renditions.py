@@ -21,6 +21,14 @@ def ffmpeg(*args):
     return subprocess.run(['ffmpeg', '-v', 'error', '-nostdin', *map(str, args)], check=True, capture_output=True).stdout
 
 
+def decoded_hash(source, stream):
+    # Compare full codec frames. FFmpeg 9 honors sub-ms MP4 discard padding that
+    # Matroska's millisecond timebase cannot express; test that trim separately.
+    return ffmpeg('-flags2', '+skip_manual', '-i', source, '-map', stream,
+                  *(['-fps_mode', 'passthrough'] if ':v:' in stream else []),
+                  '-f', 'hash', 'pipe:1')
+
+
 class RenditionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -75,9 +83,18 @@ class RenditionTests(unittest.TestCase):
         self.assertNotEqual(ready['sha256'], item['sha256'])
         for stream in ['0:v:0', '0:a:0']:
             # Decoded essence rather than container bytes must survive -c copy.
-            before = ffmpeg('-i', self.mkv, '-map', stream, '-f', 'hash', 'pipe:1')
-            after = ffmpeg('-i', target, '-map', stream, '-f', 'hash', 'pipe:1')
+            before = decoded_hash(self.mkv, stream)
+            after = decoded_hash(target, stream)
             self.assertEqual(before, after)
+            self.assertEqual(ffmpeg('-i', self.mkv, '-map', stream, '-c', 'copy', '-f', 'hash', 'pipe:1'),
+                             ffmpeg('-i', target, '-map', stream, '-c', 'copy', '-f', 'hash', 'pipe:1'))
+        audio = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', 'a:0',
+            '-show_packets', '-show_streams', '-of', 'json', str(target)]))
+        # No unexpected audible trim: this fixture permits at most 1 ms of
+        # container rounding, never a missing AAC frame or lost dialogue.
+        trim = sum(s.get('skip_samples', 0) + s.get('discard_padding', 0)
+                   for p in audio['packets'] for s in p.get('side_data_list', []))
+        self.assertLessEqual(trim, int(audio['streams'][0]['sample_rate']) // 1000)
         response = self.client.get(url, headers={'Range':'bytes=128-255'})
         self.assertEqual(response.status_code, 206)
         self.assertEqual(response.content, target.read_bytes()[128:256])
@@ -102,16 +119,16 @@ class RenditionTests(unittest.TestCase):
         raw = subprocess.check_output(['ffprobe','-v','error','-show_streams','-of','json',str(target)])
         audio = [s for s in json.loads(raw)['streams'] if s['codec_type']=='audio']
         self.assertEqual([(s['codec_name'],s['channels']) for s in audio], [('aac',2)])
-        self.assertEqual(ffmpeg('-i',self.ac3,'-map','0:v:0','-f','hash','pipe:1'),
-                         ffmpeg('-i',target,'-map','0:v:0','-f','hash','pipe:1'))
+        self.assertEqual(decoded_hash(self.ac3, '0:v:0'),
+                         decoded_hash(target, '0:v:0'))
         self.assertEqual(hashlib.sha256(self.ac3.read_bytes()).hexdigest(), item['sha256'])
 
     def test_first_audio_matches_asr_even_when_second_is_default(self):
         item = self.load(self.multi)
         target = self.store.file_path(self.convert(item))
-        expected = ffmpeg('-i', self.multi, '-map', '0:a:0', '-f', 'hash', 'pipe:1')
-        second = ffmpeg('-i', self.multi, '-map', '0:a:1', '-f', 'hash', 'pipe:1')
-        actual = ffmpeg('-i', target, '-map', '0:a:0', '-f', 'hash', 'pipe:1')
+        expected = decoded_hash(self.multi, '0:a:0')
+        second = decoded_hash(self.multi, '0:a:1')
+        actual = decoded_hash(target, '0:a:0')
         self.assertEqual(expected, actual)
         self.assertNotEqual(second, actual)
 
@@ -229,8 +246,8 @@ prepare(s,sys.argv[2])
         with self.assertRaisesRegex(MediaError,'invalid_position'):
             self.store.save_position(item['id'],item['duration'])
         for stream in ['0:v:0','0:a:0']:
-            self.assertEqual(ffmpeg('-i',source,'-map',stream,'-f','hash','pipe:1'),
-                             ffmpeg('-i',target,'-map',stream,'-f','hash','pipe:1'))
+            self.assertEqual(decoded_hash(source, stream),
+                             decoded_hash(target, stream))
 
     def test_legacy_multi_audio_is_classified_on_first_use_without_history_rewrite(self):
         source = Path(self.temp.name)/'legacy-multi.mp4'
@@ -248,8 +265,8 @@ prepare(s,sys.argv[2])
             self.assertEqual(ready['preparation'],'remux_mp4')
             self.assertTrue(ready['available']);self.assertEqual(ready['position'],2.25)
             target = other.file_path(other.playback_row(item['id']))
-            self.assertEqual(ffmpeg('-i',source,'-map','0:a:0','-f','hash','pipe:1'),
-                             ffmpeg('-i',target,'-map','0:a:0','-f','hash','pipe:1'))
+            self.assertEqual(decoded_hash(source, '0:a:0'),
+                             decoded_hash(target, '0:a:0'))
             self.assertEqual(other.file_path(other._row(item['id'])).read_bytes(),source.read_bytes())
         finally:other.close()
 

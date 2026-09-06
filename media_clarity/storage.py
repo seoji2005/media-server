@@ -443,11 +443,14 @@ class Store:
                 os.fsync(output.fileno())
                 input_file.seek(0)
                 checked = hashlib.file_digest(input_file, "sha256").hexdigest()
-                after, path_after = file_signature(input_file), source.stat()
+                path_after = source.stat()
+                after = file_signature(input_file)
                 # Windows stat/fstat ctime can mean creation/change time respectively.
-                # Compare native change time on the held handle; match path identity separately.
+                # Check the handle last to cover changes during the path lookup.
                 named = (path_after.st_dev, path_after.st_ino, path_after.st_size, path_after.st_mtime_ns)
-                if before != after or after[:4] != named or checked != digest.hexdigest() or size != before[2]:
+                if (before != after or after[:4] != named
+                        or (os.name != 'nt' and path_after.st_ctime_ns != after[-1])
+                        or checked != digest.hexdigest() or size != before[2]):
                     raise MediaError("source_changed", 409)
             return self.finish_import(stage, digest.hexdigest(), size, title_from_name(source.name))
         except OSError as exc:
