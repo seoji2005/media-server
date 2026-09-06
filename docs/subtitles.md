@@ -109,6 +109,84 @@ resolution and real ASR ran successfully; target Windows/CUDA/12 GB fit remains 
 The [resolved Linux CPU environment](model-runtime-linux-cpu.txt) records that run;
 it is not a Windows/CUDA lockfile. `pip check` reported no broken requirements.
 
+## Runtime preflight
+
+Open **자막 만들기 준비 → 실행 환경 확인** in the library. `/api/session` reports the
+selected device and whether it came from the default or explicit settings, without
+importing the heavy runtimes. The button runs an isolated check; it never loads large
+ASR/translation weights or reads a video. It does not change devices automatically.
+To choose CPU deliberately, put `{"device":"cpu"}` in the existing data directory's
+`models/settings.json`; remove that setting to restore the platform default. Device
+and runtime package identities still bind resumable results; changing them can require
+a fresh job. Existing ready subtitles remain available.
+
+With the app stopped, the same check is available in PowerShell:
+
+```powershell
+.\.venv\Scripts\python -m media_clarity doctor --models
+```
+
+Use the same `--data-dir` as the app when overriding its location. Basic `doctor`
+remains usable without optional models; `--models` returns exit 0 for a passed basic
+model check and exit 1 for blocked preparation. Both emit fixed, path-free JSON.
+
+| Diagnostic | Action |
+| --- | --- |
+| `local_models_missing` / `model_runtime_missing` | Finish the local file/package setup above. |
+| `model_settings_invalid` | Use exactly one `device` field with `cpu` or `cuda`. |
+| `model_cuda_unavailable` | Check the CUDA PyTorch wheel and NVIDIA driver; CPU wheels cannot run CUDA. |
+| `model_bf16_unavailable` | Native bfloat16 is required on the selected GPU; do not substitute float16. |
+| `model_asr_cuda_unavailable` / `model_asr_runtime_unavailable` | Check CTranslate2's CUDA support and native libraries. |
+| `model_asr_precision_unavailable` | The selected ASR `int8`/`int8_float16` mode is unsupported. |
+| `model_audio_runtime_unavailable` | Reinstall matching Torch/TorchAudio versions from the same CPU/CUDA index. |
+| `model_runtime_incompatible` / `model_torch_unavailable` | Check the documented package/runtime installation. |
+| `model_check_timeout` / `model_check_failed` | Retry after checking other work or restarting the app; raw native error text is deliberately not exposed. |
+
+The worker repeats checks before ASR, including PyTorch CUDA availability, native
+bfloat16 (`including_emulation=False`) and CTranslate2
+[device presence](https://opennmt.net/CTranslate2/python/ctranslate2.get_cuda_device_count.html)/
+[supported compute types](https://opennmt.net/CTranslate2/python/ctranslate2.get_supported_compute_types.html).
+Runtime imports restore the prior Torch thread count after Silero initialization.
+`ready` describes these basic checks, not successful full model inference, dynamic
+cuDNN loading, 12 GB fit, processing speed or output quality. Only a real Windows/RTX
+end-to-end run can establish those. GPU capability failures are tested with doubles
+here; actual Windows drivers and CUDA are unavailable.
+
+The UI check waits separately from playback, refuses active/orphan inference and
+serializes with the existing job supervisor. Its child owns the worker lease, watches
+the parent's pipe and is killed/reaped after a 60-second timeout. Native stdout/stderr
+are suppressed; only bounded validated status JSON returns. Heavy runtime imports
+stay out of the server. Dependency offline/ORT controls remain; this is not an OS
+network sandbox. A buffered stdin watcher was observed aborting at normal Python
+shutdown; the diagnostic and existing subtitle worker now use an unbuffered OS read.
+
+At local `bc4a596`, actual CPU `doctor --models` passed in 1.947 s. An explicit CUDA
+configuration with the real CPU wheel returned `model_cuda_unavailable` in 1.285 s,
+without switching to CPU (placeholder file layout for this environment-only failure
+probe, no weight inference). Both emitted zero stderr bytes. The same installed real
+models regenerated the existing Japanese FLEURS sample in 40.91 s, with unchanged
+ASR/translation/VTT, exact Range/source checks and zero server logs. This repeats short
+speech, not a new quality corpus or throughput benchmark.
+
+At final local `e2bcd10`, the production HTTP check passed in 1.626 s; an in-process
+observer confirmed the server had no Torch/CTranslate2/Transformers/Silero modules and
+no loaded ORT after the check. Logs stayed empty. Actual Chromium 149 at `bc4a596`
+showed the selected CPU, checked preparation, kept library requests available and
+repeated Korean caption playback/seek/Off/On/4.25 s resume. All 14 previous VTT tracks
+remained byte-identical after the real run, browser and store restart. This is Linux
+headless evidence; the exit-only remediation does not change the browser or pipeline.
+
+Verification: full Python 85 passed at `bc4a596` (14.108 s); final focused 11 diagnostic
+tests passed at `e2bcd10` (1.063 s). Tests include actual timeout kill/reap, noisy native
+output suppression, parent EOF, normal worker exit, token checks and active/orphan
+exclusion. Fresh review found a lease release before native teardown; fixed by holding
+it through controlled process exit. Rereview's native teardown/output-stall reproductions
+passed with no remaining actionable findings. Earlier failed probes exposed the buffered
+stdin shutdown abort; the first browser-server import observer was interrupted by normal
+server signal handling and was replaced by observation while the server was alive.
+
+## Earlier execution evidence
+
 The initial real-ASR probe was blocked by automatic approval review because ORT
 attempted incidental Microsoft telemetry. The corrected adapter completed an
 [11-second public speech sample](https://github.com/ggml-org/whisper.cpp/blob/master/samples/jfk.wav)

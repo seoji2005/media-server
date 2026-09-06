@@ -23,7 +23,10 @@ def main():
     parser.add_argument("source", nargs="?", type=Path)
     parser.add_argument("--data-dir", type=Path, default=default_data_dir())
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--models", action="store_true", help="doctor: also check the optional subtitle model runtime")
     args = parser.parse_args()
+    if args.models and args.command != 'doctor':
+        parser.error('--models is only available with doctor')
     if not 1024 <= args.port <= 65535:
         parser.error("port must be between 1024 and 65535")
     try:
@@ -40,7 +43,13 @@ def main():
         store.start()
         try:
             if args.command == "doctor":
-                print(json.dumps(store.diagnostics(), ensure_ascii=False))
+                from .model_check import configuration, diagnose
+                models = configuration(store.root)
+                if args.models:
+                    models = diagnose(store.root)
+                print(json.dumps({**store.diagnostics(), 'models':models}, ensure_ascii=False))
+                if args.models and models['state'] != 'ready':
+                    return 1
             elif args.source is None:
                 print("ERROR: source_required", file=sys.stderr)
                 return 2

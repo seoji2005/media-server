@@ -11,7 +11,9 @@ def main():
     # EOF follows parent death, even on an abrupt Windows/Linux server exit.
     # No private payload is passed through this liveness pipe.
     def parent_gone():
-        sys.stdin.buffer.read()
+        # An unbuffered OS read avoids Python shutdown aborting while the daemon
+        # owns stdin's buffered-reader lock after otherwise successful processing.
+        os.read(sys.stdin.fileno(), 1)
         os._exit(1)
     threading.Thread(target=parent_gone, daemon=True).start()
     from .jobs import execute

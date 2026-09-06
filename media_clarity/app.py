@@ -18,6 +18,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import ClientDisconnect
 
 from .jobs import Jobs
+from .model_check import configuration as model_configuration, diagnose as diagnose_models
 from .recommendations import Recommendations
 from .subtitles import MAX_SUBTITLE_BYTES
 
@@ -129,7 +130,20 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 
     @app.get("/api/session")
     def session():
-        return {"token": token, "diagnostics": store.diagnostics()}
+        return {"token": token, "diagnostics": {**store.diagnostics(), 'models':model_configuration(store.root)}}
+
+    @app.post("/api/models/diagnostics")
+    def model_diagnostics():
+        # Reuse the supervisor lock and kernel lease: no diagnostic CUDA context
+        # beside active/orphan inference, and queued work waits without being lost.
+        if not jobs.lock.acquire(blocking=False):
+            raise MediaError('processing_worker_active', 409)
+        try:
+            if jobs.process and jobs.process.poll() is None:
+                raise MediaError('processing_worker_active', 409)
+            return diagnose_models(store.root)
+        finally:
+            jobs.lock.release()
 
     @app.get("/api/library")
     def library():
