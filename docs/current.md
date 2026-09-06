@@ -1,13 +1,14 @@
 # Current work
 
-- **Milestone:** Korean-subtitle viewing and resumable preparation — in progress.
-  Multilingual CPU execution/corrections and the first local recommendation checkpoint
-  are implemented; target
-  viewing and overall October acceptance are not. No included feature is dropped.
-- **Branch:** `app/korean-subtitles-resume`, Draft PR #4 targets **main** directly.
-  Main was confirmed an ancestor; this integration candidate includes #1/#3 changes.
-  Their branches/PRs remain preserved; #2 had merged into `harness/initial-workflow`.
-  No final merge. Read live coordinates before continuing. Implementation: `34463f8`.
+- **Milestone:** Korean-subtitle/recommendation checkpoint integrated; first conservative
+  enhancement feasibility experiment. Target viewing and overall October acceptance
+  remain incomplete. No included feature is dropped.
+- **Branch:** `app/enhancement-spike`, [Draft PR #5](https://github.com/seoji2005/media-server/pull/5)
+  targets **main `ce6f2b6`**. Experiment checkpoint: `3cc97ca`. Owner authorized
+  merge of #4 at `e5fa042`; merged main has the identical reviewed tree. #1 is merged;
+  #3's HEAD is an ancestor of main and its superseded PR was closed, preserving its
+  branch/history. #2 had merged into `harness/initial-workflow`. No approval for the
+  new experiment PR's final merge is inferred.
 - **App:** import/library/original playback/Range/watch-position resume; UTF-8/CP949/
   EUC-KR SRT with original bytes and append-only versions. Explicit regeneration keeps
   previous captions available. Selected-caption text search/seek uses browser memory;
@@ -57,6 +58,14 @@
   Forced server kill/restart preserved preference/recommendation responses, position
   1.25 s and byte-identical VTT; seven Range checks exact, source unchanged, log zero
   bytes. No private inputs or model inference; 1.870 s is a functional probe only.
+- **Enhancement:** offline SwinIR-S lightweight x2 probe and actual public live-action
+  CPU comparisons: 72 frames, all finite, source bytes preserved, about 0.087 fps on
+  384×256 input crops. No app integration or adopted preset. The clean close-up improves
+  RGB PSNR, but CRF-28 input is slightly worse than ordinary enlargement and visibly
+  retains/emphasizes damaged detail. This candidate is not accepted as a general
+  video preset. Fresh probe review's source-cache finding was fixed and rechecked;
+  boundary and fixed-diagnostic checks passed. Commands, attribution, measurements and
+  limitations: [enhancement feasibility](enhancement-spike.md).
 - **Verification/review:** full Python **61 passed** (12.593 s), real DB/FFmpeg/process
   coverage. DOM4 flows passed; the new delayed-save/reopen case passed after correction.
   Fresh reviewer found an older save could undo exclusion after same-item reopen at
@@ -72,10 +81,9 @@
   denied. Natural code-switching, long films, long-cue readability and human recommendation
   relevance remain unchecked. Browser presentation of the new controls is not accepted yet.
 - **Next:** target Windows/browser ASR→Korean→playback/resume remains the first external
-  gate; measure a conservative non-generative enhancement candidate on 12 GB before
-  adoption. While access is absent, evaluate one conservative enhancement candidate on
-  a permitted live-action CPU sample and prepare the smallest target measurement.
-  Visual/semantic analysis and enhancement
+  gate; the enhancement probe can now measure CUDA timing/memory/output on that PC.
+  Before adoption, evaluate a compression-aware pixel-loss candidate on the same local
+  samples and check real motion/full-size performance on 12 GB. Visual/semantic analysis and enhancement
   remain included October work; do not claim subtitle matching completes them.
   Consequential scope cuts and final merge/release need the owner.
 - **Operations:** one Work writes, fresh reviewers only for risky changes. Old developer/
