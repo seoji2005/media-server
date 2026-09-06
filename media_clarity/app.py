@@ -149,6 +149,11 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     def library():
         return {"items": store.list_items()}
 
+    @app.post('/api/library/{item_id}/playback')
+    def prepare_playback(item_id: str):
+        from .renditions import prepare
+        return prepare(store, item_id)
+
     @app.get("/api/library/{item_id}")
     def item(item_id: str):
         return store.item(item_id)
@@ -273,7 +278,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 
     @app.api_route("/api/media/{item_id}/content", methods=["GET", "HEAD"])
     def content(item_id: str, request: Request):
-        row = store._row(item_id)
+        row = store.playback_row(item_id)
         verified = store.open_verified(row)
         size = row["size"]
         etag = '"' + row["sha256"] + '"'

@@ -4,12 +4,19 @@ let sessionToken = "", items = [], filter = "all", activeItem = null, upload = n
 let recommendedItems = [], recommendationState = "idle", recommendationError = "", recommendationVersion = 0;
 let preferenceVersion = 0, savedPreference = null;
 const pendingPreferences = new Map();
+const preparingPlayback = new Set();
+let playerRequest = 0;
 let toastTimer, saveTimer, saveChain = Promise.resolve(), lastQueuedPosition = null;
 const video = $("video"), dialog = $("player-dialog");
 const errors = {
   preference_changed: "다른 저장으로 선호가 바뀌었습니다. 저장 상태를 다시 확인해 주세요.",
   local_origin_required: "이 기기의 로컬 주소에서 다시 열어주세요.", session_required: "앱이 재시작되었습니다. 페이지를 새로고침해 주세요.",
-  unsupported_container: "지원하지 않는 형식입니다. MP4 또는 WebM 영상을 선택해 주세요.", unsupported_codec: "현재 브라우저 감상용 코덱을 지원하지 않습니다. H.264/AAC MP4 또는 VP8·VP9 WebM이 필요합니다.",
+  unsupported_container: "지원하지 않는 형식입니다. MP4·MKV 또는 WebM 영상을 선택해 주세요.", unsupported_codec: "현재 브라우저 감상용 코덱을 지원하지 않습니다. H.264/AAC MP4 또는 VP8·VP9 WebM이 필요합니다.",
+  unsupported_hevc: "HEVC 영상은 아직 재생용 변환을 지원하지 않습니다. 원본을 변경하지 않았습니다.",
+  unsupported_video_depth: "10-bit 또는 4:2:0 이외의 영상 색 형식은 아직 지원하지 않습니다.",
+  unsupported_audio_codec: "첫 번째 오디오의 코덱을 지원하지 않습니다. 원본을 변경하지 않았습니다.",
+  rendition_required: "원본 보관 완료 · 재생용 사본 준비가 필요합니다. 영상을 다시 선택해 준비할 수 있습니다.",
+  rendition_validation_failed: "재생용 사본의 길이·형식 검증에 실패했습니다. 원본은 보존했습니다. 영상을 다시 선택해 재시도할 수 있습니다.",
   invalid_media: "영상을 읽을 수 없습니다. 정상적으로 재생되는 파일인지 확인해 주세요.", media_timeout: "영상 확인 시간이 초과되었습니다. 파일 상태를 확인한 뒤 다시 시도해 주세요.",
   ffmpeg_unavailable: "FFmpeg 또는 ffprobe를 찾을 수 없습니다. 설치 후 앱을 다시 시작해 주세요.",
   insufficient_space: "보관 공간이 부족합니다. 원본 크기보다 여유 있는 공간을 확보해 주세요.", import_busy: "다른 영상을 가져오고 있습니다. 완료된 후 다시 시도해 주세요.",
@@ -58,7 +65,7 @@ function render() {
     card.querySelector(".duration").textContent = time(item.duration);
     card.querySelector(".card-resolution").textContent = `${item.width} × ${item.height}`;
     const status = card.querySelector(".card-status");
-    status.textContent = !item.available ? (item.unavailable_reason === "managed_file_changed" ? "보관 파일이 변경됨" : "파일을 찾을 수 없음") : continuing(item) ? `${time(item.position)}부터 이어보기` : item.position > 0 ? "시청 완료" : "아직 보지 않음";
+    status.textContent = preparingPlayback.has(item.id) ? "재생용 사본 준비 중…" : item.unavailable_reason === "rendition_required" ? (item.preparation_error ? "재생 준비 실패 · 선택하면 재시도" : "원본 보관됨 · 선택하면 재생 준비") : !item.available ? (item.unavailable_reason === "managed_file_changed" ? "보관 파일이 변경됨" : "파일을 찾을 수 없음") : continuing(item) ? `${time(item.position)}부터 이어보기` : item.position > 0 ? "시청 완료" : "아직 보지 않음";
     status.classList.toggle("missing", !item.available);
     if(recommended) {
       const reason = document.createElement("p"); reason.className = "recommendation-reason";
@@ -142,17 +149,30 @@ async function importFile(file) {
   $("import-top").disabled = true; $("import-empty").disabled = true;
   xhr.open("POST","/api/import"); xhr.setRequestHeader("Content-Type","application/octet-stream"); xhr.setRequestHeader("X-Media-Token",sessionToken); xhr.setRequestHeader("X-Media-Filename",encodeURIComponent(file.name));
   xhr.upload.addEventListener("progress", e => { if(e.lengthComputable){ const percent=Math.round(e.loaded/e.total*100); $("upload-progress").value=percent; $("upload-percent").textContent=`${percent}%`; if(percent===100){ $("upload-detail").textContent="파일 무결성과 재생 형식을 확인하고 있어요. 긴 영상은 잠시 걸릴 수 있습니다."; $("upload-percent").textContent="확인 중"; $("upload-cancel").hidden=true; } } });
-  xhr.addEventListener("load", async () => { let result; try {result=JSON.parse(xhr.responseText);} catch {toast("앱 응답을 읽을 수 없습니다.",true); return;} if(xhr.status>=200&&xhr.status<300){ toast(result.duplicate ? "이미 보관함에 있는 영상입니다. 기존 시청 기록을 유지했어요." : "보관함에 영상을 담았습니다."); try {await refresh();} catch(e){toast(e.message,true);} } else toast(message(result.error),true); });
+  xhr.addEventListener("load", async () => { let result; try {result=JSON.parse(xhr.responseText);} catch {toast("앱 응답을 읽을 수 없습니다.",true); return;} if(xhr.status>=200&&xhr.status<300){ toast(result.duplicate ? "이미 보관함에 있는 영상입니다. 기존 시청 기록을 유지했어요." : "보관함에 영상을 담았습니다."); try {await refresh(); if(result.item?.unavailable_reason === "rendition_required") await preparePlayback(result.item.id);} catch(e){toast(e.message,true);} } else toast(message(result.error),true); });
   xhr.addEventListener("error", () => toast("가져오기가 중단되었습니다. 앱 연결과 원본 파일 상태를 확인해 주세요.",true));
   xhr.addEventListener("abort", () => toast("가져오기를 취소했습니다. 원본은 그대로입니다."));
   xhr.addEventListener("loadend", () => { upload=null; $("upload-status").hidden=true; $("import-top").disabled=false; $("import-empty").disabled=false; $("file-input").value=""; });
   xhr.send(file);
 }
+async function preparePlayback(id) {
+  if(preparingPlayback.has(id)) { toast("재생용 사본을 준비하고 있어요. 완료 후 다시 선택해 주세요."); return false; }
+  preparingPlayback.add(id); render(); toast("원본 보관을 마쳤습니다. 재생용 사본을 준비하고 있어요.");
+  try { await api(`/api/library/${id}/playback`,{method:"POST"}); toast("재생 준비를 마쳤습니다."); return true; }
+  catch(e) { toast(e.message + " 보관된 원본은 유지됩니다.",true); return false; }
+  finally { preparingPlayback.delete(id); await refresh(); }
+}
 async function openPlayer(id) {
+  const request = ++playerRequest;
   try {
-    const item = await api(`/api/library/${id}`);
+    let item = await api(`/api/library/${id}`);
+    if(item.unavailable_reason === "rendition_required") {
+      if(!await preparePlayback(id))return;
+      item = await api(`/api/library/${id}`);
+    }
+    if(request !== playerRequest)return;
     if(!item.available) return toast(message(item.unavailable_reason || "managed_file_missing"),true);
-    activeItem=item; lastQueuedPosition=null; $("player-title").textContent=item.title; $("player-meta").textContent=`${item.width} × ${item.height} · ${time(item.duration)} · 원본 사본`;
+    activeItem=item; lastQueuedPosition=null; $("player-title").textContent=item.title; $("player-meta").textContent=`${item.width} × ${item.height} · ${time(item.duration)} · ${{remux_mp4:"재생용 MP4 · 영상 그대로 · 첫 번째 오디오",audio_mp4:"재생용 MP4 · 영상 그대로 · 첫 번째 오디오를 AAC 스테레오로 변환",remux_webm:"재생용 WebM · 영상 그대로 · 첫 번째 오디오"}[item.preparation] || "원본 사본"}`;
     $("video-error").hidden=true; $("save-state").textContent=continuing(item) ? `${time(item.position)}에서 이어보기` : "준비 중";
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
     resetSubtitles(); video.src=`/api/media/${id}/content`; dialog.showModal(); refreshSubtitles(item);
@@ -174,7 +194,7 @@ function savePosition(keepalive=false) {
   }).catch(e=>{lastQueuedPosition=null;if(activeItem?.id===id) $("save-state").textContent="저장 실패 · 연결 확인";toast(e.message,true);});
   return saveChain;
 }
-async function closePlayer() { video.pause(); clearTimeout(saveTimer); saveTimer=null; await savePosition(); activeItem=null; resetSubtitles(); resetPreference(); video.removeAttribute("src"); video.load(); dialog.close(); if(filter === "recommended") refreshRecommendations(); else render(); }
+async function closePlayer() { playerRequest++; video.pause(); clearTimeout(saveTimer); saveTimer=null; await savePosition(); activeItem=null; resetSubtitles(); resetPreference(); video.removeAttribute("src"); video.load(); dialog.close(); if(filter === "recommended") refreshRecommendations(); else render(); }
 $("player-close").addEventListener("click",closePlayer);
 dialog.addEventListener("cancel",e=>{e.preventDefault();closePlayer();});
 $("restart-video").addEventListener("click",()=>{video.currentTime=0;savePosition();video.play().catch(()=>{});});
