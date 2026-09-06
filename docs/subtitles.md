@@ -35,7 +35,10 @@ its `<2ko>` target prefix. Adjacent fragments join through sentence punctuation,
 at 12 seconds, 400 characters and a 0.8-second gap; existing longer cues remain intact.
 One translated sentence retains the combined original interval. This does not invent
 word alignment or claim exact within-sentence timing. The untouched ASR cues remain stored.
-Pure Hangul text passes through per unit; mixed-language units still translate.
+Hangul-only text, including explicit numeric units such as `15m`, passes through per
+unit unchanged; other foreign letters still require translation. Generated translation
+entities decode once before validation and escaped WebVTT output. Source/fallback text
+does not take that normalization path.
 MADLAD runs batches of two with beam four, CUDA bfloat16 or CPU float32. Unsupported
 CUDA bfloat16 is diagnosed rather than silently using float16. GPU models run
 sequentially; CUDA bfloat16 execution and 12 GB feasibility are still unmeasured.
@@ -193,7 +196,8 @@ the number left as source text. Such segments show **[원문]** in the actual ca
   Changed model/config refuses reuse; restore the old
   setup to resume, or choose **처음부터 다시 만들기** for a new job with current
   settings. This preserves previous jobs, checkpoints and caption versions.
-  The new VAD/clip pipeline invalidates unfinished jobs from the previous adapter;
+  Pipeline v5 (numeric Korean units and generated plain-text handling) invalidates
+  unfinished jobs from previous adapters;
   restart creates a new job without deleting the old results. Existing ready versions
   and legacy checkpoint storage remain readable. Original/caption tampering fails closed.
 - Source/caption versions remain available after failure. A job publishes its full
@@ -206,9 +210,11 @@ the number left as source text. Such segments show **[원문]** in the actual ca
   that unit's source text with a saved warning and visible **[원문]**. Other units
   continue. Runtime/memory/storage errors stop with recoverable completed results.
   Empty ASR is reported as no speech, not a fabricated ready subtitle.
-- Actual mixed-language recognition, omission/hallucination/translation/timing quality,
-  long-video runtime, Windows/CUDA installation, GPU memory and browser decoding/caption
-  display need real samples and target tests. Synthetic results do not establish these.
+- The [actual multilingual speech check](speech-quality.md) covers short public
+  Japanese/English/Korean recordings and concatenated language changes. It exposed
+  remaining recognition/translation errors; natural mixed speech, long-video runtime,
+  Windows/CUDA, GPU memory and browser display remain unverified.
 
-The next required evidence is actual Windows/RTX installation and real browser caption
-playback/seek/resume, then Japanese/mixed speech and long videos.
+The next required target evidence is Windows/RTX installation and real browser caption
+playback/seek/resume. Broaden speech quality checks to natural language changes and long
+videos; the limited CPU corpus does not establish readiness for everyday watching.

@@ -1,67 +1,65 @@
 # Current work
 
 - **Milestone:** Korean-subtitle viewing and resumable preparation — in progress.
-  Original import/library/playback/resume is preserved. No October feature is dropped.
-- **Branch:** `app/korean-subtitles-resume`, Draft PR #4 now targets **main** directly.
-  Live comparison confirmed main is an ancestor. This single integration candidate
-  includes the unmerged #1/#3 changes; their branches/PRs are preserved. PR #2 was
-  already merged into `harness/initial-workflow`. No final merge was performed.
-  Read live coordinates before continuing. Latest implementation: `67f5e8e`.
-- **Implemented:** strict UTF-8/CP949/EUC-KR SRT import with original bytes and previous
-  caption versions preserved. Explicit new-version generation remains available after
-  SRT import. Native subtitle selection and selected-caption text search/seek are ready
-  for browser evaluation; search stays in browser memory and clears on player close.
-- **Pipeline correction:** adjacent source fragments join within sentence/time/length
-  bounds and retain their combined interval. MADLAD batches two units, uses CUDA
-  bfloat16/CPU float32, and passes pure Hangul units through. Known content failures
-  preserve source text with saved warnings and visible `[원문]`; runtime failures
-  retain completed results for resume. New batches append every 20 units or after
-  five seconds at a batch boundary. Job/attempt and OS worker guards remain unchanged.
-  Model identity uses file metadata/packages/options, not full weight byte scans.
-  FFmpeg reads the verified managed original directly; no extra processing video copy.
-  Old ready tracks remain readable; the new pipeline requires restarting old unfinished
-  jobs, preserving their prior checkpoints and caption versions.
-- **Windows blocker correction:** Silero v6 VAD now runs its official bundled
-  TorchScript model on CPU with the previous detection settings. Speech clips retain
-  original waveform time offsets. The app rejects preloaded ORT and blocks subsequent
-  imports, avoiding the initialization path entirely. Blanket Windows refusal is removed;
-  this is not a claim that Windows/RTX setup or inference has run. Matching Torch and
-  TorchAudio CPU/CUDA wheels are installed together. No permission for telemetry or
-  private egress is added. Silence returns no speech before loading Whisper.
-- **Actual model evidence:** `67f5e8e`, Linux CPU/Python 3.12.13. A 33-second public
-  speech/gap fixture produced exactly the old ONNX VAD boundaries using JIT (0.555 s).
-  Silence yielded no clips, four Torch threads restored, ORT absent from modules/native
-  mappings, Python socket-connect audit recorded zero attempts. This does not prove
-  native zero-packet operation or Windows behavior.
-  The production CLI/HTTP ASR→Korean pipeline completed a 48-second speech/gap fixture
-  in **95.93 s**, including pause/restarts. Paused at 2/3 and resumed only the last unit
-  as attempt two, with saved transcript/batches unchanged. Cue starts 3.920/19.120/34.160 s
-  retained the gaps; ready VTT survived restart byte-identically; watch position 5.25 s
-  restored, Range exact, source unchanged, server log zero bytes. The initial external
-  child-mapping observer failed on PID/procfs mismatch; that job was preserved/restarted.
-- **Verification:** full Python **50 tests passed** (8.542 s), including real SQLite,
-  FFmpeg and process interruption. Earlier DOM3 evidence remains valid for unchanged
-  flows; this UI diff only changes the runtime diagnostic message. Setup `pip check`
-  passed. Earlier append-checkpoint scale and supplied-version preservation evidence
-  remains valid. Exact setup/measurements and limits: [subtitles](subtitles.md).
-- **Independent review:** fresh reviewer checked the four-file runtime change at local
-  `c19ff68` against `ba7a0b7`, independently passed 25 subtitle tests and real JIT silence
-  with ORT absent. Found matching Torch/TorchAudio wheel setup omission; both CPU/CUDA
-  instructions now install them together. No other actionable code findings. Published
-  `67f5e8e` has the identical complete tree `c6c0ff038d1098461dff614d8b0cb3041832ea00`.
-  Later changes are docs only; earlier storage/resume/search reviews remain valid.
-- **Remaining:** no target Windows/RTX machine access here. CUDA libraries/drivers,
-  bfloat16/12 GB fit, actual browser playback/readability/seek/resume, Japanese/mixed
-  speech, long videos and human quality are unverified. Browser localhost was
-  `ERR_BLOCKED_BY_CLIENT`; native tracing via ptrace was denied. Previous real English
-  translation still has literal phrasing. Do not call these quality gates complete.
-- **Next:** execute the documented Windows setup and actual target/browser
-  ASR→Korean captions→seek/resume; diagnose CUDA loading/memory from those results.
-  Continue feasible Japanese/mixed-speech CPU checks while target access is absent.
-  Then measure a conservative non-generative enhancement candidate on 12 GB before
-  adoption. Text search exists; visual/semantic analysis and explicit-feedback
-  recommendations remain October scope. Consequential scope cuts/final merge require
-  the owner. Do not wait for target access to implement independent product work.
-- **Operations:** one Work writes; fresh reviewers only for risky changes. Old development/
-  reviewer event tasks remain paused; the existing daily read-only check is enabled.
-  Public package/model downloads are authorized. No private cloud inference or payloads.
+  The public multilingual CPU execution/correction checkpoint is complete; target
+  viewing and overall October acceptance are not. No included feature is dropped.
+- **Branch:** `app/korean-subtitles-resume`, Draft PR #4 targets **main** directly.
+  Main was confirmed an ancestor; this integration candidate includes #1/#3 changes.
+  Their branches/PRs remain preserved; #2 had merged into `harness/initial-workflow`.
+  No final merge. Read live coordinates before continuing. Implementation: `5ea410c`.
+- **App:** import/library/original playback/Range/watch-position resume; UTF-8/CP949/
+  EUC-KR SRT with original bytes and append-only versions. Explicit regeneration keeps
+  previous captions available. Selected-caption text search/seek uses browser memory;
+  it does not complete visual/semantic analysis. UI remains awaiting actual playback.
+- **Pipeline:** source ASR and Korean translation are separate. Adjacent fragments join
+  within sentence/time/length bounds, preserving their outer interval. MADLAD batch two,
+  CUDA bfloat16/CPU float32; known content failures save marked source text and continue.
+  Runtime errors preserve completed batches for resume. Append commits every 20 units
+  or five seconds at batch boundaries; existing job/attempt/OS worker guards stay.
+  Model identity checks metadata/packages/options, without full weight scans. FFmpeg
+  reads the verified managed original directly; no extra processing video copy.
+- **Observed fixes:** actual Korean speech produced `15m`, causing needless MT. Explicit
+  numeric units no longer disqualify otherwise Hangul-only text. Actual MADLAD emitted
+  literal HTML entities; generated output now decodes once before validation and safe
+  VTT escaping. Source/fallback strings stay intact. Pipeline v5 rejects unfinished old
+  results; restart creates a new job while preserving old checkpoints/ready versions.
+- **Runtime:** Silero v6 bundled TorchScript VAD on CPU, original-time speech clips and
+  restored Torch threads. ORT preloading is refused and future imports blocked. Blanket
+  Windows refusal is removed, but no Windows/RTX execution has occurred. Install matching
+  Torch/TorchAudio from the same CPU/CUDA wheel index. Setup: [subtitles](subtitles.md).
+- **Actual execution:** Linux CPU/Python 3.12.13, large-v3 + MADLAD. Seven public FLEURS
+  Japanese/English/Korean and concatenated language cases completed. Two corrected cases
+  reran: Korean 49.51→23.20 s with exact ASR pass-through; mixed 81.36→79.98 s with entity
+  syntax removed. These are individual short runs, not speed/quality benchmarks.
+  After server restart all nine old/new tracks and transcripts were unchanged, VTT
+  byte-identical, Range exact and source hashes preserved; server logs zero bytes.
+  Japanese word/proper-name errors, an omitted English connector and awkward MT remain.
+  CPU float32 ASR repeated two int8 errors, so production precision stayed unchanged.
+  Attribution, all cases, corrections and limits: [speech quality](speech-quality.md).
+- **Earlier valid evidence:** actual 48-second CPU speech/gap pipeline at `67f5e8e`
+  paused after 2/3 units and resumed only the final unit across forced server restart;
+  transcript/batches and 5.25 s watch position persisted. Prior JIT/ONNX VAD boundaries
+  matched; standalone ORT modules/native mappings absent, Python connect audit zero.
+  These observations are not native packet tracing or Windows proof. Details and
+  earlier scale/model setup evidence remain in [subtitles](subtitles.md).
+- **Verification/review:** full Python **53 passed** (10.141 s), real DB/FFmpeg/process
+  coverage. New regressions cover numeric foreign-word boundaries, generated markup,
+  single decoding and exact saved content after failure/resume. Fresh reviewer found no
+  actionable findings and independently passed 28 subtitle tests (4.154 s) at local
+  `9b7d469`; published `5ea410c` has the identical complete tree
+  `f56413f637730d536695035b89b4c723d51d59ee`. Previous DOM3/runtime/storage reviews remain
+  valid in unchanged scopes; neither DOM nor this review establishes playback quality.
+- **Remaining gates:** no target Windows/RTX access here; CUDA/driver/bfloat16/12 GB,
+  actual browser decoding/captions/seek/resume and human quality remain unverified.
+  Browser localhost previously returned `ERR_BLOCKED_BY_CLIENT`; native ptrace was
+  denied. Natural code-switching, long films and long-cue readability remain unchecked.
+- **Next:** target Windows/browser ASR→Korean→playback/resume remains the first external
+  gate; measure a conservative non-generative enhancement candidate on 12 GB before
+  adoption. While access is absent, the next independent product slice is basic local
+  recommendations from explicit feedback. Visual/semantic analysis and enhancement
+  remain included October work; do not claim subtitle matching completes them.
+  Consequential scope cuts and final merge/release need the owner.
+- **Operations:** one Work writes, fresh reviewers only for risky changes. Old developer/
+  reviewer event tasks stay paused; the existing daily read-only check is enabled.
+  Public package/model/test-audio downloads are authorized; no private cloud inference,
+  telemetry permission or private payload egress is added.
