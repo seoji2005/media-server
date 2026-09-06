@@ -35,7 +35,7 @@ def validate_cues(cues, duration):
     return result
 
 
-def parse_srt(data, duration):
+def parse_srt(data, duration, *, report=False):
     if not data or len(data) > MAX_SUBTITLE_BYTES:
         raise MediaError('invalid_subtitles', 422)
     try:
@@ -45,26 +45,50 @@ def parse_srt(data, duration):
             text = data.decode('cp949')  # Includes EUC-KR; never replace invalid bytes.
         except UnicodeError:
             raise MediaError('subtitle_encoding_unsupported', 422) from None
-    text = text.replace('\r\n', '\n').replace('\r', '\n').strip()
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    if any(ord(c) < 32 and c not in '\n\t' for c in text) or '\x7f' in text:
+        raise MediaError('invalid_subtitles', 422)
+    text = text.strip()
     cues = []
+    notes = dict(empty=0, outside=0, clipped=0, settings=0, reordered=False)
     def seconds(value):
         h, m, s, ms = map(int, re.split('[:,.]', value))
         if m >= 60 or s >= 60:
             raise MediaError('invalid_subtitles', 422)
         return h * 3600 + m * 60 + s + ms / 1000
-    for block in re.split(r'\n[ \t]*\n', text):
+    blocks = re.split(r'\n(?:[ \t]*\n)+', text)
+    if len(blocks) > MAX_CUES:
+        raise MediaError('invalid_subtitles', 422)
+    for block in blocks:
         lines = block.split('\n')
         if lines and lines[0].strip().isdigit():
             lines.pop(0)
-        if len(lines) < 2:
+        if not lines:
             raise MediaError('invalid_subtitles', 422)
-        match = re.fullmatch(r'(\d{2,3}:\d{2}:\d{2}[,.]\d{3})\s+-->\s+(\d{2,3}:\d{2}:\d{2}[,.]\d{3})', lines[0].strip())
+        match = re.fullmatch(r'(\d{1,3}:\d{2}:\d{2}[,.]\d{3})[ \t]+-->[ \t]+(\d{1,3}:\d{2}:\d{2}[,.]\d{3})([ \t]+[^\n]*)?', lines[0].strip())
         if not match:
             raise MediaError('invalid_subtitles', 422)
         # Drop common SRT styling, keeping only literal visible text.
         body = html.unescape(re.sub(r'</?(?:b|i|u|s|font)(?:\s+[^>]*)?>', '', '\n'.join(lines[1:]), flags=re.I))
-        cues.append({'start': seconds(match[1]), 'end': seconds(match[2]), 'text': body})
-    return validate_cues(cues, duration)
+        start, end = seconds(match[1]), seconds(match[2])
+        # Compatibility never relaxes text, timestamp or resource validation.
+        if (end <= start or len(body) > 4000
+                or any(ord(c) < 32 and c not in '\n\t' for c in body) or '\x7f' in body):
+            raise MediaError('invalid_subtitles', 422)
+        notes['settings'] += bool(match[3])
+        if not body.strip():
+            notes['empty'] += 1
+        elif start >= duration or round(start, 3) >= round(min(end, duration), 3):
+            notes['outside'] += 1
+        else:
+            notes['clipped'] += end > duration
+            cues.append({'start': start, 'end': min(end, duration), 'text': body})
+    ordered = sorted(cues, key=lambda c: c['start'])
+    notes['reordered'] = ordered != cues
+    cues = validate_cues(ordered, duration)
+    if not cues:
+        raise MediaError('subtitle_no_usable_cues', 422)
+    return (cues, notes) if report else cues
 
 
 def translation_units(cues):
