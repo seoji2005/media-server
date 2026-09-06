@@ -8,6 +8,7 @@ import json
 import math
 import os
 from pathlib import Path
+import sys
 
 from .storage import CHUNK, MediaError, file_signature, no_symlink, run_media
 from .subtitles import MAX_CUES
@@ -16,7 +17,16 @@ PIPELINE = 'korean-subtitles-v2:ffmpeg-f32-16k:whisper-beam5-vad-multilingual:ma
 PACKAGES = ('faster-whisper','ctranslate2','transformers','torch','sentencepiece','tokenizers','numpy','onnxruntime','av')
 
 
+def require_private_runtime():
+    # Official Windows ORT wheels may emit ETW initialization before the disable
+    # API is callable. Keep inference closed until a telemetry-free build is verified.
+    if sys.platform == 'win32':
+        raise MediaError('model_privacy_setup_required', 503)
+
+
 def local_models(root, check_packages=False):
+    if check_packages:
+        require_private_runtime()
     base = root / 'models'
     no_symlink(base)
     paths = {'asr':base/'asr', 'translation':base/'translation'}
@@ -37,7 +47,7 @@ def local_models(root, check_packages=False):
 
 class LocalModels:
     def __init__(self, root):
-        for name in ('HF_HUB_OFFLINE','TRANSFORMERS_OFFLINE','HF_HUB_DISABLE_TELEMETRY','DO_NOT_TRACK'):
+        for name in ('HF_HUB_OFFLINE','TRANSFORMERS_OFFLINE','HF_HUB_DISABLE_TELEMETRY','DO_NOT_TRACK','ORT_DISABLE_TELEMETRY'):
             os.environ[name] = '1'
         self.paths = local_models(root, check_packages=True)
         self.device = 'cuda' if os.name == 'nt' else 'cpu'
@@ -75,6 +85,12 @@ class LocalModels:
         return digest.hexdigest()
 
     def transcribe(self, path, duration):
+        require_private_runtime()
+        # ORT's initialization can send telemetry before its Python API is callable.
+        # Disable that path before import, then also disable platform trace events.
+        os.environ['ORT_DISABLE_TELEMETRY'] = '1'
+        import onnxruntime
+        onnxruntime.disable_telemetry_events()
         import numpy as np
         from faster_whisper import WhisperModel
         # Decode with the same local protocol/container restrictions as import.

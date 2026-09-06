@@ -6,7 +6,7 @@ import threading
 
 
 def main():
-    for name in ('HF_HUB_OFFLINE','TRANSFORMERS_OFFLINE','HF_HUB_DISABLE_TELEMETRY','DO_NOT_TRACK'):
+    for name in ('HF_HUB_OFFLINE','TRANSFORMERS_OFFLINE','HF_HUB_DISABLE_TELEMETRY','DO_NOT_TRACK','ORT_DISABLE_TELEMETRY'):
         os.environ[name] = '1'
     # EOF follows parent death, even on an abrupt Windows/Linux server exit.
     # No private payload is passed through this liveness pipe.

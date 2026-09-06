@@ -147,7 +147,8 @@ class Jobs:
                         [sys.executable, '-m', 'media_clarity.worker', str(self.store.root), self.active],
                         stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                         env={**os.environ, 'HF_HUB_OFFLINE': '1', 'TRANSFORMERS_OFFLINE': '1',
-                             'HF_HUB_DISABLE_TELEMETRY': '1', 'DO_NOT_TRACK': '1'})
+                             'HF_HUB_DISABLE_TELEMETRY': '1', 'DO_NOT_TRACK': '1',
+                             'ORT_DISABLE_TELEMETRY': '1'})
             except (OSError, sqlite3.Error):
                 # A launch/storage failure is visible and retryable; never hot-loop.
                 if self.active:

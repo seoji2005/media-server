@@ -113,8 +113,18 @@ class SubtitleTests(unittest.TestCase):
             if child.poll() is None:child.kill();child.wait()
 
     def test_real_local_audio_decode_passes_samples_to_asr(self):
+        import builtins
         from media_clarity.models import LocalModels
         observed = {}
+        original_import = builtins.__import__
+        def checked_import(name, *args, **kwargs):
+            if name == 'onnxruntime':
+                self.assertEqual(os.environ['ORT_DISABLE_TELEMETRY'], '1')
+                observed['guarded_import'] = True
+            if name == 'faster_whisper':
+                self.assertTrue(observed['telemetry_disabled'])
+            return original_import(name, *args, **kwargs)
+        ort=types.SimpleNamespace(disable_telemetry_events=lambda:observed.update(telemetry_disabled=True))
         class WhisperStub:
             def __init__(inner, model, **options):
                 observed['options'] = options
@@ -128,13 +138,26 @@ class SubtitleTests(unittest.TestCase):
         backend=object.__new__(LocalModels)
         backend.paths={'asr':self.root/'unused-model'};backend.device='cpu'
         np=types.SimpleNamespace(frombuffer=lambda data,dtype:memoryview(data).cast('f'))
-        with patch.dict(sys.modules,{'numpy':np,'faster_whisper':types.SimpleNamespace(WhisperModel=WhisperStub)}):
+        with patch('media_clarity.models.require_private_runtime'), patch.dict(os.environ,{'ORT_DISABLE_TELEMETRY':'0'}), patch.dict(sys.modules,{'onnxruntime':ort,'numpy':np,'faster_whisper':types.SimpleNamespace(WhisperModel=WhisperStub)}), patch('builtins.__import__',side_effect=checked_import):
             cues=backend.transcribe(self.source,4)
+        self.assertTrue(observed['guarded_import'])
         self.assertTrue(observed['options']['local_files_only'])
         self.assertTrue(observed['transcribe']['multilingual'])
         self.assertGreater(observed['samples'],60000)
         self.assertLess(observed['samples'],70000)
         self.assertTrue(observed['materialized']);self.assertEqual(cues[0]['text'],'synthetic ASR')
+
+    def test_windows_runtime_is_rejected_before_model_import_or_job_creation(self):
+        from media_clarity.models import LocalModels
+        with patch('media_clarity.models.sys.platform','win32'), patch('builtins.__import__',side_effect=AssertionError('unexpected runtime import')):
+            with self.assertRaisesRegex(MediaError,'model_privacy_setup_required'):
+                LocalModels(self.root)
+            with self.assertRaisesRegex(MediaError,'model_privacy_setup_required'):
+                object.__new__(LocalModels).transcribe(self.source,4)
+        with patch('media_clarity.models.sys.platform','win32'):
+            with self.assertRaisesRegex(MediaError,'model_privacy_setup_required'):
+                self.jobs.enqueue(self.item['id'])
+        self.assertEqual(self.jobs.status(self.item['id'])['jobs'],[])
 
     def test_restart_preserves_failed_checkpoint_and_existing_subtitles(self):
         job_id=self.enqueue(); (self.root/'fail').touch(); self.run_job(job_id)

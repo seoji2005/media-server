@@ -2,5 +2,7 @@
 # Install the appropriate CPU/CUDA torch wheel first (docs/subtitles.md).
 torch==2.8.0
 faster-whisper==1.2.1
+# Supports disabling the non-Windows telemetry uploader before initialization.
+onnxruntime==1.29.0
 transformers==4.57.1
 sentencepiece>=0.2,<0.3

@@ -147,6 +147,7 @@ document.addEventListener("drop",e=>{e.preventDefault();dragDepth=0;$("drop-over
 
 let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null;
 const subtitleMessages={
+  model_privacy_setup_required:"Windows 자막 처리에는 진단 전송 없는 추론 엔진 검증이 필요합니다. 현재는 가진 자막 파일을 열어 감상할 수 있습니다.",
   processing_worker_active:"이전 처리 프로세스가 종료되는 중입니다. 원본은 감상할 수 있으며, 종료 후 처리를 재개할 수 있습니다.",
   processing_busy:"이 영상의 다른 자막 작업이 있습니다. 현재 작업에서 재개해 주세요.",
   processing_checkpoint_invalid:"저장된 처리 정보가 올바르지 않아 재사용을 중단했습니다. 기존 자막과 원본은 보존했습니다.",
@@ -164,15 +165,22 @@ const subtitleMessages={
   subtitles_too_large:"자막 파일이 너무 큽니다. 2 MiB 이하 SRT를 선택해 주세요.",
   subtitles_already_available:"이미 사용할 자막이 있습니다. 자막 목록에서 선택해 주세요."
 };
-function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
+function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
 function loadSubtitle(id){
   if(!activeItem||subtitleLoaded===id)return;
   video.querySelectorAll("track").forEach(t=>t.remove());subtitleLoaded=id;
+  resetSubtitleSearch(false, id ? "loading" : "empty");
   if(!id)return;
   const owner=activeItem,track=document.createElement("track");track.kind="subtitles";track.srclang="ko";track.label="한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${id}.vtt`;
-  track.addEventListener("load",()=>{if(activeItem===owner&&subtitleLoaded===id)track.track.mode="showing";});
-  track.addEventListener("error",()=>{if(activeItem===owner&&subtitleLoaded===id)$("subtitle-state").textContent="자막을 불러올 수 없습니다. 파일 상태와 앱 연결을 확인해 주세요.";});
+  track.addEventListener("load",()=>{
+    if(activeItem!==owner||subtitleLoaded!==id||track.parentNode!==video)return;
+    subtitleSearch={owner, id, track:track.track, state:"ready", cues:null};
+    renderSubtitleSearch();
+  });
+  track.addEventListener("error",()=>{if(activeItem===owner&&subtitleLoaded===id&&track.parentNode===video){$("subtitle-state").textContent="자막을 불러올 수 없습니다. 파일 상태와 앱 연결을 확인해 주세요.";resetSubtitleSearch(false,"error");}});
   video.append(track);
+  // Select now; a later load must preserve any native Off chosen while loading.
+  if(track.track)track.track.mode="showing";
 }
 async function refreshSubtitles(owner){
   clearTimeout(subtitleTimer);
@@ -203,3 +211,54 @@ $("subtitle-input").addEventListener("change",async()=>{
 });
 $("subtitle-generate").addEventListener("click",async()=>{const owner=activeItem;if(!owner)return;try{await api(`/api/library/${owner.id}/subtitle-jobs`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)$("subtitle-state").textContent=e.message;}});
 for(const action of ["pause","resume","restart"])$("subtitle-"+action).addEventListener("click",async()=>{const owner=activeItem,job=subtitleJob;if(!owner||!job)return;try{await api(`/api/subtitle-jobs/${job.id}/${action}`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)$("subtitle-state").textContent=e.message;}});
+
+let subtitleSearch={state:"empty",cues:[]}, subtitleSearchTimer=null;
+function resetSubtitleSearch(clearQuery=false,state="empty"){
+  clearTimeout(subtitleSearchTimer);subtitleSearchTimer=null;
+  subtitleSearch={state,cues:[]};
+  if(clearQuery){$("subtitle-query").value="";$("subtitle-search-panel").open=false;}
+  renderSubtitleSearch();
+}
+function renderSubtitleSearch(){
+  const results=$("subtitle-results"),status=$("subtitle-search-status");results.replaceChildren();
+  const notices={empty:"한국어 자막을 선택해 주세요.",loading:"자막을 불러오는 중입니다.",error:"자막을 불러오지 못했습니다. 자막을 다시 선택해 주세요."};
+  if(subtitleSearch.state!=="ready"){status.textContent=notices[subtitleSearch.state];return;}
+  if(subtitleSearch.owner!==activeItem||subtitleSearch.id!==subtitleLoaded)return;
+  if(subtitleSearch.track.mode!=="showing"){status.textContent="플레이어에서 한국어 자막을 켜 주세요.";return;}
+  // Search only the selected, already-loaded text track. No query/history API.
+  const query=$("subtitle-query").value.trim().normalize("NFKC").toLocaleLowerCase();
+  if(!query){status.textContent="대사나 단어를 입력하면 해당 장면으로 이동할 수 있어요.";return;}
+  const selected=subtitleSearch;
+  // Disabled native tracks expose null cues, including when loading finishes Off.
+  // Read after the loaded track is showing; keep plain text only for this selection.
+  if(selected.cues===null)selected.cues=Array.from(selected.track.cues||[]).map(cue=>({start:cue.startTime,text:cue.getCueAsHTML().textContent}));
+  let count=0;
+  for(const cue of selected.cues){
+    if(!cue.text.normalize("NFKC").toLocaleLowerCase().includes(query))continue;
+    count++;
+    if(count>50)continue;
+    const row=document.createElement("li"),button=document.createElement("button"),stamp=document.createElement("span"),text=document.createElement("span");
+    button.type="button";button.className="subtitle-result";
+    stamp.className="subtitle-result-time";stamp.textContent=time(cue.start);
+    text.textContent=cue.text;button.append(stamp,text);
+    button.setAttribute("aria-label",`${time(cue.start)} 장면으로 이동, ${cue.text}`);
+    button.addEventListener("click",()=>{
+      if(subtitleSearch!==selected||activeItem!==selected.owner||subtitleLoaded!==selected.id||selected.track.mode!=="showing")return;
+      if(video.readyState<1||!Number.isFinite(video.duration))return toast("영상이 준비된 뒤 다시 선택해 주세요.");
+      if(!Number.isFinite(cue.start)||cue.start<0||cue.start>=video.duration)return toast("이 장면으로 이동할 수 없습니다.",true);
+      try{video.currentTime=cue.start;video.play().catch(()=>toast("장면을 찾았습니다. 재생 버튼을 눌러 주세요."));}
+      catch{toast("장면으로 이동하지 못했습니다. 영상 상태를 확인해 주세요.",true);}
+      // The existing seeked handler persists the completed seek, not a speculative position.
+    });
+    row.append(button);results.append(row);
+  }
+  status.textContent=count>50?`${count}개 일치 · 앞의 50개를 표시합니다. 검색어를 더 입력해 범위를 좁혀 주세요.`:count?`${count}개 일치 · 선택하면 해당 장면을 재생합니다.`:"일치하는 자막이 없습니다.";
+}
+$("subtitle-query").addEventListener("input",()=>{
+  clearTimeout(subtitleSearchTimer);
+  subtitleSearchTimer=setTimeout(()=>{subtitleSearchTimer=null;renderSubtitleSearch();},150);
+});
+video.textTracks?.addEventListener?.("change",()=>{
+  // Native caption controls also invalidate retained result callbacks.
+  subtitleSearch={...subtitleSearch};renderSubtitleSearch();
+});
