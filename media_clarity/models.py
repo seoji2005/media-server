@@ -118,6 +118,7 @@ def local_models(root, check_packages=False):
 
 
 class LocalModels:
+    audio_timing = 'source-timestamps-v1'
     batch_size = 2
     checkpoint_size = 20
     def __init__(self, root):
@@ -144,16 +145,18 @@ class LocalModels:
                     digest.update(repr(file_signature(stream)).encode())
         return digest.hexdigest()
 
-    def transcribe(self, path, duration):
+    def transcribe(self, path, duration, audio_index=0):
+        if type(audio_index) is not int or not 0 <= audio_index < 128:
+            raise MediaError('invalid_audio_track', 422)
         require_private_runtime()
         import numpy as np
         from faster_whisper import WhisperModel
         # Decode with the same local protocol/container restrictions as import.
         # Pass samples to Whisper so its decoder cannot resolve media references.
         raw = run_media([
-            'ffmpeg','-v','error','-nostdin','-protocol_whitelist','file,pipe',
-            '-format_whitelist','mov,matroska,webm','-i',str(path),'-map','0:a:0',
-            '-vn','-sn','-dn','-ac','1','-ar','16000','-f','f32le','pipe:1'],
+            'ffmpeg','-v','error','-nostdin','-copyts','-start_at_zero','-protocol_whitelist','file,pipe',
+            '-format_whitelist','mov,matroska,webm','-i',str(path),'-map',f'0:a:{audio_index}',
+            '-vn','-sn','-dn','-ac','1','-ar','16000','-af','aresample=async=1:first_pts=0','-f','f32le','pipe:1'],
             max(120,min(1800,math.ceil(duration / 2))), math.ceil(duration * 64000) + 1048576)
         if not raw or len(raw) % 4:
             raise MediaError('invalid_media', 422)

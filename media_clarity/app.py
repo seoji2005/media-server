@@ -66,9 +66,11 @@ def byte_range(header: str | None, size: int) -> tuple[int, int, int]:
 
 
 def create_app(data_dir: Path | None = None) -> FastAPI:
+    from .previews import Previews
     store = Store(data_dir if data_dir is not None else default_data_dir())
     jobs = Jobs(store)
     recommendations = Recommendations(store)
+    previews = Previews(store)
     token = secrets.token_urlsafe(32)
 
     @asynccontextmanager
@@ -79,12 +81,14 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             jobs.start()
             yield
         finally:
+            previews.close()
             jobs.close()
             store.close()
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store = store
     app.state.jobs = jobs
+    app.state.previews = previews
 
     @app.middleware("http")
     async def local_boundary(request: Request, call_next):
@@ -149,9 +153,36 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     def library():
         return {"items": store.list_items()}
 
+    @app.post('/api/library/{item_id}/playback')
+    def prepare_playback(item_id: str):
+        from .renditions import prepare
+        return prepare(store, item_id)
+
+    @app.post('/api/library/{item_id}/audio/{audio_index}')
+    def select_audio(item_id: str, audio_index: int):
+        from .renditions import prepare
+        return prepare(store, item_id, audio_index)
+
     @app.get("/api/library/{item_id}")
     def item(item_id: str):
         return store.item(item_id)
+
+    @app.get('/api/library/{item_id}/previews')
+    def preview_status(item_id: str):
+        return previews.status(item_id)
+
+    @app.post('/api/library/{item_id}/previews')
+    def prepare_previews(item_id: str):
+        return previews.prepare(item_id)
+
+    @app.post('/api/library/{item_id}/previews/{ordinal}/retry')
+    def retry_preview(item_id: str, ordinal: int):
+        return previews.prepare(item_id, retry=ordinal)
+
+    @app.get('/api/library/{item_id}/previews/{set_id}/{ordinal}.jpg')
+    def preview_image(item_id: str, set_id: str, ordinal: int):
+        data, digest = previews.image(item_id,set_id,ordinal)
+        return Response(data, media_type='image/jpeg', headers={'ETag':'"'+digest+'"'})
 
     @app.get("/api/recommendations")
     def suggested_items():
@@ -235,22 +266,22 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             body = json.loads(payload)
         except (ValueError, UnicodeError):
             raise MediaError("invalid_request", 422) from None
-        if type(body) is not dict or set(body) != {"position"}:
+        if type(body) is not dict or set(body) not in ({"position"}, {"position","audio_index"}):
             raise MediaError("invalid_request", 422)
-        return await run_in_threadpool(store.save_position, item_id, body["position"])
+        return await run_in_threadpool(store.save_position, item_id, body["position"], body.get('audio_index'))
 
     @app.get("/api/library/{item_id}/subtitles")
     def subtitles(item_id: str):
         return jobs.status(item_id)
 
     @app.post("/api/library/{item_id}/subtitles")
-    async def import_subtitles(item_id: str, request: Request):
+    async def import_subtitles(item_id: str, request: Request, audio_index: int | None = None):
         data = bytearray()
         async for chunk in request.stream():
             if len(data) + len(chunk) > MAX_SUBTITLE_BYTES:
                 raise MediaError("subtitles_too_large", 413)
             data.extend(chunk)
-        track_id = await run_in_threadpool(jobs.import_srt, item_id, bytes(data))
+        track_id = await run_in_threadpool(jobs.import_srt, item_id, bytes(data), audio_index)
         return JSONResponse({"id":track_id}, status_code=201)
 
     @app.get("/api/library/{item_id}/subtitles/{track_id}.vtt")
@@ -258,13 +289,13 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         return Response(jobs.track(item_id, track_id), media_type="text/vtt; charset=utf-8")
 
     @app.post("/api/library/{item_id}/subtitle-jobs")
-    def create_subtitle_job(item_id: str):
-        return JSONResponse({"id":jobs.enqueue(item_id)}, status_code=202)
+    def create_subtitle_job(item_id: str, audio_index: int | None = None):
+        return JSONResponse({"id":jobs.enqueue(item_id, audio_index=audio_index)}, status_code=202)
 
     @app.post("/api/library/{item_id}/subtitle-jobs/regenerate")
-    def regenerate_subtitle_job(item_id: str):
+    def regenerate_subtitle_job(item_id: str, audio_index: int | None = None):
         # A new version; existing supplied/generated tracks remain available.
-        return JSONResponse({"id":jobs.enqueue(item_id, force=True)}, status_code=202)
+        return JSONResponse({"id":jobs.enqueue(item_id, force=True, audio_index=audio_index)}, status_code=202)
 
     @app.post("/api/subtitle-jobs/{job_id}/{action}")
     def subtitle_job_action(job_id: str, action: str):
@@ -272,8 +303,8 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         return {"ok":True}
 
     @app.api_route("/api/media/{item_id}/content", methods=["GET", "HEAD"])
-    def content(item_id: str, request: Request):
-        row = store._row(item_id)
+    def content(item_id: str, request: Request, audio_index: int | None = None):
+        row = store.playback_row(item_id, audio_index)
         verified = store.open_verified(row)
         size = row["size"]
         etag = '"' + row["sha256"] + '"'

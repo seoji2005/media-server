@@ -10,6 +10,7 @@
 </head>
 <body>
   <svg class="symbols" aria-hidden="true"><defs>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M9 4v6M15 14v6"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="m9 5 11 7-11 7Z"/></symbol>
@@ -36,6 +37,7 @@
       <header class="topbar">
         <div class="breadcrumb">내 공간 <span>/</span> <strong id="breadcrumb-current">보관함</strong></div>
         <label class="search"><svg><use href="#i-search"/></svg><input id="search" type="search" autocomplete="off" placeholder="보관함에서 검색" aria-label="영상 제목 검색"><kbd>/</kbd></label>
+        <button class="button button-quiet top-settings" id="settings-open" type="button" aria-label="설정 열기" aria-haspopup="dialog" aria-controls="settings-dialog"><svg><use href="#i-settings"/></svg><span>설정</span></button>
         <button class="button button-primary top-import" id="import-top" type="button" aria-label="영상 가져오기"><svg><use href="#i-plus"/></svg><span>영상 가져오기</span></button>
       </header>
       <div class="page-content">
@@ -46,12 +48,6 @@
           <div class="welcome-art" aria-hidden="true"><div class="art-frame frame-back"></div><div class="art-frame frame-front"><div class="art-orbit"></div><span class="art-play">▶</span></div></div>
         </section>
         <div class="notice" id="diagnostic" role="status" hidden></div>
-        <details class="subtitle-search" id="model-setup">
-          <summary>자막 만들기 준비</summary>
-          <p id="model-device"></p>
-          <button class="button button-secondary" id="model-check" type="button">실행 환경 확인</button>
-          <p id="model-check-state" role="status">영상 없이 이 기기의 자막 실행 환경만 확인합니다.</p>
-        </details>
         <section class="upload-status" id="upload-status" aria-live="polite" hidden>
           <div class="upload-icon"><svg><use href="#i-upload"/></svg></div>
           <div class="upload-body"><div class="upload-heading"><strong id="upload-title">영상을 가져오고 있어요</strong><span id="upload-percent"></span></div><p id="upload-detail"></p><progress id="upload-progress" max="100" value="0"></progress></div>
@@ -65,7 +61,7 @@
             <h3 id="empty-title">첫 번째 영상을 담아보세요</h3>
             <p id="empty-description">파일을 선택하거나 이곳에 끌어놓으세요.<br>원본은 그대로 두고, 감상용 사본을 안전하게 보관합니다.</p>
             <button class="button button-primary" id="import-empty" type="button"><svg><use href="#i-plus"/></svg>영상 선택하기</button>
-            <div class="format-note" id="format-note">MP4 · H.264 / WebM · VP8, VP9<span>인터넷 전송 없이 이 기기에서 처리</span></div>
+            <div class="format-note" id="format-note">MP4·MKV · H.264 / WebM · VP8, VP9<span>필요한 재생용 사본도 이 기기에서 준비</span></div>
           </div>
           <div class="loading-state" id="loading-state" role="status"><span class="spinner"></span>보관함을 열고 있어요</div>
         </section>
@@ -73,13 +69,51 @@
       </div>
     </main>
   </div>
-  <input type="file" id="file-input" accept=".mp4,.m4v,.mov,.webm,video/mp4,video/webm" hidden>
+  <input type="file" id="file-input" accept=".mp4,.m4v,.mov,.mkv,.webm,video/mp4,video/webm,video/x-matroska" hidden>
   <div class="drop-overlay" id="drop-overlay" hidden><div><svg><use href="#i-upload"/></svg><h2>여기에 영상을 놓아주세요</h2><p>한 번에 한 개의 영상을 가져옵니다</p></div></div>
   <dialog id="player-dialog" class="player-dialog" aria-labelledby="player-title">
     <header class="player-header"><button class="button button-quiet" id="player-close" type="button"><svg><use href="#i-arrow"/></svg>보관함</button><span id="save-state" role="status"></span></header>
     <div class="video-shell"><video id="video" controls playsinline preload="metadata"></video><div class="video-error" id="video-error" role="alert" hidden></div></div>
-    <div class="player-info"><div><div class="eyebrow">NOW WATCHING</div><h2 id="player-title"></h2><p id="player-meta"></p></div><button class="button button-secondary" id="restart-video" type="button"><svg><use href="#i-play"/></svg>처음부터 보기</button></div>
-    <section class="preference-panel" aria-label="감상 취향">
+    <div class="player-info"><div><div class="eyebrow">감상 중</div><h2 id="player-title"></h2><p id="player-meta"></p></div><button class="button button-secondary" id="restart-video" type="button"><svg><use href="#i-play"/></svg>처음부터 보기</button></div>
+    <details class="watch-option audio-panel" id="audio-panel" hidden>
+      <summary>오디오<span id="audio-brief"></span></summary>
+      <div class="option-content">
+        <div class="subtitle-heading"><label for="audio-select">들을 음성</label><select id="audio-select"></select><button class="button button-secondary" id="audio-apply" type="button">적용</button></div>
+        <p id="audio-state" role="status">선택한 음성으로 재생하고 새 자막을 만듭니다. 처음 선택할 때 재생용 사본을 준비하며 추가 저장 공간을 사용합니다.</p>
+      </div>
+    </details>
+    <section class="subtitle-panel" aria-label="자막과 장면 탐색">
+      <div class="subtitle-heading"><label for="subtitle-select">한국어 자막</label><select id="subtitle-select"><option value="">자막 끄기</option></select></div>
+      <details class="watch-option" id="subtitle-preparation">
+        <summary>자막 준비<span id="subtitle-brief" role="status"></span></summary>
+        <div class="option-content">
+      <div class="subtitle-actions"><button class="button button-secondary" id="subtitle-import" type="button">자막 파일 열기</button><button class="button button-secondary" id="subtitle-generate" type="button">한국어 자막 만들기</button><button class="button button-quiet" id="subtitle-pause" type="button" hidden>일시정지</button><button class="button button-secondary" id="subtitle-resume" type="button" hidden>처리 재개</button><button class="button button-quiet" id="subtitle-restart" type="button" hidden>처음부터 다시 만들기</button></div>
+      <input type="file" id="subtitle-input" accept=".srt" hidden>
+      <p id="subtitle-state" role="status">가진 한국어 자막을 열거나 이 기기에서 만들 수 있습니다.</p>
+      <p id="subtitle-notes" role="status" hidden></p>
+      <progress id="subtitle-progress" max="100" value="0" aria-label="자막 처리 진행률" hidden></progress>
+        </div>
+      </details>
+      <details class="subtitle-search watch-option" id="subtitle-search-panel">
+        <summary>장면 찾기</summary>
+        <div class="option-content">
+        <label for="subtitle-query">선택한 자막에서 검색</label>
+        <input id="subtitle-query" type="search" maxlength="200" autocomplete="off" spellcheck="false" placeholder="찾고 싶은 대사나 단어" aria-describedby="subtitle-search-status">
+        <p id="subtitle-search-status" role="status">한국어 자막을 선택해 주세요.</p>
+        <ol id="subtitle-results" aria-label="일치하는 자막과 장면"></ol>
+        <details id="preview-panel" class="time-previews">
+          <summary>시간별 미리보기</summary>
+          <p>일정 간격의 프레임으로 영상을 훑어봅니다. 뒤의 장면이 보일 수 있어요. 내용·의미를 분석한 검색은 아닙니다.</p>
+          <div class="subtitle-actions"><button class="button button-secondary" id="preview-build" type="button">미리보기 만들기</button><button class="button button-quiet" id="preview-pause" type="button" hidden>잠시 멈추기</button></div>
+          <p id="preview-state" role="status">이 영상의 미리보기를 확인합니다.</p>
+          <ol id="preview-grid" aria-label="시간별 영상 미리보기"></ol>
+        </details>
+        </div>
+      </details>
+    </section>
+    <details class="preference-panel watch-option" id="preference-panel">
+      <summary>감상 취향</summary>
+      <div class="option-content">
       <fieldset id="preference-controls" disabled>
         <legend>감상 취향</legend>
         <label for="preference-value">이 영상은</label>
@@ -88,23 +122,18 @@
       </fieldset>
       <p>포함한 영상끼리 제목의 공통 단어와 선호를 비교합니다. 시청 기록과 자막은 사용하지 않습니다.</p>
       <p id="preference-state" role="status"></p><button class="button button-quiet" id="preference-retry" type="button" hidden>저장 상태 다시 확인</button>
-    </section>
-    <section class="subtitle-panel" aria-label="한국어 자막">
-      <div class="subtitle-heading"><label for="subtitle-select">한국어 자막</label><select id="subtitle-select"><option value="">자막 끄기</option></select></div>
-      <div class="subtitle-actions"><button class="button button-secondary" id="subtitle-import" type="button">자막 파일 열기</button><button class="button button-secondary" id="subtitle-generate" type="button">한국어 자막 만들기</button><button class="button button-quiet" id="subtitle-pause" type="button" hidden>일시정지</button><button class="button button-secondary" id="subtitle-resume" type="button" hidden>처리 재개</button><button class="button button-quiet" id="subtitle-restart" type="button" hidden>처음부터 다시 만들기</button></div>
-      <input type="file" id="subtitle-input" accept=".srt" hidden>
-      <p id="subtitle-state" role="status">가진 한국어 자막을 열거나 이 기기에서 만들 수 있습니다.</p>
-      <p id="subtitle-notes" role="status" hidden></p>
-      <progress id="subtitle-progress" max="100" value="0" aria-label="자막 처리 진행률" hidden></progress>
-      <details class="subtitle-search" id="subtitle-search-panel">
-        <summary>자막에서 장면 찾기</summary>
-        <label for="subtitle-query">선택한 자막에서 검색</label>
-        <input id="subtitle-query" type="search" maxlength="200" autocomplete="off" spellcheck="false" placeholder="찾고 싶은 대사나 단어" aria-describedby="subtitle-search-status">
-        <p id="subtitle-search-status" role="status">한국어 자막을 선택해 주세요.</p>
-        <ol id="subtitle-results" aria-label="일치하는 자막과 장면"></ol>
-      </details>
-    </section>
-    <p class="player-note">시청 위치는 자동으로 저장됩니다. 재생할 수 없는 형식은 호환 가능한 영상으로 변환해 다시 가져와 주세요.</p>
+      </div>
+    </details>
+  </dialog>
+  <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+    <header class="settings-header"><h2 id="settings-title">설정</h2><button class="icon-button" id="settings-close" type="button" aria-label="설정 닫기"><svg><use href="#i-close"/></svg></button></header>
+    <p>자막을 만들기 전, 이 기기의 실행 환경을 확인할 수 있습니다.</p>
+        <details class="subtitle-search" id="model-setup">
+          <summary>자막 실행 환경</summary>
+          <p id="model-device"></p>
+          <button class="button button-secondary" id="model-check" type="button">실행 환경 확인</button>
+          <p id="model-check-state" role="status">영상 없이 이 기기의 자막 실행 환경만 확인합니다.</p>
+        </details>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <template id="card-template"><article class="media-card"><button class="card-button" type="button"><div class="card-visual"><div class="card-fallback"><svg><use href="#i-film"/></svg></div><img alt="" loading="lazy"><span class="card-play"><svg><use href="#i-play"/></svg></span><span class="duration"></span><progress class="watch-progress" max="100" value="0"></progress></div><div class="card-info"><h3></h3><div class="card-meta"><span class="card-resolution"></span><span class="card-status"></span></div></div></button></article></template>

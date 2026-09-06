@@ -7,7 +7,7 @@ const source = fs.readFileSync(`${repo}/media_clarity/static/app.js`, 'utf8');
 async function run(js) {
   const dom = new JSDOM(html, {url:'http://127.0.0.1:8765', runScripts:'outside-only'});
   const w=dom.window, d=w.document, timers=new Map(), writes=[];
-  let timerId=0;
+  let timerId=0, preparationFailed=false;
   const library=[{id:'fixture-a',title:'<img src=x onerror=alert(1)> 영상',duration:25,position:8.25,width:640,height:360,available:true,thumbnail:false}, {id:'fixture-b',title:'다른 영상',duration:25,position:0,width:640,height:360,available:true,thumbnail:false}];
   w.setTimeout=(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;};
   w.clearTimeout=id=>timers.delete(id);
@@ -17,6 +17,11 @@ async function run(js) {
     else if(path==='/api/library') result={items:library.map(x=>({...x}))};
     else {const id=path.split('/')[3], item=library.find(x=>x.id===id); assert(item,path);
       if(path.endsWith('/subtitles')) result={jobs:[],tracks:[]};
+      else if(path.endsWith('/playback')) {
+        assert.equal(opts.method,'POST');assert.equal(opts.headers['X-Media-Token'],'synthetic-token');
+        if(!preparationFailed){preparationFailed=true;item.preparation_error='media_timeout';return {ok:false,json:async()=>({error:'media_timeout'})};}
+        item.available=true;item.unavailable_reason=null;item.preparation_error=null;result={...item};
+      }
       else if(opts.method==='PUT'){const position=JSON.parse(opts.body).position; writes.push({id,position});item.position=position;result={...item};}
       else result={...item};
     }
@@ -63,6 +68,13 @@ async function run(js) {
   assert.match(d.getElementById('video-error').textContent,/파일이 변경되었습니다/);
   await w.__qa.closePlayer();
   assert.equal(d.querySelectorAll('.media-card .missing').length,2,'media error must update the cached library state');
+  library[1].unavailable_reason='rendition_required';library[1].preparation='audio_mp4';
+  await w.__qa.openPlayer('fixture-b');assert.equal(dialog.open,false);
+  assert.match(d.getElementById('toast').textContent,/보관된 원본은 유지/);
+  assert.match(d.getElementById('library-grid').textContent,/재생 준비 실패/);
+  await w.__qa.openPlayer('fixture-b');assert.equal(dialog.open,true);
+  assert.match(d.getElementById('player-meta').textContent,/AAC 스테레오/);
+  await w.__qa.closePlayer();
   w.close();return {checks:['safe title text','library search','continue filter','metadata resume','close and reopen autosave','ordered seek/pause writes','missing-file feedback','changed-file feedback','media error refreshes library'],writes};
 }
 (async()=>{

@@ -22,17 +22,8 @@ class Recommendations:
         self.store = store
 
     def init(self):
-        with self.store.db() as db:
-            db.execute("""CREATE TABLE IF NOT EXISTS item_preferences (
-                item_id TEXT PRIMARY KEY REFERENCES items(id),
-                included INTEGER NOT NULL DEFAULT 0 CHECK(included IN (0,1)),
-                revision INTEGER NOT NULL DEFAULT 0 CHECK(revision>=0),
-                preference TEXT NOT NULL DEFAULT 'neutral'
-                    CHECK(preference IN ('neutral','like','dislike','less'))
-            )""")
-            if 'revision' not in {row['name'] for row in db.execute('PRAGMA table_info(item_preferences)')}:
-                db.execute('ALTER TABLE item_preferences ADD COLUMN revision INTEGER NOT NULL DEFAULT 0')
-            db.commit()
+        # Schema belongs to Store's versioned migration transaction.
+        pass
 
     def preference(self, item_id):
         self.store._row(item_id)

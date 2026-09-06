@@ -55,6 +55,9 @@ def main():
                 return 2
             else:
                 result = store.import_path(args.source)
+                if result['item']['unavailable_reason'] == 'rendition_required':
+                    from .renditions import prepare
+                    prepare(store, result['item']['id'])
                 print(json.dumps({"id": result["item"]["id"], "duplicate": result["duplicate"]}))
         finally:
             store.close()

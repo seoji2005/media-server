@@ -277,29 +277,15 @@ class Store:
             connection.close()
 
     def _init_db(self):
+        from .migrations import migrate
         with self.db() as db:
-            db.executescript("""
-                CREATE TABLE IF NOT EXISTS files (
-                    id TEXT PRIMARY KEY, sha256 TEXT NOT NULL UNIQUE,
-                    size INTEGER NOT NULL, extension TEXT NOT NULL,
-                    mime TEXT NOT NULL, duration REAL NOT NULL,
-                    width INTEGER NOT NULL, height INTEGER NOT NULL,
-                    thumbnail INTEGER NOT NULL DEFAULT 0
-                );
-                CREATE TABLE IF NOT EXISTS items (
-                    id TEXT PRIMARY KEY, file_id TEXT NOT NULL UNIQUE REFERENCES files(id),
-                    title TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-                    position REAL NOT NULL DEFAULT 0,
-                    watched_at TEXT
-                );
-            """)
-            db.commit()
+            migrate(db)
 
     def _recover(self):
         # The instance lock excludes another local app process, not another Work.
         # Never discard potentially complete copies after an interrupted transaction.
         with self.db() as db:
-            known = {r[0] for r in db.execute("SELECT id FROM files")}
+            known = {r[0] for r in db.execute("SELECT id FROM files UNION SELECT id FROM renditions")}
         for directory in (self.root / "staging", self.root / "files"):
             for path in directory.iterdir():
                 no_symlink(path)
@@ -328,7 +314,9 @@ class Store:
         no_symlink(path)
         path.unlink(missing_ok=True)
 
-    def probe(self, path: Path) -> dict:
+    def probe(self, path: Path, audio_index=0) -> dict:
+        if type(audio_index) is not int or not 0 <= audio_index < 128:
+            raise MediaError('invalid_audio_track', 422)
         with path.open("rb") as stream:
             magic = stream.read(12)
         if not (magic[4:8] == b"ftyp" or magic[:4] == b"\x1aE\xdf\xa3"):
@@ -336,7 +324,7 @@ class Store:
         raw = run_media([
             "ffprobe", "-v", "error", "-protocol_whitelist", "file,pipe",
             "-format_whitelist", "mov,matroska,webm", "-show_entries",
-            "format=format_name,duration:stream=codec_type,codec_name,width,height,pix_fmt:stream_disposition=attached_pic",
+            "format=format_name,duration,start_time:stream=codec_type,codec_name,width,height,pix_fmt,start_time,duration,channels:stream_disposition=attached_pic:stream_tags=DURATION,language,title",
             "-of", "json", str(path)], 25, 128 * 1024)
         try:
             result = json.loads(raw)
@@ -347,17 +335,40 @@ class Store:
                 raise ValueError
             track = video[0]
             duration = float(result["format"]["duration"])
+            start = float(result['format'].get('start_time',0))
+            video_start = float(track.get('start_time',start))
             width, height = int(track["width"]), int(track["height"])
-            if not math.isfinite(duration) or duration <= 0 or not (0 < width <= 8192 and 0 < height <= 8192):
+            if not math.isfinite(start) or not math.isfinite(video_start) or not math.isfinite(duration) or duration <= 0 or not (0 < width <= 8192 and 0 < height <= 8192):
                 raise ValueError
         except (ValueError, KeyError, TypeError, IndexError):
             raise MediaError("invalid_media", 422) from None
         is_mp4 = magic[4:8] == b"ftyp"
-        supported = (track["codec_name"] == "h264" and all(a.get("codec_name") in {"aac", "mp3"} for a in audio)) if is_mp4 else (track["codec_name"] in {"vp8", "vp9"} and all(a.get("codec_name") in {"opus", "vorbis"} for a in audio))
-        if not supported or track.get("pix_fmt") not in {"yuv420p", "yuvj420p"}:
-            raise MediaError("unsupported_codec", 422)
+        from .renditions import playback_plan, selected_duration
+        if len(audio) > 128 or audio_index >= max(1, len(audio)):
+            raise MediaError('invalid_audio_track', 422)
+        selected = audio[audio_index:audio_index+1]
+        preparation = playback_plan(track, selected, is_mp4, multiple=len(audio)>1)
+        def label(value, limit):
+            return ''.join(c for c in str(value) if c.isprintable())[:limit]
+        tracks = []
+        for index, stream in enumerate(audio):
+            error = None
+            try:
+                playback_plan(track, [stream], is_mp4, multiple=len(audio)>1)
+            except MediaError as exc:
+                error = exc.code
+            tags = stream.get('tags', {})
+            tracks.append({'index':index, 'language':label(tags.get('language',''),32),
+                           'title':label(tags.get('title',''),120),
+                           'codec':label(stream.get('codec_name',''),32),
+                           'channels':stream.get('channels'), 'error':error})
+        extension = 'mp4' if is_mp4 else 'mkv' if track.get('codec_name') == 'h264' else 'webm'
         return {"duration": duration, "width": width, "height": height,
-                "extension": "mp4" if is_mp4 else "webm", "mime": "video/mp4" if is_mp4 else "video/webm"}
+                "extension": extension, "mime": {'mp4':'video/mp4', 'mkv':'video/x-matroska', 'webm':'video/webm'}[extension],
+                "preparation": preparation, 'selected_duration':selected_duration(track,selected,start),
+                'video_duration':selected_duration(track,[],start),
+                'start_time':start, 'video_start':video_start,
+                'audio_tracks':tracks}
 
     def finish_import(self, stage: Path, digest: str, size: int, title: str) -> dict:
         if size <= 0:
@@ -376,7 +387,7 @@ class Store:
             if duplicate:
                 self.open_verified(self._row(duplicate["id"])).close()
                 existing = self.item(duplicate["id"])
-                if not existing["available"]:
+                if not existing["available"] and existing['unavailable_reason'] != 'rendition_required':
                     raise MediaError(existing["unavailable_reason"], 409)
                 return {"duplicate": True, "item": existing}
             # Exclusive fresh directory prevents destination collision/overwrite.
@@ -396,9 +407,10 @@ class Store:
                     thumbnail = (destination / "thumbnail.jpg").is_file()
                 except MediaError:
                     (destination / "thumbnail.jpg").unlink(missing_ok=True)
-                db.execute("INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                           (file_id, digest, size, metadata["extension"], metadata["mime"], metadata["duration"], metadata["width"], metadata["height"], thumbnail))
+                db.execute("INSERT INTO files (id,sha256,size,extension,mime,duration,width,height,thumbnail,preparation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                           (file_id, digest, size, metadata["extension"], metadata["mime"], metadata["duration"], metadata["width"], metadata["height"], thumbnail, metadata['preparation']))
                 db.execute("INSERT INTO items (id,file_id,title) VALUES (?,?,?)", (item_id, file_id, title))
+                db.execute('UPDATE files SET audio_tracks=? WHERE id=?', (json.dumps(metadata['audio_tracks']),file_id))
                 db.commit()
             except BaseException:
                 db.rollback()
@@ -449,13 +461,13 @@ class Store:
         if not ID.fullmatch(item_id):
             raise MediaError("item_not_found", 404)
         with self.db() as db:
-            row = db.execute("SELECT items.*, files.sha256,files.size,files.extension,files.mime,files.duration,files.width,files.height,files.thumbnail FROM items JOIN files ON items.file_id=files.id WHERE items.id=?", (item_id,)).fetchone()
+            row = db.execute("SELECT items.*, files.sha256,files.size,files.extension,files.mime,files.duration,files.width,files.height,files.thumbnail,files.preparation,files.preparation_error,files.audio_tracks FROM items JOIN files ON items.file_id=files.id WHERE items.id=?", (item_id,)).fetchone()
         if row is None:
             raise MediaError("item_not_found", 404)
         return dict(row)
 
     def file_path(self, row: dict, thumbnail=False) -> Path:
-        if not ID.fullmatch(row["file_id"]) or row["extension"] not in {"mp4", "webm"}:
+        if not ID.fullmatch(row["file_id"]) or row["extension"] not in {"mp4", "webm", "mkv"}:
             raise MediaError("unsafe_storage", 503)
         path = self.root / "files" / row["file_id"] / ("thumbnail.jpg" if thumbnail else "original." + row["extension"])
         no_symlink(path)
@@ -469,22 +481,47 @@ class Store:
         try:
             if self.file_path(row).stat().st_size != row["size"]:
                 self._changed(row)
-            if row["file_id"] in self.integrity_failures:
+            playback = self.playback_row(item_id)
+            if self.file_path(playback).stat().st_size != playback['size']:
+                self._changed(playback)
+            if row["file_id"] in self.integrity_failures or playback['file_id'] in self.integrity_failures:
                 unavailable_reason = "managed_file_changed"
         except MediaError as exc:
-            if exc.code not in {"managed_file_missing", "managed_file_changed"}:
+            if exc.code not in {"managed_file_missing", "managed_file_changed", "rendition_required"}:
                 raise
             unavailable_reason = exc.code
-        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "watched_at", "duration", "size", "width", "height", "sha256")} | {"available": unavailable_reason is None, "unavailable_reason": unavailable_reason, "thumbnail": bool(row["thumbnail"]), "mime": row["mime"]}
+        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "watched_at", "duration", "size", "width", "height", "sha256", "preparation", "preparation_error", "audio_index")} | {"available": unavailable_reason is None, "unavailable_reason": unavailable_reason, "thumbnail": bool(row["thumbnail"]), "mime": playback['mime'] if unavailable_reason is None else row['mime'], 'duration':playback['duration'] if unavailable_reason is None else row['duration'], 'audio_tracks':json.loads(row['audio_tracks']) if row['audio_tracks'] is not None else None, 'preparation':playback['preparation'] if unavailable_reason is None else row['preparation']}
+
+    def playback_row(self, item_id, audio_index=None):
+        source = self._row(item_id)
+        index = source['audio_index'] if audio_index is None else audio_index
+        if type(index) is not int or not 0 <= index < 128:
+            raise MediaError('invalid_audio_track', 422)
+        if source['preparation'] == 'original' and index == 0:
+            return source
+        with self.db() as db:
+            ready = db.execute('SELECT * FROM renditions WHERE item_id=? AND audio_index=?', (item_id,index)).fetchone()
+        if ready is None:
+            raise MediaError('rendition_required', 409)
+        if (ready['input_sha'] != source['sha256'] or ready['kind'] not in {'remux_mp4','audio_mp4','remux_webm'}
+                or (index == 0 and ready['kind'] != source['preparation'])):
+            raise MediaError('managed_file_changed', 409)
+        return source | {k:ready[k] for k in ('sha256','size','extension','mime')} | {'file_id':ready['id'], 'duration':ready['duration'] or source['duration'], 'audio_index':index, 'preparation':ready['kind']}
 
     def list_items(self) -> list[dict]:
         with self.db() as db:
             ids = [r[0] for r in db.execute("SELECT id FROM items ORDER BY created_at DESC, id DESC")]
         return [self.item(item_id) for item_id in ids]
 
-    def save_position(self, item_id: str, position) -> dict:
+    def save_position(self, item_id: str, position, audio_index=None) -> dict:
         row = self._row(item_id)
-        if type(position) not in (int, float) or not math.isfinite(position) or not 0 <= position <= row["duration"]:
+        try:
+            duration = self.playback_row(item_id,audio_index)['duration']
+        except MediaError as exc:
+            if exc.code != 'rendition_required':
+                raise
+            duration = row['duration']  # Existing history can survive pending preparation.
+        if type(position) not in (int, float) or not math.isfinite(position) or not 0 <= position <= duration:
             raise MediaError("invalid_position", 422)
         with self.db() as db:
             db.execute("UPDATE items SET position=?, watched_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?", (position, item_id))

@@ -111,7 +111,7 @@ it is not a Windows/CUDA lockfile. `pip check` reported no broken requirements.
 
 ## Runtime preflight
 
-Open **자막 만들기 준비 → 실행 환경 확인** in the library. `/api/session` reports the
+Open **설정 → 자막 실행 환경 → 실행 환경 확인** from the library. `/api/session` reports the
 selected device and whether it came from the default or explicit settings, without
 importing the heavy runtimes. The button runs an isolated check; it never loads large
 ASR/translation weights or reads a video. It does not change devices automatically.
@@ -262,6 +262,12 @@ the number left as source text. Such segments show **[원문]** in the actual ca
 
 ## Recovery and limits
 
+- Playback audio is selectable; new jobs freeze that original audio ordinal. Switching
+  playback does not change a running/paused job or its restart. Caption versions show
+  their audio; another voice's track is not auto-selected. New audio decode preserves
+  start offsets and gaps. Saved pre-upgrade transcripts can finish translation unchanged;
+  an older interrupted ASR without a transcript may require **처음부터 다시 만들기**.
+  [Audio selection, migration and real playback evidence](compatible-renditions.md#audio-selection-follow-up).
 - An OS worker lock survives server death and native inference stalls. A new server
   waits for the old worker to exit before recovery or another inference; original
   watching stays available. Attempts also condition checkpoint/publication writes
