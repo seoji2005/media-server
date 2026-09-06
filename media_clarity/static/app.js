@@ -30,7 +30,7 @@ async function api(path, options = {}) {
   catch { throw new Error("앱에 연결할 수 없습니다. 로컬 서버가 실행 중인지 확인해 주세요."); }
   let result;
   try { result = await response.json(); } catch { throw new Error("앱 응답을 읽을 수 없습니다."); }
-  if (!response.ok) throw new Error(subtitleMessages[result.error] || message(result.error));
+  if (!response.ok) throw Object.assign(new Error(subtitleMessages[result.error] || message(result.error)), {code:result.error});
   return result;
 }
 function time(seconds) { seconds = Math.max(0, Math.floor(seconds || 0)); const h = Math.floor(seconds / 3600), m = Math.floor(seconds % 3600 / 60), s = seconds % 60; return h ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${m}:${String(s).padStart(2,"0")}`; }
@@ -212,10 +212,20 @@ document.addEventListener("dragenter",e=>{if(e.dataTransfer?.types.includes("Fil
 document.addEventListener("dragover",e=>{if(e.dataTransfer?.types.includes("Files"))e.preventDefault();});
 document.addEventListener("dragleave",()=>{dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)$("drop-overlay").hidden=true;});
 document.addEventListener("drop",e=>{e.preventDefault();dragDepth=0;$("drop-overlay").hidden=true;if(dialog.open)return;if(e.dataTransfer.files.length!==1)return toast("한 번에 한 개의 영상을 선택해 주세요.");importFile(e.dataTransfer.files[0]);});
-(async()=>{try{const session=await api("/api/session");sessionToken=session.token;const d=session.diagnostics;const notes=[];if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);if(notes.length){$("diagnostic").textContent=notes.join(" ");$("diagnostic").hidden=false;}await refresh();}catch(e){$("diagnostic").textContent=e.message;$("diagnostic").hidden=false;}finally{$("loading-state").hidden=true;}})();
+(async()=>{try{const session=await api("/api/session");sessionToken=session.token;const d=session.diagnostics;renderModelSetup(d.models);const notes=[];if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);if(notes.length){$("diagnostic").textContent=notes.join(" ");$("diagnostic").hidden=false;}await refresh();}catch(e){$("diagnostic").textContent=e.message;$("diagnostic").hidden=false;}finally{$("loading-state").hidden=true;}})();
 
 let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null, subtitleTracks=[];
 const subtitleMessages={
+  model_settings_invalid:"자막 장치 설정이 올바르지 않습니다. 설치 안내의 CPU·GPU 설정을 확인해 주세요.",
+  model_torch_unavailable:"자막 실행 엔진을 불러오지 못했습니다. PyTorch 설치와 Windows 런타임을 확인해 주세요.",
+  model_cuda_unavailable:"PyTorch에서 NVIDIA GPU를 사용할 수 없습니다. CUDA용 PyTorch와 NVIDIA 드라이버를 확인해 주세요. CPU 사용은 별도로 설정해야 합니다.",
+  model_asr_cuda_unavailable:"음성 인식 엔진에서 NVIDIA GPU를 찾지 못했습니다. CTranslate2의 CUDA 지원과 드라이버를 확인해 주세요.",
+  model_asr_runtime_unavailable:"음성 인식 실행 환경을 불러오지 못했습니다. CTranslate2와 CUDA 라이브러리 설치를 확인해 주세요.",
+  model_asr_precision_unavailable:"음성 인식에 필요한 연산 형식을 이 장치에서 사용할 수 없습니다. 실행 환경 또는 CPU 설정을 확인해 주세요.",
+  model_audio_runtime_unavailable:"음성 처리 엔진을 불러오지 못했습니다. PyTorch와 TorchAudio를 같은 버전·CPU/CUDA 구성으로 설치해 주세요.",
+  model_runtime_incompatible:"자막 실행 패키지 간 호환성을 확인하지 못했습니다. 안내된 모델 환경으로 다시 설치해 주세요.",
+  model_check_failed:"실행 환경 확인을 완료하지 못했습니다. 앱을 다시 시작한 뒤 확인해 주세요.",
+  model_check_timeout:"실행 환경 확인이 제한 시간을 넘겨 중단됐습니다. 진행 중인 다른 작업을 확인한 뒤 다시 시도해 주세요.",
   model_privacy_setup_required:"현재 프로세스에 허용되지 않은 추론 엔진이 로드됐습니다. 앱을 종료하고 안내된 로컬 모델 환경으로 다시 실행해 주세요. 가진 자막과 원본은 보존됩니다.",
   processing_worker_active:"이전 처리 프로세스가 종료되는 중입니다. 원본은 감상할 수 있으며, 종료 후 처리를 재개할 수 있습니다.",
   processing_busy:"이 영상의 다른 자막 작업이 있습니다. 현재 작업에서 재개해 주세요.",
@@ -237,6 +247,17 @@ const subtitleMessages={
   subtitles_too_large:"자막 파일이 너무 큽니다. 2 MiB 이하 SRT를 선택해 주세요.",
   subtitles_already_available:"이미 사용할 자막이 있습니다. 자막 목록에서 선택해 주세요."
 };
+function renderModelSetup(result){
+  const device=result?.device==="cuda"?"NVIDIA GPU":result?.device==="cpu"?"CPU":"미확인";
+  $("model-device").textContent=`선택 장치: ${device}${result?.selection==="configured"?" · 지정한 설정":result?.selection==="default"?" · 기본 설정":""}`;
+  $("model-check-state").textContent=result?.error?(subtitleMessages[result.error]||message(result.error)):result?.state==="ready"?"기본 실행 환경을 확인했습니다. 실제 영상의 처리 속도와 메모리 사용은 별도 확인이 필요합니다.":"영상 없이 이 기기의 자막 실행 환경만 확인합니다. 장치를 자동으로 바꾸지 않습니다.";
+}
+$("model-check").addEventListener("click",async()=>{
+  const button=$("model-check");button.disabled=true;$("model-check-state").textContent="실행 환경 확인 중…";
+  try{renderModelSetup(await api("/api/models/diagnostics",{method:"POST"}));}
+  catch(e){$("model-check-state").textContent=e.code==="processing_worker_active"?"자막 처리 중에는 진단할 수 없습니다. 작업을 마치거나 일시정지한 뒤 다시 확인해 주세요.":e.message;}
+  finally{button.disabled=false;}
+});
 function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
 function renderSubtitleNotes(){
   const track=subtitleTracks.find(t=>t.id===subtitleLoaded),notes=[];

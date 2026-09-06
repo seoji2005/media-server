@@ -46,6 +46,12 @@
           <div class="welcome-art" aria-hidden="true"><div class="art-frame frame-back"></div><div class="art-frame frame-front"><div class="art-orbit"></div><span class="art-play">▶</span></div></div>
         </section>
         <div class="notice" id="diagnostic" role="status" hidden></div>
+        <details class="subtitle-search" id="model-setup">
+          <summary>자막 만들기 준비</summary>
+          <p id="model-device"></p>
+          <button class="button button-secondary" id="model-check" type="button">실행 환경 확인</button>
+          <p id="model-check-state" role="status">영상 없이 이 기기의 자막 실행 환경만 확인합니다.</p>
+        </details>
         <section class="upload-status" id="upload-status" aria-live="polite" hidden>
           <div class="upload-icon"><svg><use href="#i-upload"/></svg></div>
           <div class="upload-body"><div class="upload-heading"><strong id="upload-title">영상을 가져오고 있어요</strong><span id="upload-percent"></span></div><p id="upload-detail"></p><progress id="upload-progress" max="100" value="0"></progress></div>

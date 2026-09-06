@@ -1,11 +1,12 @@
 # Current work
 
-- **Milestone:** generated Korean subtitle readability and compatible SRT import.
-  This completes an incremental caption milestone, not October product acceptance.
-- **Git:** `app/readable-subtitles` is based directly on **main `4e6e447`**, the merged
-  [PR #5](https://github.com/seoji2005/media-server/pull/5). Local reviewed code checkpoint `9cb9882`.
-  Earlier stack work is integrated; no new stacked base. This milestone’s Draft PR
-  targets main; final merge/release still needs the owner.
+- **Milestone:** subtitle runtime/device preflight and clean child-process exit.
+  This is a Windows bring-up prerequisite; target Windows/RTX acceptance is still open.
+- **Git:** owner-authorized [PR #6](https://github.com/seoji2005/media-server/pull/6)
+  HEAD `0753303` merged as **main `4d1f451`**, with the same reviewed tree.
+  `app/model-preflight` starts directly from that main. Local code checkpoints
+  `bc4a596` → `e2bcd10`; this milestone's Draft PR targets main. Final merge still
+  requires the owner; the previous approval was used for #6.
 - **App:** local import/library/original playback/Range/persisted watch position;
   append-only UTF-8/CP949/EUC-KR SRT and explicit regeneration that keeps old captions.
   SRT now accepts one-digit hours/position settings, sorts cues, skips empty/outside
@@ -28,23 +29,39 @@
   scans; FFmpeg reads the verified managed original without another processing copy.
   Pipeline v5 handles numeric Korean units and generated HTML entities. Source/fallback
   text is preserved. Existing job/attempt/OS worker guards remain.
-- **Runtime:** local Silero v6 TorchScript VAD, no ONNX Runtime loading. Windows blanket
-  refusal was removed, but Windows/CUDA/bfloat16/12 GB remains untested. Windows still
-  defaults to CUDA without complete availability preflight. Setup and earlier actual
-  forced-stop/resume evidence: [subtitles](subtitles.md).
-- **Actual milestone runs:** two existing public FLEURS Japanese/English samples fully
-  regenerated with real CPU ASR/MT in 44.34/45.69 seconds, two display cues each. No
-  source fallback; source hashes/Range exact, 12 preexisting tracks unchanged on restart,
-  logs zero bytes. This repeats short speech, not a long-film or expanded-corpus result.
-- **First real browser playback:** Linux headless Chromium 149 decoded H.264/AAC,
-  advanced playback, rendered Korean native captions, sought through both cues, switched
-  captions Off/On and restored 4.25 s after player close/page reload. Actual screenshots
-  inspected. No page errors/external page requests; server log zero. Public black-video
-  speech fixtures only: no audible/headful/Windows/fullscreen/real-film acceptance.
-- **Verification:** Python **74 passed** (13.050 s), DOM4 flows passed. Fresh review found
-  an overlap publication/retry failure and repeated-empty-SRT separator rejection;
-  fixed at `9cb9882`, bounded rereview found no remaining actionable findings and
-  independently passed 41 subtitle tests plus focused overlap/separator probes.
+- **Runtime preflight:** session shows the selected default/configured CPU or GPU
+  without importing heavy runtimes. **자막 만들기 준비 → 실행 환경 확인** and
+  `doctor --models` run an isolated, bounded check. Basic doctor still works without
+  optional models. Worker startup checks Torch CUDA, native bf16, CTranslate2 device/
+  precision and compatible package imports before ASR. No silent CPU fallback, weight
+  loading or media reading in the diagnostic; pipeline/checkpoint identity is unchanged.
+  Fixed diagnostics distinguish CPU wheels, missing ASR CUDA/precision and mismatched
+  TorchAudio. Ready means basic preflight, not full inference/cuDNN/12 GB certification.
+- **Process safety:** diagnostic child retains the existing OS worker lease through
+  controlled exit; server supervisor serialization prevents competing inference.
+  Timeout kills/reaps the probe and parent EOF ends it. Native output is suppressed;
+  status JSON is bounded/validated. Both diagnostic and subtitle worker now watch the
+  parent via an unbuffered read, fixing a reproduced Python shutdown abort after
+  otherwise successful work. Torch thread counts survive Silero preflight imports.
+- **Actual milestone runs:** installed Linux CPU runtime passed doctor in 1.947 s.
+  Explicit CUDA with a CPU wheel returned `model_cuda_unavailable` in 1.285 s, keeping
+  CUDA selected (placeholder model file layout for that environment-only negative
+  check). Real Japanese FLEURS ASR→MT regenerated in 40.91 s with unchanged output VTT,
+  source/Range exact, 14 old tracks unchanged after restart and logs zero bytes.
+  Repeated short speech only; no expanded quality corpus or long-film evidence.
+- **Browser:** actual Linux Chromium 149 showed CPU selection and passed the on-demand
+  diagnostic while library requests remained available. Japanese/English H.264/AAC
+  playback, two-line native captions, seek, Off/On and 4.25 s resume passed again.
+  Screenshots inspected; no page errors/external page requests, server log zero.
+  This is headless public black-video speech, not audible/headful/Windows/film acceptance.
+- **Verification:** full Python **85 passed** (14.108 s), DOM4 flows passed including
+  new device/failure/busy controls. Focused 11 diagnostic tests passed after the fix.
+  Fresh review found the lease could release before native teardown; fixed at
+  `e2bcd10` with controlled exit under the lease. Bounded rereview found no remaining
+  actionable findings. Final actual API probe passed in 1.626 s; an in-process observer
+  confirmed no heavy model runtime/ORT was loaded in the server after diagnostics.
+  Setup/limits and evidence: [subtitles](subtitles.md#runtime-preflight).
+  Previous caption layout/review evidence remains in [readability](subtitle-readability.md).
 - **Recommendations retained:** explicit feedback and separate opt-in (default excluded),
   literal title-word matching, up to 12 candidates with unrelated discovery when
   available. No subtitle/watch-history learning or external metadata. Revision guards
@@ -58,14 +75,15 @@
   word/shot alignment. [Speech checks](speech-quality.md). Long films, natural mixed
   speech, large-file startup latency and human viewing/recommendation relevance remain
   unchecked. Playback integrity is unchanged in this milestone.
-- **Next implementation:** Windows device/runtime diagnostics before first target run
-  (actual CUDA/CTranslate2/bfloat16 availability, selected device and actionable setup
-  errors). Target import→ASR→Korean→browser seek/resume and peak VRAM/timing is still the
-  first external gate. Then minimal compatible renditions (remux/audio-only conversion,
-  preserving the managed original) and selected-audio consistency; full HEVC/10-bit
-  encoding policy needs owner decision. Run a permitted long speech video as a separate
-  scale gate. Enhancement, grounded visual analysis/search and Windows launch/recovery
-  remain included; consequential scope cuts/deletion/expense require owner decisions.
+- **Next:** target Windows/RTX import→ASR→Korean→browser seek/resume and peak VRAM/
+  timing remains the first external gate. Locally, run a permitted 60+ minute speech
+  input through the real CPU pipeline and measure time, memory, checkpoint growth and
+  recovery. Then implement minimal compatible renditions (remux/audio-only conversion,
+  preserving the managed original) and selected-audio consistency. Full HEVC/10-bit
+  encoding policy needs owner decision. Enhancement, grounded visual analysis/search
+  and Windows launch/recovery remain included; consequential scope cuts/deletion/
+  expense require owner decisions. Do not substitute repeated short probes for the
+  long-input or target-hardware gate.
 - **Operations:** one Work writes; fresh reviewers only for risky changes. Existing
   daily read-only check remains enabled; obsolete cross-Work loops stay paused. Public
   package/model/test-audio downloads are authorized; private cloud inference/telemetry

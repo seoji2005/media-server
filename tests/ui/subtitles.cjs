@@ -5,11 +5,13 @@ const dom=new JSDOM(fs.readFileSync(path.join(repo,'media_clarity/static/index.h
 const w=dom.window,d=w.document,video=d.getElementById('video'),dialog=d.getElementById('player-dialog');
 const items=['a','b'].map(id=>({id,title:id,duration:20,position:0,width:320,height:180,available:true,thumbnail:false}));
 let data={tracks:[],jobs:[]}, pendingA=null, delayA=false;const posts=[];
+let modelResult={device:'cuda',selection:'default',state:'blocked',error:'model_cuda_unavailable'},modelBusy=false;
 const timers=new Map();let counter=0;
 w.setTimeout=(fn,ms)=>{timers.set(++counter,{fn,ms});return counter;};w.clearTimeout=id=>timers.delete(id);
 w.fetch=async (url,options={})=>{
  if(options.method==='POST')posts.push(url);
- if(url==='/api/session')return {ok:true,json:async()=>({token:'fixture',diagnostics:{ffmpeg:true,ffprobe:true}})};
+ if(url==='/api/session')return {ok:true,json:async()=>({token:'fixture',diagnostics:{ffmpeg:true,ffprobe:true,models:{device:'cuda',selection:'default',state:'unchecked',error:null}}})};
+ if(url==='/api/models/diagnostics')return {ok:!modelBusy,json:async()=>modelBusy?{error:'processing_worker_active'}:modelResult};
  if(url==='/api/library')return {ok:true,json:async()=>({items})};
  if(url.endsWith('/subtitles')){
   if(delayA&&url.includes('/a/'))await new Promise(resolve=>pendingA=resolve);
@@ -22,7 +24,16 @@ video.play=()=>Promise.resolve();video.pause=()=>{};video.load=()=>{};dialog.sho
 w.eval(fs.readFileSync(path.join(repo,'media_clarity/static/app.js'),'utf8')+'\nglobalThis.qa={openPlayer,closePlayer,refreshSubtitles,owner:()=>activeItem};');
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
- await settle();await w.qa.openPlayer('a');await settle();
+ await settle();
+ const check=d.getElementById('model-check'),modelState=d.getElementById('model-check-state');
+ assert(d.getElementById('model-device').textContent.includes('NVIDIA GPU'));
+ check.click();assert.equal(check.disabled,true);check.click();await settle();
+ assert.equal(posts.filter(p=>p==='/api/models/diagnostics').length,1);
+ assert(modelState.textContent.includes('CUDA용 PyTorch'));assert.equal(check.disabled,false);
+ modelResult={device:'cpu',selection:'configured',state:'ready',error:null};check.click();await settle();
+ assert(d.getElementById('model-device').textContent.includes('CPU'));assert(modelState.textContent.includes('기본 실행 환경을 확인'));
+ modelBusy=true;check.click();await settle();assert(modelState.textContent.includes('일시정지'));assert.equal(check.disabled,false);
+ await w.qa.openPlayer('a');await settle();
  assert.equal(video.querySelectorAll('track').length,0);
  data={tracks:[{id:'first',source:'supplied'}],jobs:[]};await w.qa.refreshSubtitles(w.qa.owner());
  const generate=d.getElementById('subtitle-generate');assert.equal(generate.hidden,false);assert.equal(generate.textContent,'새 자막 만들기');

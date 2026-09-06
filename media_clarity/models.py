@@ -25,6 +25,72 @@ def require_private_runtime():
     sys.modules['onnxruntime'] = None  # Python refuses subsequent ORT imports.
 
 
+def device_configuration(root):
+    """Read the existing explicit setting without initializing a model runtime."""
+    result = {'device':'cuda' if sys.platform == 'win32' else 'cpu', 'selection':'default'}
+    settings = root / 'models' / 'settings.json'
+    no_symlink(settings)
+    if settings.exists():
+        if settings.stat().st_size > 512:
+            raise MediaError('model_settings_invalid', 422)
+        try:
+            value = json.loads(settings.read_text())
+        except (ValueError, UnicodeError):
+            raise MediaError('model_settings_invalid', 422) from None
+        if type(value) is not dict or set(value) != {'device'} or value['device'] not in ('cpu','cuda'):
+            raise MediaError('model_settings_invalid', 422)
+        result = {'device':value['device'], 'selection':'configured'}
+    return result
+
+
+def check_runtime(device):
+    """Cheap runtime/precision preflight, before decoding or loading large weights."""
+    require_private_runtime()
+    try:
+        import torch
+    except Exception:
+        raise MediaError('model_torch_unavailable', 503) from None
+    if device == 'cuda':
+        try:
+            available = torch.cuda.is_available()
+        except Exception:
+            available = False
+        if not available:
+            raise MediaError('model_cuda_unavailable', 503)
+        try:
+            native_bf16 = torch.cuda.is_bf16_supported(including_emulation=False)
+        except Exception:
+            native_bf16 = False
+        if not native_bf16:
+            raise MediaError('model_bf16_unavailable', 503)
+    try:
+        import ctranslate2
+        if device == 'cuda' and ctranslate2.get_cuda_device_count() < 1:
+            raise MediaError('model_asr_cuda_unavailable', 503)
+        supported = ctranslate2.get_supported_compute_types(device, device_index=0)
+    except MediaError:
+        raise
+    except Exception:
+        raise MediaError('model_asr_runtime_unavailable', 503) from None
+    required = 'int8_float16' if device == 'cuda' else 'int8'
+    if required not in supported:
+        raise MediaError('model_asr_precision_unavailable', 503)
+    try:
+        import torchaudio  # Detect mismatched Torch/TorchAudio wheels before ASR.
+    except Exception:
+        raise MediaError('model_audio_runtime_unavailable', 503) from None
+    threads = torch.get_num_threads()
+    try:
+        import faster_whisper
+        import silero_vad
+        import transformers
+        import sentencepiece
+    except Exception:
+        raise MediaError('model_runtime_incompatible', 503) from None
+    finally:
+        torch.set_num_threads(threads)  # Silero import changes this global setting.
+
+
 def local_models(root, check_packages=False):
     if check_packages:
         require_private_runtime()
@@ -58,19 +124,8 @@ class LocalModels:
         for name in ('HF_HUB_OFFLINE','TRANSFORMERS_OFFLINE','HF_HUB_DISABLE_TELEMETRY','DO_NOT_TRACK','ORT_DISABLE_TELEMETRY'):
             os.environ[name] = '1'
         self.paths = local_models(root, check_packages=True)
-        self.device = 'cuda' if os.name == 'nt' else 'cpu'
-        settings = root / 'models' / 'settings.json'
-        no_symlink(settings)
-        if settings.exists():
-            if settings.stat().st_size > 512:
-                raise MediaError('model_settings_invalid', 422)
-            try:
-                value = json.loads(settings.read_text())
-            except (ValueError, UnicodeError):
-                raise MediaError('model_settings_invalid', 422) from None
-            if type(value) is not dict or set(value) != {'device'} or value['device'] not in ('cpu','cuda'):
-                raise MediaError('model_settings_invalid', 422)
-            self.device = value['device']
+        self.device = device_configuration(root)['device']
+        check_runtime(self.device)
         self.model = self.tokenizer = None
 
     def identity(self):
