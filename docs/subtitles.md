@@ -24,7 +24,7 @@ track in browser memory; no query API, saved search history, or global indexing.
 Empty queries show no transcript; at most 50 matches are displayed. Native captions
 Off and app track/item changes invalidate old results. Closing clears the query.
 
-## Optional local models — CPU verification, Windows runtime gate
+## Optional local models — CPU verified, target Windows pending
 
 These adapters are a reversible baseline, not a model-selection verdict:
 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) with
@@ -45,32 +45,57 @@ load remote Python code or fetch missing tokenizer files. Prepare public model f
 separately after checking their model cards and applicable terms; any explicit license
 acceptance remains an owner action. Media and transcripts are never sent in setup.
 
-**Windows inference is currently blocked before model import or job creation.**
-The official ONNX Runtime wheel can emit an initialization trace before its Python
-disable API is callable. `ORT_DISABLE_TELEMETRY=1` protects non-Windows initialization;
-it does not establish the same guarantee for Windows ETW. A verified telemetry-free
-Windows build is required before removing this gate. There is no override switch.
-Original viewing and supplied subtitles remain available. This is an unfinished
-October requirement, not removal of Windows ASR from scope.
-[ONNX Runtime privacy controls](https://github.com/microsoft/onnxruntime/blob/main/docs/Privacy.md).
+Voice activity detection uses the official **Silero v6 TorchScript** model bundled in
+`silero-vad==6.0.0`. It runs on CPU with the previous speech threshold, minimum speech,
+silence and padding settings. The original waveform and source-time speech clips go
+to faster-whisper; silent gaps retain their original positions. An all-silent input
+stops as no speech before loading Whisper. Speech detection remains enabled.
+[Silero local JIT support](https://github.com/snakers4/silero-vad/tree/v6.0).
 
-Linux CPU setup used Python 3.12.13 and the official CPU PyTorch wheel. Prepare at
+Before dependency imports, the app refuses an already-loaded ONNX Runtime and blocks
+future `onnxruntime` imports in that process. No ORT initialization or disable API is
+used. ORT remains installed to satisfy upstream package metadata, but is not executed.
+The unconditional Windows veto is removed; **Windows/CUDA/RTX operation is still
+unverified**. No telemetry permission or private-data egress is enabled. The earlier
+initialization issue is described by [ORT privacy controls](https://github.com/microsoft/onnxruntime/blob/main/docs/Privacy.md).
+
+Linux CPU setup used Python 3.12.13 and matching official CPU Torch/TorchAudio wheels. Prepare at
 least 15 GB for these weights plus runtime/cache and media working space. Public model
 revisions used for the check are fixed below; this does not certify future revisions.
 Set `MEDIA_CLARITY_DATA` to the same external directory passed to the app's `--data-dir`.
 
 ```sh
-.venv/bin/python -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+.venv/bin/python -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cpu
 .venv/bin/python -m pip install -r requirements-models.txt
+.venv/bin/python -m pip check
 .venv/bin/hf download Systran/faster-whisper-large-v3 --revision edaa852ec7e145841d8ffdb056a99866b5f0a478 --local-dir "$MEDIA_CLARITY_DATA/models/asr" --include "*.json" "model.bin"
 .venv/bin/hf download google/madlad400-3b-mt --revision fa184c675da0b5c9e1c8694fccd4e12e2d422094 --local-dir "$MEDIA_CLARITY_DATA/models/translation" --include "*.json" "*.safetensors" "*.model"
 ```
 
-Models stay outside Git. CPU is the non-Windows default; `models/settings.json` accepts
-`{"device":"cpu"}` or `{"device":"cuda"}` with no silent device fallback. A device
-setting does not override the Windows privacy gate. The worker forces Hugging Face
-offline/telemetry settings and ORT's pre-initialization flag, then calls ORT's disable
-API before ASR. These are dependency controls, not an OS network sandbox. Linux package
+On Windows, after the base app setup in README, the target CUDA preparation is:
+
+```powershell
+$env:MEDIA_CLARITY_DATA = "$env:LOCALAPPDATA\MediaClarity"
+.\.venv\Scripts\python -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+.\.venv\Scripts\python -m pip install -r requirements-models.txt
+.\.venv\Scripts\python -m pip check
+.\.venv\Scripts\hf download Systran/faster-whisper-large-v3 --revision edaa852ec7e145841d8ffdb056a99866b5f0a478 --local-dir "$env:MEDIA_CLARITY_DATA\models\asr" --include "*.json" "model.bin"
+.\.venv\Scripts\hf download google/madlad400-3b-mt --revision fa184c675da0b5c9e1c8694fccd4e12e2d422094 --local-dir "$env:MEDIA_CLARITY_DATA\models\translation" --include "*.json" "*.safetensors" "*.model"
+.\.venv\Scripts\python -m media_clarity --data-dir "$env:MEDIA_CLARITY_DATA"
+```
+
+Install Torch and TorchAudio together from the same CPU/CUDA index; mixing CPU Torch
+with a CUDA TorchAudio wheel can fail during Silero import. These commands follow
+[PyTorch's 2.8 wheel matrix](https://pytorch.org/get-started/previous-versions/#v280).
+The Windows commands have not run here. A compatible NVIDIA driver and CTranslate2's
+[CUDA 12 cuBLAS/cuDNN 9 libraries](https://github.com/SYSTRAN/faster-whisper/tree/v1.2.1#gpu)
+must be available to the worker; wheel installation alone does not certify that setup
+or the model's 12 GB fit. Any explicit installer license acceptance remains yours.
+
+Models stay outside Git. CPU is the non-Windows default, CUDA is the Windows default;
+`models/settings.json` accepts `{"device":"cpu"}` or `{"device":"cuda"}` with no silent
+device fallback. The worker retains Hugging Face offline/telemetry settings and blocks
+ORT imports. These are dependency controls, not an OS network sandbox. Linux package
 resolution and real ASR ran successfully; target Windows/CUDA/12 GB fit remains open.
 The [resolved Linux CPU environment](model-runtime-linux-cpu.txt) records that run;
 it is not a Windows/CUDA lockfile. `pip check` reported no broken requirements.
@@ -83,24 +108,36 @@ Repeating that audio three times in a synthetic MP4 produced three ASR cues in
 79.79 s. Repetition is only a recovery fixture, not varied speech/quality evidence.
 Native network tracing was unavailable (`ptrace: Operation not permitted`).
 
-At implementation `f2a3ba3`, the production CLI/HTTP pipeline completed that 33 s
-fixture with three Korean cues in **133.10 s including pause and server restarts**.
-After two saved translations (104.19 s), pause stopped the worker. Forced server restart
-preserved the transcript hash, the exact saved batch bytes and a 5.25 s watch position.
-Attempt two translated only the remaining unit. The regenerated VTT and the previous
-ready version survived another forced restart byte-for-byte; Range bytes matched,
-source hash stayed unchanged and server logs were zero bytes. Source and Korean text
-were inspected; these long sentences still need browser readability/human evaluation.
-This is real CPU model evidence, not actual browser or Windows/RTX evidence. The older
-183.93 s run used one-cue processing; these small runs are not a speedup benchmark or
-a two-hour movie runtime estimate.
+At implementation `67f5e8e`, actual CPU TorchScript VAD on a 33-second public
+speech/silence fixture produced exactly the previous Silero v6 ONNX sample boundaries:
+3.920–14.896 and 19.120–29.872 seconds. Five seconds of silence produced no clips.
+First JIT VAD call took 0.555 s; the four-thread Torch setting was restored. In that
+standalone process ORT was absent from Python modules and native mappings, and a
+Python socket-connect audit hook recorded zero attempts. This is not native packet tracing.
+
+The production CLI/HTTP pipeline then completed a **48-second fixture** (three public
+11-second speech repetitions separated by four-second gaps) in **95.93 s**, including
+pause and server restarts. Three Korean cues retained source intervals 3.920–14.380,
+19.120–29.380 and 34.160–44.360. ASR retained the repeated English sentence and the
+Korean translation stayed consistent. After two saved units at 68.53 s, pause stopped
+processing. Forced server restart preserved transcript hash, exact batch bytes and
+5.25 s watch position; attempt two processed only the remaining unit. Ready VTT survived
+another restart byte-for-byte, Range bytes matched, source hash stayed unchanged,
+and server logs were zero bytes. Text/timing were inspected; actual browser readability
+and human quality remain open. Prior 33-second runs used different silence/input handling
+and are not comparable speed benchmarks or movie-runtime estimates.
+
+An initial observer probe stopped because the child PID namespace did not match mounted
+procfs. Its unfinished job was preserved and restarted. The successful HTTP run does not
+claim child native mapping observation. The standalone VAD process above supplies that
+limited observation; full native tracing and target Windows evidence remain unavailable.
 
 Real MADLAD CPU float32 also translated two author-written fragment pairs. Japanese
 `駅に着いたら、` + `私に電話してください。` translated together as
 “역에 도착하면 전화해주세요”; separate fragments lost that conditional connection.
 The English joined sentence retained the complete meaning but remained literal in
 style. This checks actual text output, not Japanese ASR or general translation quality.
-Model identity took 71.52 ms with the installed full weights; it no longer reads weight
+At the prior `f2a3ba3` checkpoint, model identity took 71.52 ms with the installed full weights; it no longer reads weight
 bytes on each job. Whole-file download hashes below were verified once during setup.
 
 Synthetic bookkeeping measurements on the same Linux machine (no model computation,
@@ -156,7 +193,7 @@ the number left as source text. Such segments show **[원문]** in the actual ca
   Changed model/config refuses reuse; restore the old
   setup to resume, or choose **처음부터 다시 만들기** for a new job with current
   settings. This preserves previous jobs, checkpoints and caption versions.
-  The new sentence/bfloat16 pipeline invalidates unfinished jobs from the old adapter;
+  The new VAD/clip pipeline invalidates unfinished jobs from the previous adapter;
   restart creates a new job without deleting the old results. Existing ready versions
   and legacy checkpoint storage remain readable. Original/caption tampering fails closed.
 - Source/caption versions remain available after failure. A job publishes its full
@@ -173,5 +210,5 @@ the number left as source text. Such segments show **[원문]** in the actual ca
   long-video runtime, Windows/CUDA installation, GPU memory and browser decoding/caption
   display need real samples and target tests. Synthetic results do not establish these.
 
-The next required evidence is real browser caption playback/seek/resume and a verified
-telemetry-free Windows runtime, then target RTX, Japanese/mixed speech and long videos.
+The next required evidence is actual Windows/RTX installation and real browser caption
+playback/seek/resume, then Japanese/mixed speech and long videos.

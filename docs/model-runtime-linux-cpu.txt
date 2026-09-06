@@ -1,5 +1,5 @@
 # Observed Python 3.12.13/Linux CPU environment, 2026-09-06.
-# torch was installed from https://download.pytorch.org/whl/cpu.
+# torch and torchaudio were installed from https://download.pytorch.org/whl/cpu.
 # This is an evidence snapshot, not a Windows/CUDA lockfile.
 annotated-doc==0.0.5
 annotated-types==0.8.0
@@ -34,10 +34,12 @@ requests==2.34.2
 safetensors==0.8.0
 sentencepiece==0.2.2
 setuptools==78.1.0
+silero-vad==6.0.0
 starlette==1.6.0
 sympy==1.14.0
 tokenizers==0.22.2
 torch==2.8.0+cpu
+torchaudio==2.8.0+cpu
 tqdm==4.70.0
 transformers==4.57.1
 typing-inspection==0.4.4
