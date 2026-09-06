@@ -1,9 +1,13 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 let sessionToken = "", items = [], filter = "all", activeItem = null, upload = null;
+let recommendedItems = [], recommendationState = "idle", recommendationError = "", recommendationVersion = 0;
+let preferenceVersion = 0, savedPreference = null;
+const pendingPreferences = new Map();
 let toastTimer, saveTimer, saveChain = Promise.resolve(), lastQueuedPosition = null;
 const video = $("video"), dialog = $("player-dialog");
 const errors = {
+  preference_changed: "다른 저장으로 선호가 바뀌었습니다. 저장 상태를 다시 확인해 주세요.",
   local_origin_required: "이 기기의 로컬 주소에서 다시 열어주세요.", session_required: "앱이 재시작되었습니다. 페이지를 새로고침해 주세요.",
   unsupported_container: "지원하지 않는 형식입니다. MP4 또는 WebM 영상을 선택해 주세요.", unsupported_codec: "현재 브라우저 감상용 코덱을 지원하지 않습니다. H.264/AAC MP4 또는 VP8·VP9 WebM이 필요합니다.",
   invalid_media: "영상을 읽을 수 없습니다. 정상적으로 재생되는 파일인지 확인해 주세요.", media_timeout: "영상 확인 시간이 초과되었습니다. 파일 상태를 확인한 뒤 다시 시도해 주세요.",
@@ -34,15 +38,18 @@ function continuing(item) { return item.position > 0 && item.position < Math.max
 function render() {
   $("nav-count").textContent = String(items.length);
   const query = $("search").value.trim().toLocaleLowerCase();
-  const visible = items.filter(i => (filter === "all" || continuing(i)) && i.title.toLocaleLowerCase().includes(query));
+  const recommended = filter === "recommended";
+  const visible = (recommended ? recommendedItems : items).filter(i => (filter !== "continue" || continuing(i)) && i.title.toLocaleLowerCase().includes(query));
   if (filter === "continue") visible.sort((a,b) => (b.watched_at || "").localeCompare(a.watched_at || ""));
-  $("library-heading").firstChild.textContent = filter === "all" ? "보관함 " : "이어보기 ";
+  const heading = recommended ? "추천" : filter === "all" ? "보관함" : "이어보기";
+  $("library-heading").firstChild.textContent = heading + " ";
   $("item-count").textContent = String(visible.length);
-  $("breadcrumb-current").textContent = filter === "all" ? "보관함" : "이어보기";
-  $("section-description").textContent = filter === "all" ? "당신의 다음 감상을 기다리는 영상들" : "머물렀던 장면에서 다시 시작하세요";
-  document.querySelector(".sort-label").textContent = filter === "all" ? "최근 가져온 순" : "최근 시청한 순";
+  $("breadcrumb-current").textContent = heading;
+  $("section-description").textContent = recommended ? "추천에 포함한 선호 미지정 영상에서 골랐어요 · 제목과 직접 표시한 선호만 사용" : filter === "all" ? "당신의 다음 감상을 기다리는 영상들" : "머물렀던 장면에서 다시 시작하세요";
+  document.querySelector(".sort-label").textContent = recommended ? "선호와 새로운 발견 · 최대 12개" : filter === "all" ? "최근 가져온 순" : "최근 시청한 순";
   $("nav-all").classList.toggle("selected",filter === "all"); $("nav-continue").classList.toggle("selected",filter === "continue");
-  for (const [id, selected] of [["nav-all",filter === "all"],["nav-continue",filter === "continue"]]) { if(selected) $(id).setAttribute("aria-current","page"); else $(id).removeAttribute("aria-current"); }
+  $("nav-recommended").classList.toggle("selected",recommended);
+  for (const [id, selected] of [["nav-all",filter === "all"],["nav-continue",filter === "continue"],["nav-recommended",recommended]]) { if(selected) $(id).setAttribute("aria-current","page"); else $(id).removeAttribute("aria-current"); }
   const grid = $("library-grid"); grid.replaceChildren();
   for (const item of visible) {
     const card = $("card-template").content.cloneNode(true);
@@ -53,6 +60,11 @@ function render() {
     const status = card.querySelector(".card-status");
     status.textContent = !item.available ? (item.unavailable_reason === "managed_file_changed" ? "보관 파일이 변경됨" : "파일을 찾을 수 없음") : continuing(item) ? `${time(item.position)}부터 이어보기` : item.position > 0 ? "시청 완료" : "아직 보지 않음";
     status.classList.toggle("missing", !item.available);
+    if(recommended) {
+      const reason = document.createElement("p"); reason.className = "recommendation-reason";
+      reason.textContent = {liked_title:"좋아요한 영상과 제목이 비슷해요",lower_priority:"덜 선호한 제목과 겹쳐 낮은 순위예요",explore:"새롭게 살펴볼 영상"}[item.recommendation_reason] || "추천에 포함한 영상";
+      card.querySelector(".card-info").append(reason);
+    }
     const progress = card.querySelector("progress"); progress.value = item.position / item.duration * 100; progress.hidden = item.position === 0;
     const image = card.querySelector("img");
     if (item.thumbnail && item.available) { image.src = `/api/media/${item.id}/thumbnail`; image.addEventListener("error", () => image.hidden = true, {once:true}); } else image.hidden = true;
@@ -60,12 +72,66 @@ function render() {
     grid.append(card);
   }
   const empty = !visible.length; $("empty-state").hidden = !empty;
-  $("import-empty").hidden = !!query || filter === "continue"; $("format-note").hidden = !!query || filter === "continue";
-  $("empty-title").textContent = query ? "일치하는 영상이 없어요" : filter === "continue" ? "이어볼 영상이 아직 없어요" : "첫 번째 영상을 담아보세요";
+  $("import-empty").hidden = !!query || filter !== "all"; $("format-note").hidden = !!query || filter !== "all";
+  $("empty-title").textContent = recommended && recommendationState === "loading" ? "추천을 불러오고 있어요" : recommended && recommendationState === "error" ? "추천을 불러오지 못했어요" : query ? "일치하는 영상이 없어요" : recommended ? "추천할 영상이 아직 없어요" : filter === "continue" ? "이어볼 영상이 아직 없어요" : "첫 번째 영상을 담아보세요";
   $("empty-description").replaceChildren();
-  $("empty-description").textContent = query ? "다른 제목으로 검색해 보세요." : filter === "continue" ? "영상을 보기 시작하면 마지막 시청 위치가 여기에 남습니다." : "파일을 선택하거나 이곳에 끌어놓으세요. 원본은 그대로 두고, 감상용 사본을 안전하게 보관합니다.";
+  $("empty-description").textContent = recommended && recommendationState === "loading" ? "이 기기에 저장한 선호를 확인하고 있습니다." : recommended && recommendationState === "error" ? recommendationError + " 추천을 다시 선택하면 재시도합니다." : query ? "다른 제목으로 검색해 보세요." : recommended ? "보관함에서 영상을 열고 ‘추천에 포함’을 켜주세요. 선호를 표시한 영상은 기준으로 사용하고, 선호 미지정 영상을 추천합니다." : filter === "continue" ? "영상을 보기 시작하면 마지막 시청 위치가 여기에 남습니다." : "파일을 선택하거나 이곳에 끌어놓으세요. 원본은 그대로 두고, 감상용 사본을 안전하게 보관합니다.";
 }
-async function refresh() { const result = await api("/api/library"); items = result.items; render(); }
+async function refresh() { const result = await api("/api/library"); items = result.items; invalidateRecommendations(); if(filter === "recommended") await refreshRecommendations(); else render(); }
+function invalidateRecommendations() { recommendationVersion++; recommendedItems=[]; recommendationState="idle"; }
+async function refreshRecommendations() {
+  const version=++recommendationVersion; recommendedItems=[]; recommendationState="loading"; render();
+  try {
+    const result=await api("/api/recommendations");
+    if(version!==recommendationVersion)return;
+    recommendedItems=result.items; recommendationState="ready";
+  } catch(e) { if(version!==recommendationVersion)return; recommendationState="error"; recommendationError=e.message; }
+  render();
+}
+function resetPreference() {
+  preferenceVersion++; savedPreference=null; $("preference-controls").disabled=true;
+  $("preference-value").value="neutral"; $("preference-include").checked=false; $("preference-retry").hidden=true;
+  $("preference-state").textContent="선호를 불러오고 있어요.";
+}
+function showPreference(value) {
+  savedPreference=value; $("preference-value").value=value.preference; $("preference-include").checked=value.included;
+  $("preference-controls").disabled=false; $("preference-retry").hidden=true;
+  $("preference-state").textContent=value.included ? "이 기기에 저장됨 · 추천에 사용합니다." : "이 기기에 저장됨 · 이 영상과 선호는 추천에서 제외됩니다.";
+}
+async function refreshPreference(owner) {
+  resetPreference(); const version=preferenceVersion;
+  try {
+    // Reopening the same item must not read/enable stale settings during its save.
+    const pending=pendingPreferences.get(owner.id);
+    if(pending)await pending.catch(()=>{});
+    if(activeItem!==owner || version!==preferenceVersion)return;
+    const value=await api(`/api/library/${owner.id}/preference`);
+    if(activeItem!==owner || version!==preferenceVersion)return;
+    showPreference(value);
+  } catch(e) { if(activeItem!==owner || version!==preferenceVersion)return; $("preference-state").textContent=e.message; $("preference-retry").hidden=false; }
+}
+async function savePreference() {
+  const owner=activeItem, version=preferenceVersion;
+  if(!owner || !savedPreference || $("preference-controls").disabled)return;
+  const value={included:$("preference-include").checked,preference:$("preference-value").value,revision:savedPreference.revision};
+  $("preference-controls").disabled=true; $("preference-state").textContent="선호 저장 중…";
+  invalidateRecommendations(); render();
+  const pending=api(`/api/library/${owner.id}/preference`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(value)});
+  pendingPreferences.set(owner.id,pending);
+  try {
+    const saved=await pending;
+    if(activeItem===owner && version===preferenceVersion)showPreference(saved);
+  } catch(e) {
+    // A lost response may follow a committed write. Read before permitting another edit.
+    if(activeItem===owner && version===preferenceVersion) { savedPreference=null; $("preference-state").textContent=e.message + " 저장 상태를 다시 확인해 주세요."; $("preference-retry").hidden=false; }
+  } finally {
+    if(pendingPreferences.get(owner.id)===pending)pendingPreferences.delete(owner.id);
+    invalidateRecommendations(); if(filter === "recommended") refreshRecommendations();
+  }
+}
+$("preference-value").addEventListener("change",savePreference);
+$("preference-include").addEventListener("change",savePreference);
+$("preference-retry").addEventListener("click",()=>{if(activeItem)refreshPreference(activeItem);});
 function chooseFile() { if(upload) return toast("현재 가져오기가 끝난 뒤 선택해 주세요."); $("file-input").click(); }
 async function importFile(file) {
   if(upload) return toast("한 번에 한 개의 영상을 가져올 수 있습니다.");
@@ -90,6 +156,7 @@ async function openPlayer(id) {
     $("video-error").hidden=true; $("save-state").textContent=continuing(item) ? `${time(item.position)}에서 이어보기` : "준비 중";
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
     resetSubtitles(); video.src=`/api/media/${id}/content`; dialog.showModal(); refreshSubtitles(item);
+    refreshPreference(item);
     video.addEventListener("loadedmetadata", function restore(){ if(!activeItem||activeItem.id!==id) return; const start=continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
     // Autoplay is optional; browser policy may require the native play button.
     video.play().catch(()=>{});
@@ -107,7 +174,7 @@ function savePosition(keepalive=false) {
   }).catch(e=>{lastQueuedPosition=null;if(activeItem?.id===id) $("save-state").textContent="저장 실패 · 연결 확인";toast(e.message,true);});
   return saveChain;
 }
-async function closePlayer() { video.pause(); clearTimeout(saveTimer); saveTimer=null; await savePosition(); activeItem=null; resetSubtitles(); video.removeAttribute("src"); video.load(); dialog.close(); render(); }
+async function closePlayer() { video.pause(); clearTimeout(saveTimer); saveTimer=null; await savePosition(); activeItem=null; resetSubtitles(); resetPreference(); video.removeAttribute("src"); video.load(); dialog.close(); if(filter === "recommended") refreshRecommendations(); else render(); }
 $("player-close").addEventListener("click",closePlayer);
 dialog.addEventListener("cancel",e=>{e.preventDefault();closePlayer();});
 $("restart-video").addEventListener("click",()=>{video.currentTime=0;savePosition();video.play().catch(()=>{});});
@@ -137,6 +204,8 @@ $("file-input").addEventListener("change",()=>importFile($("file-input").files[0
 $("search").addEventListener("input",render);
 $("nav-all").addEventListener("click",()=>{filter="all";render();});
 $("nav-continue").addEventListener("click",()=>{filter="continue";render();});
+$("nav-recommended").addEventListener("click",()=>{filter="recommended";refreshRecommendations();});
+window.addEventListener("focus",()=>{if(filter === "recommended")refreshRecommendations();});
 document.addEventListener("keydown",e=>{if(e.key==="/"&&!dialog.open&&e.target.tagName!=="INPUT"){e.preventDefault();$("search").focus();}});
 let dragDepth=0;
 document.addEventListener("dragenter",e=>{if(e.dataTransfer?.types.includes("Files")){e.preventDefault();dragDepth++;if(!dialog.open)$("drop-overlay").hidden=false;}});

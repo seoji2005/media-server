@@ -18,6 +18,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import ClientDisconnect
 
 from .jobs import Jobs
+from .recommendations import Recommendations
 from .subtitles import MAX_SUBTITLE_BYTES
 
 from .storage import CHUNK, MediaError, Store, default_data_dir, safe_io, title_from_name
@@ -66,12 +67,14 @@ def byte_range(header: str | None, size: int) -> tuple[int, int, int]:
 def create_app(data_dir: Path | None = None) -> FastAPI:
     store = Store(data_dir if data_dir is not None else default_data_dir())
     jobs = Jobs(store)
+    recommendations = Recommendations(store)
     token = secrets.token_urlsafe(32)
 
     @asynccontextmanager
     async def lifespan(app):
         store.start()
         try:
+            recommendations.init()
             jobs.start()
             yield
         finally:
@@ -135,6 +138,29 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     @app.get("/api/library/{item_id}")
     def item(item_id: str):
         return store.item(item_id)
+
+    @app.get("/api/recommendations")
+    def suggested_items():
+        return recommendations.suggest()
+
+    @app.get("/api/library/{item_id}/preference")
+    def item_preference(item_id: str):
+        return recommendations.preference(item_id)
+
+    @app.put("/api/library/{item_id}/preference")
+    async def save_preference(item_id: str, request: Request):
+        payload = bytearray()
+        async for chunk in request.stream():
+            if len(payload) + len(chunk) > 256:
+                raise MediaError('invalid_request', 422)
+            payload.extend(chunk)
+        try:
+            body = json.loads(payload)
+        except (ValueError, UnicodeError):
+            raise MediaError('invalid_request', 422) from None
+        if type(body) is not dict or set(body) != {'included', 'preference', 'revision'}:
+            raise MediaError('invalid_request', 422)
+        return await run_in_threadpool(recommendations.save, item_id, body['included'], body['preference'], body['revision'])
 
     @app.post("/api/import")
     async def import_video(request: Request):
