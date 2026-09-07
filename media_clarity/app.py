@@ -313,8 +313,8 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         return JSONResponse({"id":track_id}, status_code=201)
 
     @app.get("/api/library/{item_id}/subtitles/{track_id}.vtt")
-    def subtitle_content(item_id: str, track_id: str):
-        return Response(jobs.track(item_id, track_id), media_type="text/vtt; charset=utf-8")
+    def subtitle_content(item_id: str, track_id: str, transcript: bool = False):
+        return Response(jobs.track(item_id, track_id, transcript=transcript), media_type="text/vtt; charset=utf-8")
 
     @app.post("/api/library/{item_id}/subtitle-jobs")
     def create_subtitle_job(item_id: str, audio_index: int | None = None):

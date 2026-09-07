@@ -43,8 +43,8 @@ try {
       return !v.seeking && Math.abs(v.currentTime - 7) < .25;
     });
   }
-  await page.waitForFunction(() => document.querySelector('#subtitle-select').options.length === 2);
-  const trackId = await selector.locator('option').nth(1).getAttribute('value');
+  await page.waitForFunction(count => document.querySelector('#subtitle-select').options.length === count, phase === 'first' ? 2 : 4);
+  const trackId = await selector.locator('option').filter({hasText: '가져온 자막'}).getAttribute('value');
   await selector.selectOption(trackId);
   await page.waitForFunction(() => document.querySelector('#video track')?.readyState === 2);
   await video.evaluate(v => { v.pause(); v.currentTime = 5; });
@@ -63,6 +63,25 @@ try {
   assert(observed.frames > 0, 'decoded video frames required');
   assert.equal(observed.error, null);
   assert(observed.cues.includes('한국어 자막 재생 확인'), 'active native Korean cue required');
+  if (phase === 'restart') {
+    const sourceId = await selector.locator('option').filter({hasText: '원문 · 자동 전사'}).getAttribute('value');
+    const position = await video.evaluate(v => v.currentTime);
+    await selector.selectOption(sourceId);
+    await page.waitForFunction(() => [...document.querySelector('#video').textTracks].some(t =>
+      t.mode === 'showing' && [...t.activeCues].some(c => c.getCueAsHTML().textContent === 'Original <voice> & text.')));
+    assert.equal(await video.evaluate(v => v.currentTime), position);
+    assert.equal(await video.evaluate(v => v.paused), true);
+    await page.locator('#subtitle-search-panel > summary').click();
+    await page.locator('#subtitle-query').fill('Original');
+    await page.locator('#subtitle-results button').waitFor();
+    assert.equal(await page.locator('#subtitle-results button').count(), 1);
+    await selector.selectOption(sourceId.split(':')[0]);
+    await page.waitForFunction(() => [...document.querySelector('#video').textTracks].some(t =>
+      t.mode === 'showing' && [...t.activeCues].some(c => c.text.includes('한국어 자동 번역 확인'))));
+    await page.waitForFunction(() => document.querySelectorAll('#subtitle-results button').length === 0);
+    await selector.selectOption(trackId);
+    await page.waitForFunction(() => document.querySelector('#video track')?.readyState === 2);
+  }
   await selector.selectOption('');
   await page.waitForFunction(() => [...document.querySelector('#video').textTracks].every(t => t.mode !== 'showing'));
   await selector.selectOption(trackId);
@@ -82,7 +101,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
-    nativeCaption: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
+    nativeCaption: true, transcriptSwitchAndSearch: phase === 'restart', decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   await browser.close();
 }

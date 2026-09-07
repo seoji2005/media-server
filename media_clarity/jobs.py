@@ -170,13 +170,18 @@ class Jobs:
         media = self.store._row(item_id)
         with self.store.db() as db:
             jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error,fallback_count,audio_index,asr_completed,asr_until FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
-            tracks = db.execute('SELECT id,source,input_sha,warnings,presentation_summary,audio_index FROM subtitle_tracks WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
+            tracks = db.execute('''SELECT t.id,t.source,t.input_sha,t.warnings,t.presentation_summary,t.audio_index,
+                EXISTS(SELECT 1 FROM subtitle_jobs j WHERE j.id=t.job_id AND j.item_id=t.item_id
+                    AND j.input_sha=t.input_sha AND j.audio_index=t.audio_index
+                    AND j.transcript IS NOT NULL AND j.transcript_sha IS NOT NULL) AS has_transcript
+                FROM subtitle_tracks t WHERE t.item_id=? ORDER BY t.created_at DESC,t.id DESC''', (item_id,)).fetchall()
         result = []
         for r in tracks:
             if r['input_sha'] != media['sha256']:
                 continue
             summary = json.loads(r['presentation_summary'] or '{}')
             result.append({'id':r['id'], 'source':r['source'], 'language':'ko', 'audio_index':r['audio_index'],
+                           'has_transcript':r['source'] == 'generated' and bool(r['has_transcript']),
                            'fallback_count':len(json.loads(r['warnings'] or '[]')),
                            'layout':summary.get('layout'), 'review_count':summary.get('review_count',0),
                            'fast_count':summary.get('fast_count',0), 'import_notes':summary.get('import_notes')})
@@ -329,7 +334,7 @@ class Jobs:
             db.commit()
         return track_id
 
-    def track(self, item_id, track_id):
+    def track(self, item_id, track_id, *, transcript=False):
         if not ID.fullmatch(track_id):
             raise MediaError('subtitle_not_found', 404)
         media = self.store._row(item_id)
@@ -340,6 +345,22 @@ class Jobs:
         if row['input_sha'] != media['sha256'] or hashlib.sha256((row['cues']+(row['warnings'] or '')+(row['presentation'] or '')+(row['presentation_summary'] or '')).encode()).hexdigest() != row['sha256']:
             raise MediaError('subtitle_changed', 409)
         self.store.open_verified(media).close()
+        if transcript:
+            # Read the saved ASR for this version, never the newest job or audio.
+            with self.store.db() as db:
+                job = db.execute('''SELECT transcript,transcript_sha FROM subtitle_jobs
+                    WHERE id=? AND item_id=? AND input_sha=? AND audio_index=?''',
+                    (row['job_id'],item_id,row['input_sha'],row['audio_index'])).fetchone()
+            if row['source'] != 'generated' or not job or job['transcript'] is None:
+                raise MediaError('subtitle_not_found', 404)
+            encoded = job['transcript'].encode()
+            if len(encoded) > MAX_SUBTITLE_BYTES * 4 or hashlib.sha256(encoded).hexdigest() != job['transcript_sha']:
+                raise MediaError('subtitle_changed', 409)
+            try:
+                cues = validate_cues(json.loads(job['transcript']), media['duration'])
+            except (ValueError, MediaError):
+                raise MediaError('subtitle_changed', 409) from None
+            return webvtt(cues)
         warning_json = row['warnings'] or '[]'
         warnings = json.loads(warning_json)
         fallback = {w['index'] for w in warnings}
