@@ -235,6 +235,37 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             raise MediaError('invalid_request', 422)
         return await run_in_threadpool(recommendations.save, item_id, body['included'], body['preference'], body['revision'])
 
+    def companion_token(request):
+        if not secrets.compare_digest(request.headers.get('x-media-token', ''), token):
+            raise MediaError('session_required', 403)
+
+    @app.get('/api/companion/identity')
+    def library_identity(request: Request):
+        from .migrations import companion_identity
+        companion_token(request)
+        with store.db() as db:
+            return companion_identity(db)
+
+    @app.get('/api/library/{item_id}/moment-reference')
+    def moment_reference(item_id: str, request: Request):
+        from .moment_entry import reference
+        companion_token(request)
+        return reference(store, recommendations, item_id)
+
+    @app.post('/api/library/{item_id}/moment-entry')
+    async def moment_entry(item_id: str, request: Request):
+        from .moment_entry import validate
+        payload = bytearray()
+        async for chunk in request.stream():
+            if len(payload) + len(chunk) > 2048:
+                raise MediaError('invalid_moment_entry', 422)
+            payload.extend(chunk)
+        try:
+            body = json.loads(payload)
+        except (ValueError, UnicodeError):
+            raise MediaError('invalid_moment_entry', 422) from None
+        return await run_in_threadpool(validate, store, recommendations, item_id, body)
+
     @app.post("/api/import")
     async def import_video(request: Request):
         if request.headers.get("content-type", "").split(";")[0] != "application/octet-stream":

@@ -1,7 +1,19 @@
 """Transactional SQLite upgrades, including pre-versioned local libraries."""
 from .storage import MediaError
+import re
+import uuid
 
-VERSION = 5
+VERSION = 6
+
+
+def companion_identity(db):
+    rows = db.execute('SELECT slot,server_id,library_id FROM companion_identity').fetchall()
+    if (len(rows) != 1 or rows[0]['slot'] != 1
+            or any(not isinstance(rows[0][key], str) or not re.fullmatch('[0-9a-f]{32}', rows[0][key])
+                   for key in ('server_id', 'library_id'))):
+        raise MediaError('library_identity_invalid', 503)
+    return {'version': 1, 'product': 'media-server',
+            'server_id': rows[0]['server_id'], 'library_id': rows[0]['library_id']}
 
 
 def _statements(db, sql):
@@ -157,6 +169,17 @@ def migrate(db):
                 payload TEXT NOT NULL, sha256 TEXT NOT NULL,
                 PRIMARY KEY(job_id,ordinal)
             )''')
+        if version < 6:
+            db.execute('''CREATE TABLE IF NOT EXISTS companion_identity (
+                slot INTEGER PRIMARY KEY CHECK(slot=1),
+                server_id TEXT NOT NULL, library_id TEXT NOT NULL
+            )''')
+            # Preserve an existing identity in legacy-upgrade fixtures or an explicitly
+            # restored database; never change identity just because a schema is older.
+            if not db.execute('SELECT 1 FROM companion_identity').fetchone():
+                db.execute('INSERT INTO companion_identity VALUES(1,?,?)',
+                           (uuid.uuid4().hex, uuid.uuid4().hex))
+        companion_identity(db)  # Already-v6 missing/corrupt identity must not regenerate.
         db.execute(f'PRAGMA user_version={VERSION}')
         db.commit()
     except BaseException:
