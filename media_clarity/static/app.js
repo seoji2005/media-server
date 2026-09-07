@@ -188,6 +188,7 @@ async function preparePlayback(id) {
   finally { preparingPlayback.delete(id); await refresh(); }
 }
 async function openPlayer(id, entry=null) {
+  if(!entry) momentRequest++;
   const request = ++playerRequest;
   try {
     let item = await api(`/api/library/${id}`);
@@ -207,7 +208,7 @@ async function openPlayer(id, entry=null) {
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
     resetSubtitles(); video.src=`/api/media/${id}/content${audioQuery(item)}`; dialog.showModal(); dialog.scrollTop=0; refreshSubtitles(item);
     refreshPreference(item);
-    video.addEventListener("loadedmetadata", function restore(){ if(!activeItem||activeItem.id!==id) return; const start=moment?moment.start_ms/1000:continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
+    video.addEventListener("loadedmetadata", function restore(){ if(request!==playerRequest||!activeItem||activeItem.id!==id) return; const start=moment?moment.start_ms/1000:continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=moment?`${time(start)} 장면 · 재생 버튼을 눌러 시작하세요`:start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
     // Autoplay is optional; browser policy may require the native play button.
     if(!entry) video.play().catch(()=>{});
   } catch(e) { toast(e.message,true); }
@@ -296,9 +297,19 @@ function takeMomentEntry(){
   try{if(fragment.length>2048)throw new Error();const entry=JSON.parse(decodeURIComponent(fragment));if(!entry||typeof entry.item_id!=="string"||!/^[a-f0-9]{32}$/.test(entry.item_id))throw new Error();return entry;}
   catch{toast(errors.invalid_moment_entry,true);return null;}
 }
+let momentRequest=0, settleMomentSession;
+const momentSession=new Promise(resolve=>{settleMomentSession=resolve;});
 const initialMoment=takeMomentEntry();
-window.addEventListener("hashchange",async()=>{const entry=takeMomentEntry();if(entry){if(dialog.open)await closePlayer();await openPlayer(entry.item_id,entry);}});
-(async()=>{try{const session=await api("/api/session");sessionToken=session.token;const d=session.diagnostics;renderModelSetup(d.models);const notes=[];if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);if(notes.length){$("diagnostic").textContent=notes.join(" ");$("diagnostic").hidden=false;}await refresh();if(initialMoment)await openPlayer(initialMoment.item_id,initialMoment);}catch(e){$("diagnostic").textContent=e.message;$("diagnostic").hidden=false;}finally{$("loading-state").hidden=true;}})();
+window.addEventListener("hashchange",async()=>{
+  const entry=takeMomentEntry();if(!entry)return;
+  const request=++momentRequest;let player=++playerRequest;
+  await momentSession;
+  if(!sessionToken||request!==momentRequest||player!==playerRequest)return;
+  if(dialog.open){player++;await closePlayer();}
+  if(request!==momentRequest||player!==playerRequest)return;
+  await openPlayer(entry.item_id,entry);
+});
+(async()=>{try{const session=await api("/api/session");sessionToken=session.token;settleMomentSession();const d=session.diagnostics;renderModelSetup(d.models);const notes=[];if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);if(notes.length){$("diagnostic").textContent=notes.join(" ");$("diagnostic").hidden=false;}await refresh();if(initialMoment&&momentRequest===0)await openPlayer(initialMoment.item_id,initialMoment);}catch(e){$("diagnostic").textContent=e.message;$("diagnostic").hidden=false;}finally{settleMomentSession();$("loading-state").hidden=true;}})();
 
 let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null, subtitleTracks=[];
 const subtitleMessages={

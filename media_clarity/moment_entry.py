@@ -1,4 +1,4 @@
-"""Proposed original-file entry only; no mapping to renditions or automatic history write."""
+"""Original-file scene entry, with no rendition mapping or automatic history write."""
 import math
 
 from .storage import MediaError
