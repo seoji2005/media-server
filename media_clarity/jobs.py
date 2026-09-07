@@ -270,8 +270,11 @@ class Jobs:
                        (job_id,first_index,payload,hashlib.sha256(payload.encode()).hexdigest()))
             db.commit()
 
-    def enqueue(self, item_id, force=False, audio_index=None):
+    def enqueue(self, item_id, force=False, audio_index=None, provider='local'):
         from .models import local_models
+        if provider not in ('local', 'gemini'):
+            raise MediaError('invalid_request', 422)
+        translation_config = gemini.CONFIG if provider == 'gemini' else None
         row = self.store._row(item_id)
         index = row['audio_index'] if audio_index is None else audio_index
         tracks = json.loads(row['audio_tracks']) if row['audio_tracks'] is not None else None
@@ -279,19 +282,22 @@ class Jobs:
             raise MediaError('invalid_audio_track', 422)
         # Supplied Korean subtitles should avoid needless expensive ASR.
         with self.lock, self.store.db() as db:
-            existing = db.execute("SELECT id,audio_index,source_track_id FROM subtitle_jobs WHERE item_id=? AND state IN ('queued','running','paused')", (item_id,)).fetchone()
+            existing = db.execute("SELECT id,audio_index,source_track_id,translation_config FROM subtitle_jobs WHERE item_id=? AND state IN ('queued','running','paused')", (item_id,)).fetchone()
             if existing:
                 if existing['audio_index'] != index:
                     raise MediaError('processing_audio_conflict', 409)
-                if existing['source_track_id']:
+                if existing['source_track_id'] or existing['translation_config'] != translation_config:
                     raise MediaError('processing_busy', 409)
                 return self.row(existing['id'])['id']
             if not force and db.execute('SELECT 1 FROM subtitle_tracks WHERE item_id=? AND audio_index=?', (item_id,index)).fetchone():
                 raise MediaError('subtitles_already_available', 409)
-            local_models(self.store.root, check_packages=True)
+            if provider == 'gemini':
+                gemini.api_key()
+            local_models(self.store.root, check_packages=True, asr_only=provider == 'gemini')
             self.store.open_verified(row).close()
             job_id = uuid.uuid4().hex
-            db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index) VALUES(?,?,?,?,?)', (job_id,item_id,row['sha256'],'queued',index))
+            db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index,translation_config) VALUES(?,?,?,?,?,?)',
+                       (job_id,item_id,row['sha256'],'queued',index,translation_config))
             db.commit()
             return job_id
 
@@ -332,14 +338,14 @@ class Jobs:
                 raise MediaError('processing_worker_active', 409)
             row = self.row(job_id)
             cloud = gemini.provider(row['translation_config']) == 'gemini'
-            if cloud and not row['source_track_id']:
-                raise MediaError('processing_checkpoint_invalid', 409)
             if action == 'restart':
                 if row['state'] not in ('failed','paused'):
                     raise MediaError('processing_busy', 409)
                 from .models import local_models
                 if not row['source_track_id']:
-                    local_models(self.store.root, check_packages=True)
+                    if cloud:
+                        gemini.api_key()
+                    local_models(self.store.root, check_packages=True, asr_only=cloud)
                 media = self.store._row(row['item_id'])
                 self.store.open_verified(media).close()
                 with self.store.db() as db:
@@ -352,8 +358,8 @@ class Jobs:
                     if seed:
                         self._queue_translation(db, media, seed, row['translation_config'])
                     else:
-                        db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index) VALUES(?,?,?,?,?)',
-                                   (uuid.uuid4().hex,row['item_id'],media['sha256'],'queued',row['audio_index']))
+                        db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index,translation_config) VALUES(?,?,?,?,?,?)',
+                                   (uuid.uuid4().hex,row['item_id'],media['sha256'],'queued',row['audio_index'],row['translation_config']))
                     db.commit()
                 return
             if action == 'pause':
@@ -371,6 +377,8 @@ class Jobs:
                 from .models import local_models
                 if cloud:
                     gemini.api_key()
+                    if not row['source_track_id']:
+                        local_models(self.store.root, check_packages=True, asr_only=True)
                 else:
                     local_models(self.store.root, check_packages=True, translation_only=bool(row['source_track_id']))
                 with self.store.db() as db:
@@ -509,7 +517,7 @@ def _execute(store, job_id, backend_factory):
     if claimed is None:
         return
     jobs.expected_attempt = claimed['attempt']
-    backend = None
+    backend = speech = None
     try:
         row = jobs.row(job_id)
         if row['attempt'] != jobs.expected_attempt or row['state'] != 'running':
@@ -525,19 +533,20 @@ def _execute(store, job_id, backend_factory):
             if any(row[k] != seed[k] for k in seed) or row['asr_completed'] or row['asr_until']:
                 raise MediaError('processing_checkpoint_invalid', 409)
         cloud = gemini.provider(row['translation_config']) == 'gemini'
-        if cloud and not row['source_track_id']:
-            raise MediaError('processing_checkpoint_invalid', 409)
         backend = gemini.Gemini(row['translation_config']) if cloud else (
             backend_factory(store.root) if backend_factory else LocalModels(store.root, translation_only=bool(row['source_track_id'])))
+        speech = (backend_factory(store.root) if backend_factory else LocalModels(store.root, asr_only=True)) if cloud and not row['source_track_id'] else backend
         def input_identity():
             value = backend.identity()
             if row['source_track_id']:
                 return retranslation_identity(value, row)
+            if cloud:
+                value = hashlib.sha256(document(['local-asr-gemini-v1',speech.identity(),value]).encode()).hexdigest()
             # Keep completed legacy transcripts resumable; only new span-based ASR
             # includes this profile. Saved spans retain it during translation too.
-            if hasattr(backend, 'transcribe_parts') and (row['transcript'] is None or row['asr_completed']):
-                value = hashlib.sha256(document([value,backend.asr_profile]).encode()).hexdigest()
-            timing = getattr(backend, 'audio_timing', None)
+            if hasattr(speech, 'transcribe_parts') and (row['transcript'] is None or row['asr_completed']):
+                value = hashlib.sha256(document([value,speech.asr_profile]).encode()).hexdigest()
+            timing = getattr(speech, 'audio_timing', None)
             # A saved pre-upgrade transcript needs no re-decode; keep its original
             # timing and model identity. New decodes include the timestamp policy.
             if not row['audio_index'] and (timing is None or (row['transcript'] is not None and row['config_sha'] == value)):
@@ -561,11 +570,11 @@ def _execute(store, job_id, backend_factory):
             try:
                 # FFmpeg reads the app-owned original without another video copy.
                 # Revalidate after decode and before publishing any ready result.
-                if hasattr(backend, 'transcribe_parts'):
+                if hasattr(speech, 'transcribe_parts'):
                     transcript = [c for part in saved_asr for c in part['cues']]
                     size = sum(len(document(p).encode()) for p in saved_asr)
                     until = row['asr_until']
-                    parts = backend.transcribe_parts(store.file_path(media), media['duration'], row['audio_index'], saved_asr)
+                    parts = speech.transcribe_parts(store.file_path(media), media['duration'], row['audio_index'], saved_asr)
                     try:
                         for ordinal, part in enumerate(parts, len(saved_asr)):
                             part = asr_checkpoints.validate_part(part, media['duration'])
@@ -581,7 +590,7 @@ def _execute(store, job_id, backend_factory):
                 else:
                     if saved_asr:
                         raise MediaError('processing_config_changed', 409)
-                    transcript = validate_cues(backend.transcribe(store.file_path(media), media['duration'], row['audio_index']), media['duration'])
+                    transcript = validate_cues(speech.transcribe(store.file_path(media), media['duration'], row['audio_index']), media['duration'])
             finally:
                 verified.close()
             store.open_verified(media).close()
@@ -641,5 +650,7 @@ def _execute(store, job_id, backend_factory):
         except MediaError:
             pass
     finally:
+        if speech is not None and speech is not backend:
+            speech.close()
         if backend is not None:
             backend.close()

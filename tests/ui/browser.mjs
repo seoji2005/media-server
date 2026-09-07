@@ -102,6 +102,19 @@ try {
   await page.waitForFunction(() => document.querySelector('#video').readyState >= 2);
   const selector = page.locator('#subtitle-select');
   if (phase === 'first') {
+    await page.locator('#subtitle-preparation > summary').click();
+    const provider = page.locator('#subtitle-translator');
+    assert.equal(await provider.isVisible(), true);
+    assert.equal(await provider.inputValue(), 'local');
+    await provider.selectOption('gemini');
+    assert.match(await page.locator('#subtitle-cloud-note').textContent(), /음성 인식은 이 기기/);
+    const response = page.waitForResponse(r => r.url().endsWith('/subtitle-jobs') && r.request().method() === 'POST');
+    await page.locator('#subtitle-generate').click();
+    const blocked = await response;
+    assert.equal(blocked.status(), 503);
+    assert.equal((await blocked.json()).error, 'gemini_key_missing');
+    await provider.selectOption('local');
+    await page.locator('#subtitle-preparation > summary').click();
     await page.locator('#subtitle-input').setInputFiles(subtitle);
   } else {
     await page.waitForFunction(() => {

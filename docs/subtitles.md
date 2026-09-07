@@ -63,11 +63,18 @@ does not change existing jobs' configuration identity or normal ASR resume behav
 
 ### Optional Gemini retranslation
 
-Select a generated version with saved original text, open **자막 준비**, set
-**다시 번역할 엔진 → Google Gemini · 3.1 Flash-Lite**, then press
-**저장된 원문으로 다시 번역**. Gemini needs no local translation/ASR models for this
-action. Fresh **한국어 자막 만들기 / 새 자막 만들기** still uses local ASR and MADLAD.
-Opening another video resets this choice to local. Existing versions keep playing;
+Open **자막 준비**, set **번역 엔진 → Google Gemini · 3.1 Flash-Lite**, then choose:
+
+- **한국어 자막 만들기 / 새 자막 만들기:** local Whisper/VAD recognizes the selected
+  audio, then Gemini translates the validated transcript. ASR weights/runtime are
+  required; MADLAD weights and its direct translation dependencies are not. ASR uses
+  its existing CPU int8 / CUDA int8_float16 precision; translation's BF16 requirement
+  does not apply to this ASR-only path. Target Windows/RTX execution remains unverified.
+- **저장된 원문으로 다시 번역:** reuse the selected generated version's saved transcript.
+  No local ASR or translation models are needed for this action.
+
+The selector alone never queues work or calls an API. Empty API bodies and opening
+another video default to local. Existing versions keep playing;
 completed cloud versions are labeled **한국어 · Gemini**.
 
 Set `GEMINI_API_KEY` in the environment of the process launching the app, then restart
@@ -91,7 +98,7 @@ export GEMINI_API_KEY
 unset GEMINI_API_KEY
 ```
 
-The explicit choice sends saved dialogue and up to one neighboring unit on each side
+The explicit choice sends recognized/saved dialogue and up to one neighboring unit on each side
 (400 characters each) to Google's fixed HTTPS Gemini endpoint. No video/audio, timing,
 title, path, library/track identifiers or watch/search/taste data enter the prompt. Target
 IDs are request-local ordinals. Korean-only units pass through locally; neighboring
@@ -103,8 +110,18 @@ This is a cloud service, with its own retention and [API charges](https://ai.goo
 Schema v8 adds nullable `translation_config`; legacy NULL means local. Queueing freezes
 the provider, model ID, prompt digest, batching/context and generation profile together
 with the exact saved transcript identity. Resume and restart retain the selected provider
-and source; rotating the API key does not discard checkpoints. The endpoint accepts only
+and source; rotating the API key does not discard checkpoints. Create, regenerate and
+retranslate accept only
 `{"provider":"local"}` or `{"provider":"gemini"}` (empty body remains local).
+
+Fresh cloud jobs store the same translation configuration without a source-track
+reference. Their execution identity combines the ASR files/runtime, speech-span/audio
+policy and exact Gemini configuration. Translation-only dependency changes do not
+invalidate these jobs; ASR or frozen configuration changes do. The full transcript must
+validate before the first cloud request. Pausing during ASR retains speech spans without
+cloud egress; resuming translation reuses the saved transcript without repeating ASR.
+Restart creates a new job with the saved provider/model, not the current UI selection.
+Existing full-local and saved-transcript model identities are unchanged.
 
 Up to eight foreign units are requested with `gemini-3.1-flash-lite`, low thinking,
 4,096 output tokens and a JSON response schema. Every successful request is validated
@@ -129,6 +146,16 @@ its results were reused when the owner supplied an authorization key. Real publi
 inference is now measured; source ASR and model quality are not established by fixtures.
 Local Chrome remains blocked by socket EPERM; actual
 Linux/Windows Chrome selection, missing-key and uninterrupted playback checks run in CI.
+
+Fresh-job regressions use synthetic local ASR and synthetic Gemini responses, with a
+real child process/store restart: an eight-unit successful API batch is preserved when
+the next call fails, and resume sends only the remaining two units. ASR interruption,
+changed ASR identity, corrupt spans, provider conflicts, missing-key rejection and
+failed-restart rollback are covered. The new ASR-only setup is tested without MADLAD
+files/direct MT imports, including retained ASR precision and privacy checks. No new
+model inference was performed for this integration slice: this host lacks ASR weights
+and has about 1.3 GB free. Prior real translation measurements remain valid but do not
+prove a new real-ASR-to-cloud end-to-end run or target GPU performance.
 
 ### Model setup
 

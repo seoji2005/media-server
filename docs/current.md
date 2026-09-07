@@ -1,9 +1,10 @@
 # Current work
 
-- **Milestone:** [measured API selection](translation-api-selection.md): Gemini 3.1
-  Flash-Lite for new explicit Gemini jobs; preserve existing 3.8 jobs and local default.
-- **Branch / PR / HEAD:** `eval/gemini-api-comparison`, based on main `1adcfec` after
-  [PR #20](https://github.com/seoji2005/media-server/pull/20) merged. Resolve live work in
+- **Milestone:** [fresh Gemini subtitles](subtitles.md#optional-gemini-retranslation):
+  explicit local-ASR → Gemini translation, without an unnecessary local MT pass.
+  Local remains default; prior translations and frozen provider/model recovery remain intact.
+- **Branch / PR / HEAD:** `feat/fresh-gemini-subtitles`, based on main `88ba204` after
+  [PR #21](https://github.com/seoji2005/media-server/pull/21) merged. Resolve live work in
   [open PRs](https://github.com/seoji2005/media-server/pulls). One writer; [product](product.md) and AGENTS.md govern.
 - **What works:** import/compatible copies, shared audio, playback/resume, actual local
   ASR/Korean captions, recoverable jobs, literal/visual scene search, previews and explicit
@@ -31,7 +32,10 @@
   currently fails with socket EPERM; [Linux/Windows CPU CI](https://github.com/seoji2005/media-server/actions/workflows/verify.yml)
   is available under the owner's spending approval. Earlier long-film/larger-encoder
   requests ended in cancelled approval; do not bypass them.
-- **Next action:** Qwen-MT-Flash is the next translation-focused API candidate if an
+- **Next action:** Validate the fresh ASR → Gemini path with real ASR weights on a
+  suitable machine; this host has no ASR weights and only about 1.3 GB free. Do not
+  download more weights without capacity. Synthetic inference/real child recovery
+  checks are not a real model sign-off. Qwen-MT-Flash is the next API candidate if an
   Alibaba key is supplied; Mistral Small 4 is another documented candidate. Neither has
   measured quality/refusal evidence here. Gemini 3.8 and 3.1 Lite each completed 80
   attempts with 79 valid outputs; both blocked the same non-graphic trauma report.
@@ -45,7 +49,8 @@
   [contextual Qwen3-4B](translation-comparison.md#contextual-qwen-comparison--2026-09-07)
   completed all 80 inputs but is not adopted: clock-time corruption and changed actions
   remain. Default translation is MADLAD; saved-transcript retranslation also offers
-  explicit Gemini. Fresh speech recognition and translation remain local.
+  explicit Gemini. Fresh speech recognition remains local; fresh translation now offers
+  the same explicit Gemini selection, while the initial choice remains local.
   [sentence splitting and decoding settings](translation-comparison.md#bounded-decoding-comparison--2026-09-07)
   did not establish a general improvement, so none was adopted. Saved ASR can now be
   reused when translator updates arrive. Preserve the frozen comparison rather than
