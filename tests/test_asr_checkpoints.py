@@ -131,11 +131,18 @@ class ASRCheckpointTests(unittest.TestCase):
         execute(self.store,self.jid,Legacy)
         self.assertEqual(self.jobs.row(self.jid)['state'],'succeeded')
 
-    def test_large_v3_setup_requires_feature_configuration(self):
+    def test_setup_requires_asr_features_and_native_translation_vocabulary(self):
         asr = self.root/'models'/'asr'; mt = self.root/'models'/'translation'
         asr.mkdir(parents=True); mt.mkdir()
         for name in ('model.bin','config.json','tokenizer.json'): (asr/name).write_bytes(b'fixture')
         for name in ('config.json','tokenizer_config.json','model.safetensors'): (mt/name).write_bytes(b'fixture')
         with self.assertRaisesRegex(MediaError,'local_models_missing'): local_models(self.root)
         (asr/'preprocessor_config.json').write_text('{"feature_size":128}')
+        with self.assertRaisesRegex(MediaError,'local_models_missing'): local_models(self.root)
+        (mt/'spiece.model').write_bytes(b'fixture')
         self.assertEqual(local_models(self.root)['asr'],asr)
+        # Missing protobuf's namespace must be diagnosed before model loading.
+        for error in (ModuleNotFoundError('google'), ValueError('invalid module spec')):
+            with patch('media_clarity.models.importlib.util.find_spec',side_effect=error):
+                with self.assertRaisesRegex(MediaError,'model_runtime_missing'):
+                    local_models(self.root,check_packages=True)
