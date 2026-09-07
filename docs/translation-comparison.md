@@ -376,3 +376,77 @@ are retained in the evidence. Fresh independent review approved the probe and
 reconstructed all 80 request hashes without rerunning inference. Local `harness.py
 check` and `git diff --check` passed; the PR's normal Linux/Windows product and browser
 CI remains the integration gate. This experiment does not exercise Qwen in the app.
+
+## Qwen3.5 Q6_K comparison · 2026-09-07
+
+**Do not adopt the evaluated Qwen3.5 subtitle system; keep MADLAD and its known
+limitations.** All 80 fixed inputs produced a response, but only **64/80** met the
+unchanged matching-ID JSON contract. Sixteen returned code fences or another JSON
+shape. All reported `finish_reason=stop`; none hit the 256-token cap. No output was
+repaired or regenerated. The [evidence](evidence/translation_qwen35_candidate.json)
+retains responses, invalid IDs, baseline text, ratings, pins and execution limits.
+
+One AI reviewer assessed randomized concealed A/B labels: **MADLAD preferred 47,
+Qwen3.5 12, tied 21**. Major-error cases were **11 / 27**, respectively. The reviewer
+had already reviewed the runtime code and knew the candidate identity, so this was
+not a fully isolated linguistic review or human panel. It judged translation content
+inside wrappers; structural failures were counted separately. Ambiguous/repeated ASR
+fragments, no audiovisual context and judgment-dependent severity limit these counts.
+They must not be treated as interchangeable with the earlier reviewer's scores.
+
+The candidate fixes `auth_08` to `5시 15분. 10 분 뒤에 도착해.` but returns Japanese
+for the Korean targets `auth_11` (`持っていきましょうか`), `auth_21`
+(`撃つな！その人は医者だ！`) and `auth_23` (`コンドームある？`). Valid JSON therefore
+does not establish target-language correctness. Neither these errors nor profanity
+changes establish censorship; the authored sensitive cases are fictional/non-graphic.
+
+Only 4.8 GiB of disk space remained, so the previous weights and reports were preserved
+and an isolated [Unsloth Q6_K conversion](https://huggingface.co/unsloth/Qwen3.5-4B-GGUF)
+was evaluated instead of adding the full original weights. Revision
+`e87f176479d0855a907a41277aca2f8ee7a09523`, file `Qwen3.5-4B-Q6_K.gguf`
+(3,525,956,768 bytes), matched published SHA256
+`fdedd781c9ce676ab66b018ca247ff78e8a33c98098a822c1e2d5075e7718f66`.
+The weight plus README download completed in 56.821 s. The conversion names the
+Apache-2.0 Qwen3.5-4B base; its exact upstream conversion-source revision was not
+independently established. This is evidence about this pinned artifact.
+
+The [probe](../scripts/probe_gguf_translation.py) uses the verified official
+[llama.cpp b10835 Linux CPU release](https://github.com/ggml-org/llama.cpp/releases/tag/b10835),
+commit `b74f590eafec2fafc6e0e98ee93b2e5d3efa9042`. Archive and runtime file hashes
+are retained. It sends the same frozen public fixture/prompt/adjacent context as the
+earlier Qwen comparison to a loopback server, with local weights, `--offline`, disabled
+Web UI/proxies and an ephemeral API key. Python records zero external connection
+attempts; it cannot observe native C++ syscalls. A `strace` preflight failed with
+ptrace EPERM (exit 1), and was not retried or bypassed. No OS-wide egress claim is made.
+
+The native chat template has thinking disabled. The fixed
+[Qwen non-thinking settings](https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode)
+are temperature 0.7, top-p 0.8, top-k 20, min-p 0, presence penalty 1.5 and repetition
+penalty 1.0, with a 256-token experimental cap and the existing per-ID seeds.
+Each run uses four CPU threads, one server slot, a 2,048-token context and no prompt
+cache reuse (all reported cached-token counts are zero). MADLAD's same 36 native
+replacements plus 44 saved film outputs were reused without ASR/MT execution.
+Context, quantization, runtime and sampling differ: this is a subtitle-system comparison,
+not an isolated architecture or quantization experiment.
+
+| Linux CPU run | Inputs | Valid structure | Request sum | Complete run |
+| --- | ---: | ---: | ---: | ---: |
+| Authored ordinary/sensitive | 24 | 17 | 291.562 s | 296.522 s |
+| Film first half | 28 | 24 | 351.795 s | 357.057 s |
+| Film second half | 28 | 23 | 318.565 s | 323.480 s |
+
+Two groups overlapped on the eight-core cloud CPU. These sums are not sequential
+full-film latency or a fair speed ranking against MADLAD/Qwen3. Native peak RSS and
+GPU VRAM were not measured. All three probes completed their inputs but exited **1**
+because of response validation failures; all owned servers shut down with exit **0**.
+Every invocation had a 540-second outer timeout plus startup/request/group/cleanup
+limits. The complete command form and raw report hashes are retained in the evidence.
+
+Authored execution used `99ab889`; film groups used reviewed `cfa7836`. Fresh code
+review found that optimized Python could disable assertions and failed HTTP/JSON
+requests could lose diagnostic bodies/case IDs. Both were fixed without changing
+generation settings or repeating inference. Optimized execution was actually rejected;
+isolated reviewer mocks retained HTTP 503 and malformed JSON evidence. Local syntax,
+documentation-contract and whitespace checks passed; normal Linux/Windows product
+and Chrome CI gates the PR. No production model/dependency changed, private input,
+cloud inference, app Qwen integration or Windows 11/RTX inference was used.
