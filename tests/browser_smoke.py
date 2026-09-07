@@ -133,7 +133,17 @@ def run():
             if phase == 'first':
                 expected = (f'감상 준비가 끝났습니다: {base}\n종료하려면 이 창에서 Ctrl+C를 누르세요.\n'
                             '브라우저를 열지 못했습니다. 위 주소를 브라우저에 직접 입력해 주세요.\n')
-                assert log_path.read_text(encoding='utf-8') == expected, 'unexpected launcher diagnostics'
+                observed = log_path.read_text(encoding='utf-8')
+                # Keep the exact quiet-log gate. Report counts only: raw diagnostics
+                # may contain URLs/paths, so they must not reach shared CI output.
+                expected_lines, observed_lines = expected.splitlines(), observed.splitlines()
+                assert observed == expected, (
+                    'unexpected launcher diagnostics: '
+                    f'expected_lines={len(expected_lines)}, actual_lines={len(observed_lines)}, '
+                    f'missing_lines={sum(line not in observed_lines for line in expected_lines)}, '
+                    f'extra_lines={sum(line not in expected_lines for line in observed_lines)}, '
+                    f'sanitized_server_errors={observed.count("Local server operation failed; check the in-app diagnostic.")}'
+                )
             else:
                 assert log_path.read_bytes() == b'', 'production server unexpectedly logged data'
         assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
