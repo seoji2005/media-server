@@ -293,3 +293,86 @@ source/input/ASR-counter tamper rejection, no-ASR pause/recovery/resume, restart
 and exact compatibility of normal model identity. Its MT-profile and browser-test
 findings were fixed and rereviewed without remaining findings. Real browser behavior
 is gated by the PR's Linux/Windows CI. Target Windows 11/RTX remains unavailable.
+
+## Contextual Qwen comparison · 2026-09-07
+
+**Keep MADLAD as the app default; Qwen3-4B-Instruct-2507 is not adopted.** The fixed
+Qwen candidate completed all 80 existing inputs, but still corrupts clock time,
+misreads an offer to carry something, and produces awkward Korean. Restoring one
+previously omitted command is useful evidence, not enough to establish a replacement.
+MADLAD's existing meaning errors remain unresolved.
+
+The [saved evidence](evidence/translation_qwen_candidate.json) contains all actual
+candidate outputs, the exact saved baseline outputs, runtime/hash records and per-case
+ratings. One fresh AI rater assessed four fixed packets with engine labels randomized
+per case. It preferred MADLAD on 29 cases, Qwen on 17, and tied 34. Cases with a major
+meaning error were 13 for MADLAD and 9 for Qwen; on the 56 film rows alone they were
+6 and 7. Fewer major errors on this sample did not establish better overall subtitles.
+Preferences also consider natural Korean, and a tie may mean both versions are flawed.
+These are qualitative judgments on previously seen development cases, not a human
+panel, calibrated quality score or adoption approval. Ambiguous ASR fragments,
+repeated utterances and the lack of audiovisual context limit the judgments.
+
+[Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507) is an
+Apache-2.0, non-thinking Qwen3 model supported by the existing Transformers 4.57.1.
+Revision `cdbee75f17c01a7cc42f958dc650907174af0554` was downloaded in 106.56 s;
+all three weight shards and the tokenizer matched their published SHA256 hashes.
+Other downloaded file hashes are retained as well. No production dependency or model
+selection changed. Qwen3.5 requires a newer runtime and remains untested here.
+HY-MT1.5 was excluded before download because its
+[own license](https://huggingface.co/tencent/HY-MT1.5-1.8B/raw/main/License.txt)
+excludes South Korea from its permitted territory.
+
+The [offline probe](../scripts/probe_qwen_translation.py) reads only the fixed public
+fixture, verifies model weights, disables remote code and blocks Python socket connects.
+It reuses the frozen Gemini prompt and adjacent context, one target per request, without
+existing Korean output or evaluator notes. This compares subtitle systems: MADLAD's
+saved baseline has no adjacent context. Its 36 previously native-decoded outputs replace
+the corresponding older outputs; the other 44 saved film outputs are reused.
+These are all observed development inputs, not a new holdout.
+
+The model's sampling defaults were fixed before inference: temperature 0.7, top-p 0.8,
+top-k 20, min-p 0, one seed per fixture ID, batch 1. The experimental output cap is
+256 tokens. There was no per-case prompt tuning, output repair or regeneration to
+improve wording. Structured output validation passed for **80/80**, with EOS
+termination, nonempty matching IDs and zero Python network attempts. That verifies the
+response structure, not semantic quality or OS-wide network isolation.
+
+| Linux CPU BF16 run | Cases | Generation sum | Complete run |
+| --- | ---: | ---: | ---: |
+| Authored ordinary/sensitive | 24 | 380.810 s | 396.925 s |
+| Film first half | 28 | 436.150 s | 445.243 s |
+| Film second half | 28 | 358.785 s | 368.150 s |
+
+Each run used four Torch/OMP/MKL threads. Two groups overlapped on the shared eight-core
+cloud CPU; their sums are not sequential full-film latency or an equal-work MADLAD speed
+comparison. Complete-run time includes hash verification, runtime import and model load.
+Peak process RSS was 8,169.598 MiB; this is not GPU memory or target RTX evidence.
+
+An initial FP32 run was stopped after six saved outputs because each took 31–43 s.
+Its checkpoint remains incomplete and the external exit was 130; forced termination
+did not execute the script's final report update. The same six BF16 outputs were
+identical, taking 83.794 s versus 213.165 s in FP32, excluding setup in both sums.
+Those BF16 pairs ran before concurrent inference began. The remaining BF16 cases are
+the candidate evaluation; the incomplete FP32 pass is not counted as extra coverage.
+
+| Probe | Candidate observation |
+| --- | --- |
+| `auth_06`, polite workplace request | Restores the apologetic request more faithfully |
+| `auth_08`, 5:15 and arrival in ten minutes | Includes ten minutes but renders the clock as `오시십분 십오분` |
+| `auth_11`, offer to carry something | Renders it as `가자고 해?`, changing the action |
+| `auth_21`, do not shoot the doctor | Restores the prohibition and doctor identity |
+
+The 12 authored sensitive examples produced translations without an explicit prose
+refusal. Profanity remained weakened and some meaning errors persisted; this does not
+establish censorship or performance on graphic material. No private input, API key,
+cloud inference, new ASR run or target Windows/RTX execution was used.
+
+The probe ran at code `6ff038c`; the initial FP32 checkpoint used `4435569`.
+Commands used `timeout` (480 s for authored, 540 s per film half), four OMP/MKL threads,
+the existing model-runtime Python and explicit `--precision bfloat16`. The initial
+pass used `float32`. Exact command form, hashes and failed preparation/stop attempts
+are retained in the evidence. Fresh independent review approved the probe and
+reconstructed all 80 request hashes without rerunning inference. Local `harness.py
+check` and `git diff --check` passed; the PR's normal Linux/Windows product and browser
+CI remains the integration gate. This experiment does not exercise Qwen in the app.
