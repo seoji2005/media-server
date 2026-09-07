@@ -1,9 +1,9 @@
 # Current work
 
-- **Milestone:** pinned local Qwen comparison completed on all 80 saved inputs;
-  retain the output, blind assessment and runtime evidence with MADLAD still the default.
-- **Branch / PR / HEAD:** `eval/qwen-translation`, from main `50e8ad7` after
-  [PR #17](https://github.com/seoji2005/media-server/pull/17) merged. Resolve live work in
+- **Milestone:** Qwen3.5 Q6_K comparison completed on all 80 saved inputs; preserve
+  the 16 structural failures and meaning/language errors, with MADLAD still the default.
+- **Branch / PR / HEAD:** `eval/qwen35-translation`, integrating main `8410861` after
+  [PR #15](https://github.com/seoji2005/media-server/pull/15) merged. Resolve live work in
   [open PRs](https://github.com/seoji2005/media-server/pulls). One writer; [product](product.md) and AGENTS.md govern.
 - **What works:** import/compatible copies, shared audio, playback/resume, actual local
   ASR/Korean captions, recoverable jobs, literal/visual scene search, previews and explicit
@@ -31,7 +31,11 @@
   currently fails with socket EPERM; [Linux/Windows CPU CI](https://github.com/seoji2005/media-server/actions/workflows/verify.yml)
   is available under the owner's spending approval. Earlier long-film/larger-encoder
   requests ended in cancelled approval; do not bypass them.
-- **Next action:** assess a stronger Korean translation candidate in an isolated runtime;
+- **Next action:** prioritize a Korean translation-focused candidate over another
+  general 4B model; establish runtime capacity before downloading more weights.
+  [Qwen3.5 Q6_K](translation-comparison.md#qwen35-q6_k-comparison--2026-09-07)
+  completed 80 cases but is not adopted: 64 matched the response format and several
+  Japanese inputs remained Japanese. The qualitative assessment favored MADLAD.
   [contextual Qwen3-4B](translation-comparison.md#contextual-qwen-comparison--2026-09-07)
   completed all 80 inputs but is not adopted: clock-time corruption and changed actions
   remain. Current production translation is still MADLAD, with its known limitations.
