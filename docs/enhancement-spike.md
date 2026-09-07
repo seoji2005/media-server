@@ -157,3 +157,100 @@ Public decoded clip SHA-256 values for reproducing this exact evidence:
 
 They identify the local FFV1 decodes, not a full-movie publisher checksum. Media,
 models, frame outputs and raw reports remain outside Git.
+
+## Compression-trained follow-up · 2026-09-06
+
+**Rejected this configuration too.** [Swin2SR](https://github.com/mv-lab/swin2sr/tree/0abb1e009ce98f527a630f50fee0be37519938ff)
+CompressedSR x4 targets JPEG degradation, using reconstruction/auxiliary losses described
+in the [paper](https://arxiv.org/html/2209.11345v1#S3.SS2). This motivated a bounded H.264
+transfer test; it does not establish a video model or temporal training. The official
+repository declares Apache-2.0; no gated-license prompt was accepted. Source and weights
+remain outside Git, and [artifact hashes/results](evidence/enhancement_compressed.json)
+identify the exact retrieved release bytes.
+
+The existing probe adds `--candidate swin2sr-compressed`, using the pinned
+`models/network_swin2sr.py` and official `v0.0.1/Swin2SR_CompressedSR_X4_48.pth`.
+Use the same command/paired folders above with those files and a fresh output directory.
+It selects the primary SR output, accumulates native x4 tiles, then converts 8-bit RGB
+output with Lanczos to the same x2 viewing size. This is an explicit configuration
+comparison, not a native-x2 or published-benchmark reproduction. Default SwinIR behavior
+is retained. No new app model dependency or inference framework was added.
+
+Same CRF28 close-up frames, float32 CPU/four threads, 128-pixel tiles/16-pixel overlap:
+
+| First five consecutive frames | Mean RGB PSNR, dB |
+| --- | ---: |
+| Bicubic | 35.4940 |
+| Lanczos | 35.4777 |
+| Previous SwinIR-S | 35.3013 |
+| Swin2SR x4 → x2 | 33.5140 |
+| 50% Swin2SR/bicubic blend | 35.1099 |
+
+Reference/input PNG bytes exactly match the earlier saved baseline. Skin, hair and eye
+detail become visibly oversmoothed. After inspecting four completed frames, the run was
+stopped; a fifth finished before interruption. **5/12 planned frames**, session exit 130,
+no success report. Source PNGs were rehashed unchanged. There is no complete synchronized
+FPS/peak-memory result or target extrapolation. Earlier launcher/PID-stop failures and
+the actual session interruption are retained in the structured result.
+
+A 5-frame/24-fps four-panel comparison played three times in actual Chromium 149:
+15 decoded frames, advancing video-frame callbacks, Range 206, no page errors/external
+page requests; screenshot inspected. Its duration is only 0.208333 s. Four temporal
+transitions and repeated diagnostic playback cannot establish motion stability or human
+viewing acceptance. Lossy reference/codec, one crop and JPEG→H.264 mismatch limit this
+rejection to the tested viewing configuration; this is not a general model ranking.
+
+Fresh review found a separate upstream geometry defect for unaligned whole-frame
+compressed input. `--tile 0` now rejects input dimensions not divisible by eight before
+inference; aligned tiles handle such images. The 384×256 tiled run at `4a2e67f` is unaffected.
+The guard at `34bfc33` was independently checked. Strict real checkpoint loading, an
+aligned 32×40 forward, eight geometry probes and three dependency-free regression tests
+passed. Original/enhanced switching, useful natural enhancement, target fit and human
+acceptance remain open. Next compare a conservative non-generative filter baseline on
+longer moving clips before spending on another large image-model candidate.
+
+## Moving filter baseline · 2026-09-07
+
+**No adopted preset.** One fixed FFmpeg filter was compared over three 8-second,
+1920×800 / 24-fps clips: bridge dialogue (25 s), a dim face close-up (90 s), and
+indoor faces/hands (250 s). These are newly retrieved excerpts of the same permitted
+movie; previous temporary media did not survive the environment reset. Previewed
+320 s text-overlay and 590 s credits samples were excluded, not counted as live-action
+evidence. Prosthetics/CG and one film still limit anatomical/generalization claims.
+
+`scripts/probe_video_filters.py` takes a local 1–20 s yuv420p reference and a new output
+directory outside the checkout. It creates 960×400 bicubic/H.264 CRF28 input, then
+compares Lanczos x2 with `hqdn3d=0.75:0.5:1.0:0.75`, Lanczos x2 and
+`unsharp=3:3:0.2:3:3:0`. See the official [denoiser](https://ffmpeg.org/ffmpeg-filters.html#hqdn3d)
+and [sharpening](https://ffmpeg.org/ffmpeg-filters.html#unsharp) options. No grid search,
+model, app integration or new dependency. Example:
+
+```sh
+python scripts/probe_video_filters.py --reference /local/allowed-clip.mkv --output /local/new-comparison
+```
+
+All **576 frames** completed and input hashes remained unchanged. Mean per-frame
+YUV420 PSNR/SSIM on lossless outputs (not the earlier RGB/Pillow benchmark):
+
+| Clip | PSNR Lanczos / filter | SSIM Lanczos / filter | Filter pipeline fps |
+| --- | ---: | ---: | ---: |
+| Bridge | 36.4108 / 36.3836 | .948486 / .947427 | 54.55 |
+| Dim face | 41.0581 / 41.0083 | .974134 / .973671 | 76.88 |
+| Indoor | 35.7851 / 35.7405 | .919342 / .918602 | 61.12 |
+
+These one-run Linux CPU timings include decode, filtering and FFV1 encoding; they are
+not isolated filter speed or movie/RTX forecasts. Inspected 1:1 comparisons show slight
+edge emphasis, without a clear recovered-detail benefit. Small metric regressions
+alone do not establish perceptual harm, but neither observation justifies adoption.
+A labeled 24 s comparison was fully decoded and sampled visually. Chrome 153 launch
+failed with `socket() failed: Operation not permitted`; no browser playback or human
+motion acceptance is claimed. Delivery encoding and other failures are retained in
+[compact evidence](evidence/enhancement_filters.json).
+
+Fresh review caught adjacent-frame metric pairing from container timestamp rounding
+and discarded failure diagnostics. Fixed at `0d46411`: both metric inputs now receive
+identical frame-index timestamps; errors preserve safe stage/exit or timeout categories.
+The mixed-MKV/MP4 regression checks PSNR against actual raw decoded pixels. Two tests
+and independent 24/29.97-fps rechecks passed. The first run's corrected metrics were
+saved separately without recomputing its video. No harness changes. Next implementation
+priority is the measured ASR restart loss; useful enhancement remains required.

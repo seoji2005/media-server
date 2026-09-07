@@ -84,7 +84,100 @@ rows were retained; only the explicitly watched sample's prior position changed.
 Developer wrappers/weights/media/screenshots stayed outside Git; public structured
 results and source attributions are retained here.
 
-Next: reuse the saved transcript to compare one local translation candidate with
-conversation context on the frozen dialogue cases, then inspect held-out dialogue
-before adoption. Windows/RTX, 60+ minute processing/recovery and a natural enhancement
-preset remain unverified or unadopted. None has been removed from October scope.
+Translation comparison remains [partial](translation-comparison.md); local remains the
+default. The later operational run below adds interruption evidence, without settling
+natural long-dialogue quality, Windows/RTX or enhancement acceptance.
+
+## 60-minute timeline: actual interruption and watching
+
+Processing revision `175b8ac` (merged #10), Linux CPU/Python 3.12.13, four Torch threads,
+installed large-v3/Silero/MADLAD. [Structured measurements](evidence/speech_long_resume.json).
+No new download or cloud inference. The existing 734.167-second *Tears of Steel* audio
+was split at 360 s; its second part starts at 3225.833 s, inserting 2865.833 s of silence.
+The fixture has black 320×180/1-fps H.264 video and re-encoded 16-kHz/64-kbps AAC audio.
+Its 60-minute duration tests source-time offsets and recovery, **not 60 minutes of speech**.
+
+The actual FastAPI/uvicorn server, Jobs supervisor and worker entry point ran three
+attempts. Observers delegated to unchanged model methods; the owning controller killed
+only its server with SIGKILL. Existing jobs were quiescent before starting.
+
+| Point | Actual result |
+| --- | --- |
+| ASR crash at 183.978 s | 20 segments produced, no transcript saved; all 20 regenerated with identical text/timing hashes |
+| Translation crash | Whole transcript and 10/27 units survived in five batches; restarted worker made zero ASR calls and translated the remaining 17 units in order |
+| Publication | One ready track, 35 display cues, zero source fallbacks, one reading-speed warning; total including both crashes 714.239 s |
+
+The completed ASR took 274.901 s, including 41.701 s VAD. Decoded PCM was 230,400,000
+bytes; VAD retained 105.248 s of speech. Peak worker RSS was 12,762.816 MiB, **not VRAM**.
+Final checkpoints used 14 rows/2,963 payload bytes; database growth was 12,288 bytes.
+Old database rows and both named sources/new managed copy passed preservation checks;
+this was not a byte audit of every old managed file. Production server logs were empty.
+
+Fresh probe review caught a race in using pre-kill polling as durable progress; actual
+post-recovery snapshots were added before HTTP resume. The saved transcript/batch hashes
+and resumed input sequence were checked against those snapshots. Worker lease release
+was observed within 0.108/0.209 s including 100-ms polling; restart waited for release.
+This does not retest overlapping orphan recovery or establish Windows behavior.
+
+At UI revision `a1621a7`, real Chromium 149 displayed generated Korean native captions,
+played/decoded the late interval, returned Range 206, switched captions Off/On and
+restored **3230.690 s** after server restart. Screenshot inspected; page errors/external
+page requests and server log bytes were zero. The 6.6-MB black fixture supplies neither
+large-file startup evidence nor audible/human viewing acceptance.
+
+An initial zero-silence-overlap assertion failed: the first late ASR/display cue starts
+53 ms before the inserted audio boundary. This lead is recorded, not clamped away;
+no cue lay wholly inside the long silence. There is no word-alignment gold or same-input
+uninterrupted control. The displayed “왜 그녀는 이렇게 우리는 / 이미 그 하나를 시도”
+is awkward Korean; successful recovery and two-line rendering do not resolve quality.
+
+At that revision the UI distinguished ASR replay from resuming saved translation, including a warning
+before pausing ASR; the previous generic preservation message hid the repeated work.
+`node tests/ui/subtitles.cjs` passed with both interruption states and configuration-error
+coverage. Main's [post-merge Linux/Windows check](https://github.com/seoji2005/media-server/actions/runs/34034514143)
+passed; inspect the active PR's live checks for subsequent changes.
+
+This run established the cost of losing partial ASR; the following change addresses
+completed speech spans. It did not establish natural long-dialogue quality. Enhancement
+comparisons are in [their existing record](enhancement-spike.md); no October feature
+has been removed or counted complete by this operational check.
+
+## Speech-span checkpoints — 2026-09-07
+
+At `e6d2219`, real large-v3/int8 CPU ran the existing 48-second public JFK/silence
+fixture in three modes through actual Jobs workers. Translation was a fixed Korean
+fixture, not MADLAD. [Measured results](evidence/asr_span_resume.json):
+
+| Run | Wall time including worker/model load | Result |
+| --- | --- | --- |
+| Prior whole-audio adapter | 44.98 s | Three cues |
+| Uninterrupted speech spans | 51.46 s | Same text; maximum timing difference 20 ms |
+| Kill second span, recover and resume | 59.51 s total | First saved span reused; final text/timing identical to uninterrupted spans |
+
+The kill occurred after 23.43 s with one span durable through source time 14.896 s.
+Call order was spans **1, 2 (interrupted), 2, 3**; resumed audio/prompt hashes matched
+the control suffix. Saved payload, existing SRT track and source bytes stayed unchanged.
+This short case adds recovery with modest overhead; it does not prove longer/mixed
+speech quality. Full PCM decode and VAD still repeat, with no fixed replay cap for
+uninterrupted speech. No new local browser or target RTX evidence is claimed.
+
+Fresh review caught unintended prompt control tokens and valid Whisper end-time
+overshoot; both were fixed and rechecked. Five focused tests cover real child kill,
+stale/corrupt storage, source offsets/prompt restoration, legacy completed transcripts
+and missing feature configuration. The first real control failed because restored
+weights lacked `preprocessor_config.json` (128 versus 80 features); restoring it fixed
+inference and the app now reports missing setup before running.
+
+Validation: Python 142 tests passed before the final setup check; the final five-test
+module and all seven DOM suites passed afterward. An initial run with the wrong
+interpreter failed one existing subprocess test; restored venv execution passed all
+31 subtitle tests. The npm wrapper was cancelled by environment approval, so the same
+seven installed Node scripts ran directly (exit 0). Documentation links passed.
+[CI run 34071493106](https://github.com/seoji2005/media-server/actions/runs/34071493106)
+passed the integration of `3ead6b1` with base `175b8ac`: Linux ran 143 Python tests in
+43.722 s and Windows Server 2025 ran 143 in 78.224 s. Both passed all seven DOM suites
+and actual Chrome playback/native Korean captions, Range 206 and server restart with
+7-second resume on the synthetic 20-second fixture. Source/copy preservation and quiet
+logs passed; external page requests were zero. This establishes CPU/browser recovery,
+not Windows 11/RTX inference or natural long-dialogue quality. For later revisions,
+use the PR's current checks.

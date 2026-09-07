@@ -1,0 +1,121 @@
+{
+  "decision": "not adopted; no clear detail benefit, three small metric regressions",
+  "filter": "hqdn3d=0.75:0.5:1.0:0.75,scale=iw*2:ih*2:flags=lanczos,unsharp=3:3:0.2:3:3:0",
+  "environment": {
+    "python": "3.12.13",
+    "system": "Linux",
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+    "threads": 4,
+    "gpu": false
+  },
+  "input": "Tears of Steel (CC) Blender Foundation, CC BY 3.0; lossy WebM reference -> 960x400 bicubic/H264 CRF28 -> 1920x800 lossless output; three newly retrieved 8 s clips",
+  "metric_pairing": "decoded presentation ordinal, synthetic identical timestamps; mean per-frame native YUV420 PSNR/SSIM",
+  "initial_code": "e7c5261827bb873a2ce1b4f11b5dc7ff57697bc7",
+  "fixed_code": "0d46411baccc0f74c3af38568bf9427d5ba85afb",
+  "clips": [
+    {
+      "name": "dialogue",
+      "source_start_seconds": 25,
+      "frames": 192,
+      "reference_sha256": "af192b7024a0c00917b8b46aa502695cd5b0b2733f7b6b96d381802c25004952",
+      "input_sha256": "1b7e1c3f51e169ea6eb7df1b2a82298327db98a613c2281f056fc9f6dffb0fde",
+      "reference_unchanged": true,
+      "results": {
+        "lanczos": {
+          "output_sha256": "3b9f23097f096fc50d3275bce843fb7086a2bedd5f62ab9dc3b1577487c852f8",
+          "psnr_mean": 36.41078125,
+          "ssim_mean": 0.9484856197916667,
+          "decode_filter_lossless_encode_seconds": 2.514366912000696
+        },
+        "filtered": {
+          "output_sha256": "35aad516d100ef9427176de3ddea2e61cf064745674dd0e60556435644eafe86",
+          "psnr_mean": 36.383593749999996,
+          "ssim_mean": 0.9474267916666667,
+          "decode_filter_lossless_encode_seconds": 3.519434903999354
+        }
+      }
+    },
+    {
+      "name": "face",
+      "source_start_seconds": 90,
+      "frames": 192,
+      "reference_sha256": "7415e4bacfdb114d7f30fd848de0d82e272744953daaf00d960b149a188dbcca",
+      "input_sha256": "1164c2b33059027c32968ec5a47ce2157be443746b0b94f409bf6e0278c6a50e",
+      "reference_unchanged": true,
+      "results": {
+        "lanczos": {
+          "output_sha256": "0286dcebe6b45551554e4453a94e2ce93a31a033f8ab94752f9e83352982f811",
+          "psnr_mean": 41.05807291666667,
+          "ssim_mean": 0.974134421875,
+          "decode_filter_lossless_encode_seconds": 1.9030228509982408
+        },
+        "filtered": {
+          "output_sha256": "73644ad3a0ca8074e48931a3aacfae141cb513f39771ad5b87f700550b7d1cae",
+          "psnr_mean": 41.00828125,
+          "ssim_mean": 0.9736708177083333,
+          "decode_filter_lossless_encode_seconds": 2.497281543997815
+        }
+      }
+    },
+    {
+      "name": "indoor",
+      "source_start_seconds": 250,
+      "frames": 192,
+      "reference_sha256": "4bb5f6e9ab6200c1077b22ae107cbab7cbf839fe34eccfd56aa794f1c4dd73ad",
+      "input_sha256": "b8629ac124ef166d2936f3309f7856651e1e88b0aeb082de8732edf534b00bb5",
+      "reference_unchanged": true,
+      "results": {
+        "lanczos": {
+          "output_sha256": "d4850fed53cfb74119e9216009a493a085eba1c0644074b8ec55d7b162af29c5",
+          "psnr_mean": 35.78510416666666,
+          "ssim_mean": 0.9193423281249999,
+          "decode_filter_lossless_encode_seconds": 2.4588284739984374
+        },
+        "filtered": {
+          "output_sha256": "b14a3a2cf90f424c42cb444f88cb33a8d562fd83b68afcb03892944acaa02572",
+          "psnr_mean": 35.74046875,
+          "ssim_mean": 0.9186015677083333,
+          "decode_filter_lossless_encode_seconds": 3.1413728009974875
+        }
+      }
+    }
+  ],
+  "excluded_previews": [
+    {
+      "start_seconds": 320,
+      "reason": "text overlay"
+    },
+    {
+      "start_seconds": 590,
+      "reason": "credits graphics"
+    }
+  ],
+  "failures": [
+    "Old temporary media and Python venv executables absent after environment reset; reused available Python 3.12 and retrieved permitted excerpts",
+    "Playwright CDN download timed out twice; direct official Chrome storage succeeded",
+    "Chrome launch exit1: process_singleton_posix socket EPERM; no restriction workaround",
+    "Reviewer synthetic repro found wrong metric pairs; ordinal fix matches raw decoded pixels. Actual first clip rescored separately; its metrics did not change",
+    "Initial stream-copy concatenation visibly damaged later labels despite successful decode; separate-input concat filter and one final encode corrected it"
+  ],
+  "review": "Fresh fixed-revision recheck found no residual findings; 24/29.97 fps counterexamples plus 2 regression tests passed",
+  "browser_playback_observed": false,
+  "limits": [
+    "One movie, synthetic degradation, CG/prosthetics; not natural degradation or hand anatomy acceptance",
+    "Single sequential pipeline wall-time runs; no GPU/large-file throughput claim",
+    "Sampled images and decoded frames are not human motion acceptance; no app enhancement adoption"
+  ],
+  "delivered_comparison": {
+    "sha256": "4937c62a50d0c0fc8814bc4d9900521305679654c8b1d2fbdcfe609995ce8c22",
+    "bytes": 27026101,
+    "seconds": 24,
+    "frames_decoded": 576,
+    "width": 1920,
+    "height": 716,
+    "sampled_seconds": [
+      3,
+      11,
+      19
+    ],
+    "encoding": "three independent decoded clips, concat filter, one H264 CRF12 encode; prior clips also CRF12; quality metrics use lossless outputs, not this delivery"
+  }
+}

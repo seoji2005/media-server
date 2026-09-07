@@ -1,7 +1,7 @@
 """Transactional SQLite upgrades, including pre-versioned local libraries."""
 from .storage import MediaError
 
-VERSION = 4
+VERSION = 5
 
 
 def _statements(db, sql):
@@ -148,6 +148,14 @@ def migrate(db):
                 vector BLOB NOT NULL, sha256 TEXT NOT NULL,
                 PRIMARY KEY(set_id,ordinal),
                 FOREIGN KEY(set_id,ordinal) REFERENCES preview_frames(set_id,ordinal)
+            )''')
+        if version < 5:
+            _add(db, 'subtitle_jobs', 'asr_completed', 'INTEGER NOT NULL DEFAULT 0')
+            _add(db, 'subtitle_jobs', 'asr_until', 'REAL NOT NULL DEFAULT 0')
+            db.execute('''CREATE TABLE IF NOT EXISTS asr_spans (
+                job_id TEXT NOT NULL REFERENCES subtitle_jobs(id), ordinal INTEGER NOT NULL,
+                payload TEXT NOT NULL, sha256 TEXT NOT NULL,
+                PRIMARY KEY(job_id,ordinal)
             )''')
         db.execute(f'PRAGMA user_version={VERSION}')
         db.commit()

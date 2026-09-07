@@ -12,6 +12,7 @@ import sys
 
 from .storage import MediaError, file_signature, no_symlink, run_media
 from .subtitles import MAX_CUES
+from .asr_checkpoints import PROFILE, validate_part
 
 PIPELINE = 'korean-subtitles-v5:silero6-jit-0.5-2000ms-pad400ms:source-clips:sentence-12s-400ch-gap0.8:ko-numeric-units:madlad-ko-bf16-beam4-512-batch2:plaintext-entities-once:stat-identity'
 PACKAGES = ('faster-whisper','ctranslate2','transformers','torch','torchaudio','silero-vad','sentencepiece','tokenizers','numpy','av')
@@ -97,7 +98,7 @@ def local_models(root, check_packages=False):
     base = root / 'models'
     no_symlink(base)
     paths = {'asr':base/'asr', 'translation':base/'translation'}
-    required = {'asr':('model.bin','config.json','tokenizer.json'),
+    required = {'asr':('model.bin','config.json','tokenizer.json','preprocessor_config.json'),
                 'translation':('config.json','tokenizer_config.json')}
     for kind, names in required.items():
         for name in names:
@@ -118,6 +119,7 @@ def local_models(root, check_packages=False):
 
 
 class LocalModels:
+    asr_profile = PROFILE
     audio_timing = 'source-timestamps-v1'
     batch_size = 2
     checkpoint_size = 20
@@ -146,11 +148,35 @@ class LocalModels:
         return digest.hexdigest()
 
     def transcribe(self, path, duration, audio_index=0):
+        audio = self.decode_audio(path, duration, audio_index)
+        from faster_whisper import WhisperModel
+        clips = self.speech_clips(audio)
+        if not clips:
+            return []
+        model = self.whisper_model(WhisperModel)
+        try:
+            segments, _ = model.transcribe(audio, beam_size=5, vad_filter=False, clip_timestamps=clips,
+                                           task='transcribe', language=None, multilingual=True)
+            cues = []
+            for s in segments:
+                if s.text.strip():
+                    cues.append({'start':float(s.start), 'end':float(s.end), 'text':s.text.strip()})
+                if len(cues) > MAX_CUES:
+                    raise MediaError('subtitles_too_large', 422)
+            return cues
+        finally:
+            del model
+            gc.collect()
+
+    def whisper_model(self, factory):
+        return factory(str(self.paths['asr']), device=self.device,
+                       compute_type='int8_float16' if self.device == 'cuda' else 'int8', local_files_only=True)
+
+    def decode_audio(self, path, duration, audio_index):
         if type(audio_index) is not int or not 0 <= audio_index < 128:
             raise MediaError('invalid_audio_track', 422)
         require_private_runtime()
         import numpy as np
-        from faster_whisper import WhisperModel
         # Decode with the same local protocol/container restrictions as import.
         # Pass samples to Whisper so its decoder cannot resolve media references.
         raw = run_media([
@@ -160,25 +186,46 @@ class LocalModels:
             max(120,min(1800,math.ceil(duration / 2))), math.ceil(duration * 64000) + 1048576)
         if not raw or len(raw) % 4:
             raise MediaError('invalid_media', 422)
-        audio = np.frombuffer(raw, dtype='<f4')
+        return np.frombuffer(raw, dtype='<f4')
+
+    def transcribe_parts(self, path, duration, audio_index, saved):
+        """Checkpoint only at VAD silence boundaries; never hard-cut a speech span."""
+        audio = self.decode_audio(path, duration, audio_index)
         clips = self.speech_clips(audio)
-        if not clips:
-            return []
-        model = WhisperModel(str(self.paths['asr']), device=self.device,
-                             compute_type='int8_float16' if self.device == 'cuda' else 'int8',
-                             local_files_only=True)
+        spans = [clips[i:i+2] for i in range(0, len(clips), 2)]
+        if len(saved) > len(spans) or any(part['clip'] != spans[i] for i, part in enumerate(saved)):
+            raise MediaError('processing_checkpoint_invalid', 409)
+        if len(saved) == len(spans):
+            return
+        from faster_whisper import WhisperModel
+        model = self.whisper_model(WhisperModel)
+        history = ' '.join(c['text'] for part in saved for c in part['cues'])[-16000:]
         try:
-            # Source-time clips retain silence offsets without ORT or an
-            # application-level waveform/timestamp-remapping layer.
-            segments, _ = model.transcribe(audio, beam_size=5, vad_filter=False, clip_timestamps=clips,
-                                           task='transcribe', language=None, multilingual=True)
-            cues = []
-            for s in segments:  # Materialize lazy inference before checkpointing.
-                if s.text.strip():
-                    cues.append({'start':float(s.start), 'end':float(s.end), 'text':s.text.strip()})
-                if len(cues) > MAX_CUES:
-                    raise MediaError('subtitles_too_large', 422)
-            return cues
+            for clip in spans[len(saved):]:
+                first, last = (round(t * 16000) for t in clip)
+                # Reconstruct the same bounded prompt from persisted text on resume.
+                prompt = model.hf_tokenizer.encode(' ' + history, add_special_tokens=False).ids[-200:] if history else None
+                segments, _ = model.transcribe(audio[first:last], beam_size=5, vad_filter=False,
+                    task='transcribe', language=None, multilingual=True, initial_prompt=prompt)
+                cues = []
+                for s in segments:
+                    if s.text.strip():
+                        start, end = float(s.start), float(s.end)
+                        if not math.isfinite(start) or not math.isfinite(end):
+                            raise MediaError('processing_failed', 500)
+                        # Whisper timestamp tokens can overshoot a short slice.
+                        # Intersect fresh predictions with the actual audio span;
+                        # stored checkpoints still require strict timing validation.
+                        start, end = max(clip[0], first/16000 + start), min(clip[1], first/16000 + end)
+                        if round(start, 3) >= round(end, 3):
+                            raise MediaError('processing_failed', 500)
+                        cues.append({'start':start, 'end':end, 'text':s.text.strip()})
+                    if len(cues) > MAX_CUES:
+                        raise MediaError('subtitles_too_large', 422)
+                part = validate_part({'clip':clip, 'cues':cues}, duration)
+                text = ' '.join(c['text'] for c in part['cues'])
+                history = ' '.join(value for value in (history, text) if value)[-16000:]
+                yield part
         finally:
             # Never hold the ASR and translation GPU weights simultaneously.
             del model

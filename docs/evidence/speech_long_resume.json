@@ -1,0 +1,156 @@
+{
+  "date": "2026-09-06",
+  "processing_revision": "175b8accab3a2314a0ce04a9f640aee9b86875e1",
+  "ui_revision": "a1621a7",
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.13",
+    "device": "cpu",
+    "torch_threads": 4,
+    "packages": {
+      "torch": "2.8.0+cpu",
+      "faster-whisper": "1.2.1",
+      "ctranslate2": "4.8.2",
+      "transformers": "4.57.1",
+      "silero-vad": "6.0.0"
+    },
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers"
+  },
+  "input": {
+    "source": "Tears of Steel, Blender Foundation, CC BY 3.0; attribution in docs/scene-retrieval.md",
+    "source_sha256": "328253280a05e6b14a92f1f43d818d9b7d38ab5d3f6d5d98606198fd3daef2ff",
+    "fixture_sha256": "eb8c42d16b0c75cb26fc03cc8251c4cbc0b385e78cc1498d34528c64c58f1efc",
+    "fixture_bytes": 6629700,
+    "seconds": 3600,
+    "original_seconds": 734.167,
+    "audio_split_seconds": 360,
+    "inserted_silence_seconds": 2865.833,
+    "late_audio_starts_seconds": 3225.833,
+    "video": "black 320x180 H.264, 1 fps",
+    "audio": "16 kHz AAC, 64 kbps; re-encoded",
+    "pcm_bytes": 230400000,
+    "vad_speech_seconds": 105.248
+  },
+  "method": {
+    "processes": "Actual FastAPI/uvicorn lifespan, Jobs supervisor, worker main and parent EOF handling; timing wrappers delegate to unchanged models",
+    "trigger_1": "SIGKILL owned server after 20 materialized Whisper segments; restart after worker lease releases",
+    "trigger_2": "SIGKILL owned server after 10 saved MT units, next translate_many in flight; restart after lease releases",
+    "durable_boundary": "Recovered paused row/batches captured inside actual server lifespan before HTTP resume",
+    "preflight_existing_jobs": {
+      "succeeded": 19,
+      "superseded": 1,
+      "queued_running_paused": 0
+    }
+  },
+  "asr_crash": {
+    "server_wall_seconds": 183.978,
+    "exit_code": -9,
+    "kill_to_lease_free_seconds": 0.108,
+    "produced_segments": 20,
+    "saved_transcript": false,
+    "repeated_prefix_sha256": "985c567cfc8443c11b136eb3601e6522e67e59624151033222da4ecac4a2aa31",
+    "restart_prefix_sha256": "985c567cfc8443c11b136eb3601e6522e67e59624151033222da4ecac4a2aa31"
+  },
+  "translation_crash": {
+    "server_wall_seconds": 432.046,
+    "exit_code": -9,
+    "kill_to_lease_free_seconds": 0.209,
+    "saved_units": 10,
+    "saved_batches": [
+      {
+        "first_index": 0,
+        "sha256": "c527cc971337be2c1233465f540d3e4588e254591dc695ed475add245b1ef881"
+      },
+      {
+        "first_index": 2,
+        "sha256": "447138acd7e47e15feb735adf965897ae2146e196429afd563f8d81592153d27"
+      },
+      {
+        "first_index": 4,
+        "sha256": "352df62567b221fb8cfe7610fdc28933c64a6ad93dde4e8f412b2db6d5ea4642"
+      },
+      {
+        "first_index": 6,
+        "sha256": "67ea21a909838c5c79c43cb5b52adfa8480c194f3e17282502a4eb50ceeb043e"
+      },
+      {
+        "first_index": 8,
+        "sha256": "dce57fdd6c3659726dd3499c8cf7003b9cdfd07f10a3d55844fd0b4959157649"
+      }
+    ],
+    "transcript_sha256": "f1d75a2fcb1f25edd74751215293b53275e7b4f69fb782692e977933e406eb83",
+    "asr_calls_after_restart": 0,
+    "resumed_translation_units": 17,
+    "expected_input_sequence_sha256": "a46d759722a9926c2ce380da581fa7f2676a522d6f87b06469fcb6be5259aa86",
+    "actual_input_sequence_sha256": "a46d759722a9926c2ce380da581fa7f2676a522d6f87b06469fcb6be5259aa86",
+    "saved_prefix_unchanged": true
+  },
+  "result": {
+    "state": "succeeded",
+    "attempts": 3,
+    "elapsed_with_crashes_seconds": 714.239,
+    "completed_asr_seconds": 274.901,
+    "vad_seconds": 41.701,
+    "peak_worker_rss_mib": 12762.816,
+    "source_cues": 36,
+    "translation_units": 27,
+    "display_cues": 35,
+    "fallback_count": 0,
+    "reading_speed_warnings": 1,
+    "ready_tracks_for_job": 1,
+    "display_cues_starting_at_or_after_late_audio": 6,
+    "cues_wholly_inside_inserted_silence": 0,
+    "late_cue_lead_seconds": 0.053,
+    "database_growth_bytes": 12288,
+    "old_database_rows_preserved": true,
+    "named_sources_and_new_managed_copy_verified": true,
+    "server_log_bytes": [
+      0,
+      0,
+      0
+    ],
+    "checkpoint_payload_bytes": 2963,
+    "checkpoint_batches": 14
+  },
+  "browser": [
+    {
+      "phase": "first",
+      "browser": "149.0.7827.0",
+      "duration": 3600,
+      "cues": 35,
+      "active": [
+        "왜 그녀는 이렇게 우리는\n이미 그 하나를 시도"
+      ],
+      "seekMs": 122,
+      "decodedFrames": 239,
+      "resumeSeconds": 3230.69,
+      "range206": true,
+      "externalPageRequests": 0,
+      "pageErrors": 0
+    },
+    {
+      "phase": "restart",
+      "browser": "149.0.7827.0",
+      "duration": 3600,
+      "cues": 35,
+      "active": [
+        "왜 그녀는 이렇게 우리는\n이미 그 하나를 시도"
+      ],
+      "seekMs": 150,
+      "decodedFrames": 469,
+      "resumeSeconds": 3230.69,
+      "range206": true,
+      "externalPageRequests": 0,
+      "pageErrors": 0
+    }
+  ],
+  "measurement_correction": "Initial zero overlap assertion failed: first late ASR/display cue begins 0.053 s before inserted audio boundary. Recorded as timing lead, not clamped or claimed exact alignment.",
+  "limits": [
+    "Synthetic long timeline with short sparse speech; not natural 60-minute dialogue, dense cue stress or 2-hour throughput",
+    "Re-encoded source; no same-input uninterrupted inference control or speech-quality gold",
+    "Matched replayed prefix, preserved transcript and complete MT unit sequence; no claim of globally correct ASR",
+    "CPU RSS is not GPU VRAM; Windows 11, RTX 12 GB, audible output and human viewing acceptance remain untested",
+    "Probe overhead included; lease release sampled every 100 ms; orphan overlap is not tested",
+    "Old database rows checked, not every old managed file byte; black 6.6 MB fixture is not large-file playback evidence"
+  ]
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline SwinIR-S x2 experiment; never imports results into the application."""
+"""Offline x2 viewing comparison; never imports results into the application."""
 from __future__ import annotations
 
 import argparse
@@ -16,6 +16,8 @@ import warnings
 
 NETWORK_SHA256 = "9e143898679ebeebc5d2fc94ad1b89c38aa4a4d43da4e0fcba0f93e476994913"
 WEIGHTS_SHA256 = "193b229909ca89cd8b55de9c9e7fce146ae759d59dfcd78d8feb9dd1d6fa0fd7"
+SWIN2_NETWORK_SHA256 = "7fbc3315ef4b2a524de8eb600d6065ddf1c28a6a645d1aa4e5acdb14bddfcc4b"
+SWIN2_WEIGHTS_SHA256 = "ed3f5dac3c1b9d07c9803f586cde6cdd75c96d975b6e50625afb623f22cf2a79"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -24,14 +26,14 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def load_network(path):
+def load_network(path, swin2=False):
     source = path.read_bytes()
-    if hashlib.sha256(source).hexdigest() != NETWORK_SHA256:
+    if hashlib.sha256(source).hexdigest() != (SWIN2_NETWORK_SHA256 if swin2 else NETWORK_SHA256):
         raise ValueError("candidate_digest_mismatch")
     namespace = {"__name__": "pinned_swinir"}
     # Execute the checked bytes, never a neighboring cached .pyc.
     exec(compile(source, "<pinned_swinir>", "exec"), namespace)
-    return namespace["SwinIR"]
+    return namespace["Swin2SR" if swin2 else "SwinIR"]
 
 
 def deny_network(event, args):
@@ -39,25 +41,37 @@ def deny_network(event, args):
         raise RuntimeError("network_disabled")
 
 
-def predict(model, source, tile):
+def predict(model, source, tile, scale=2):
     # Tiling adapted from SwinIR main_test_swinir.py, Copyright 2021 SwinIR Authors.
     # Apache-2.0: licenses/SwinIR-Apache-2.0.txt. Here counts use one channel,
     # sizes may be non-window-aligned, and inputs/outputs remain experiment-local.
+    if not tile and scale == 4 and any(size % 8 for size in source.shape[-2:]):
+        # The pinned compressed model's bicubic branch resizes padded pixels to
+        # the unpadded dimensions. Aligned tiles avoid that upstream distortion.
+        raise ValueError("compressed_whole_frame_requires_multiple_of_8")
+    def forward(patch):
+        result = model(patch)
+        # Swin2SR's compressed model returns the SR image and an auxiliary LR image.
+        result = result[0] if isinstance(result, tuple) else result
+        expected = (1, 3, patch.shape[-2] * scale, patch.shape[-1] * scale)
+        if tuple(result.shape) != expected:
+            raise ValueError("invalid_prediction_shape")
+        return result
     if not tile:
-        return model(source)
+        return forward(source)
     height, width = source.shape[-2:]
     tile = min(tile, height, width) // 8 * 8
     if tile <= 16 or tile % 8:
         raise ValueError("invalid_tile")
     rows = list(range(0, height - tile, tile - 16)) + [height - tile]
     columns = list(range(0, width - tile, tile - 16)) + [width - tile]
-    output = source.new_zeros(1, 3, height * 2, width * 2)
-    counts = source.new_zeros(1, 1, height * 2, width * 2)
+    output = source.new_zeros(1, 3, height * scale, width * scale)
+    counts = source.new_zeros(1, 1, height * scale, width * scale)
     for y in rows:
         for x in columns:
-            patch = model(source[..., y:y + tile, x:x + tile])
-            output[..., y * 2:(y + tile) * 2, x * 2:(x + tile) * 2] += patch
-            counts[..., y * 2:(y + tile) * 2, x * 2:(x + tile) * 2] += 1
+            patch = forward(source[..., y:y + tile, x:x + tile])
+            output[..., y * scale:(y + tile) * scale, x * scale:(x + tile) * scale] += patch
+            counts[..., y * scale:(y + tile) * scale, x * scale:(x + tile) * scale] += 1
     return output / counts
 
 
@@ -74,7 +88,11 @@ def run(args):
 
     if args.output.resolve().is_relative_to(ROOT):
         raise ValueError("output_must_be_outside_checkout")
-    if digest(args.weights) != WEIGHTS_SHA256:
+    swin2 = args.candidate == "swin2sr-compressed"
+    network_sha = SWIN2_NETWORK_SHA256 if swin2 else NETWORK_SHA256
+    weights_sha = SWIN2_WEIGHTS_SHA256 if swin2 else WEIGHTS_SHA256
+    scale, model_name = (4, "swin2sr") if swin2 else (2, "swinir")
+    if digest(args.weights) != weights_sha:
         raise ValueError("candidate_digest_mismatch")
     paths = sorted(args.reference.glob("*.png"))
     if not paths or not 1 <= len(paths) <= 240 or not 1 <= args.threads <= 32:
@@ -90,15 +108,17 @@ def run(args):
     device = torch.device(args.device)
     if device.type == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("cuda_unavailable")
-    network = load_network(args.network)
-    model = network(upscale=2, in_chans=3, img_size=64, window_size=8,
-                          img_range=1., depths=[6, 6, 6, 6], embed_dim=60,
-                          num_heads=[6, 6, 6, 6], mlp_ratio=2,
-                          upsampler="pixelshuffledirect", resi_connection="1conv")
-    model.load_state_dict(torch.load(args.weights, map_location="cpu", weights_only=True)["params"], strict=True)
+    network = load_network(args.network, swin2)
+    model = network(upscale=scale, in_chans=3, img_size=48 if swin2 else 64, window_size=8,
+                    img_range=1., depths=[6] * (6 if swin2 else 4), embed_dim=180 if swin2 else 60,
+                    num_heads=[6] * (6 if swin2 else 4), mlp_ratio=2,
+                    upsampler="pixelshuffle_aux" if swin2 else "pixelshuffledirect", resi_connection="1conv")
+    weights = torch.load(args.weights, map_location="cpu", weights_only=True)
+    model.load_state_dict(weights.get("params", weights), strict=True)
+    del weights
     model.eval().to(device)
     args.output.mkdir(exist_ok=False)
-    names = ("reference", "input", "bicubic", "lanczos", "swinir", "blend50")
+    names = ("reference", "input", "bicubic", "lanczos", model_name, "blend50")
     for name in names:
         (args.output / name).mkdir()
     errors = {name: [] for name in names[2:]}
@@ -133,7 +153,7 @@ def run(args):
             if index == 0:
                 synchronize()
                 warm_started = time.perf_counter()
-                warm = predict(model, source, args.tile)
+                warm = predict(model, source, args.tile, scale)
                 synchronize()
                 warmup_seconds = time.perf_counter() - warm_started
                 del warm
@@ -141,19 +161,22 @@ def run(args):
                     torch.cuda.reset_peak_memory_stats()
             synchronize()
             tick = time.perf_counter()
-            prediction = predict(model, source, args.tile)
+            prediction = predict(model, source, args.tile, scale)
             synchronize()
             elapsed.append(time.perf_counter() - tick)
             if not torch.isfinite(prediction).all().item():
                 raise ValueError("nonfinite_output")
             pixels = prediction.squeeze(0).clamp(0, 1).permute(1, 2, 0).cpu().numpy()
             enhanced = Image.fromarray(np.round(pixels * 255.).astype(np.uint8))
+            if swin2:
+                # Compare the same low-resolution input at the same x2 viewing size.
+                enhanced = enhanced.resize(reference.size, Image.Resampling.LANCZOS)
             # Do not retain a previous GPU result during the next timed inference.
             del prediction, source
             cubic = low.resize(reference.size, Image.Resampling.BICUBIC)
             images = dict(reference=reference, input=low, bicubic=cubic,
                           lanczos=low.resize(reference.size, Image.Resampling.LANCZOS),
-                          swinir=enhanced, blend50=Image.blend(cubic, enhanced, .5))
+                          **{model_name: enhanced}, blend50=Image.blend(cubic, enhanced, .5))
             truth = np.asarray(reference, dtype=np.float32)
             for name, image in images.items():
                 image.save(args.output / name / f"{index:04d}.png")
@@ -168,8 +191,10 @@ def run(args):
     if not unchanged:
         raise RuntimeError("inputs_changed")
     report = {
-        "candidate": "SwinIR-S lightweight x2", "network_sha256": NETWORK_SHA256,
-        "weights_sha256": WEIGHTS_SHA256, "system": platform.system(),
+        "candidate": "Swin2SR CompressedSR x4 → Lanczos x2" if swin2 else "SwinIR-S lightweight x2",
+        "network_sha256": network_sha, "weights_sha256": weights_sha, "system": platform.system(),
+        "native_scale": scale, "comparison_scale": 2,
+        "output_resampling": "8-bit RGB Lanczos to x2" if swin2 else "none",
         "python": platform.python_version(), "device": args.device, "precision": "float32",
         "device_name": torch.cuda.get_device_name() if device.type == "cuda" else "CPU",
         "torch_cuda": torch.version.cuda, "threads": args.threads, "tile": args.tile,
@@ -201,15 +226,16 @@ def main():
     for name in ("network", "weights", "reference", "output"):
         parser.add_argument(f"--{name}", type=Path, required=True)
     parser.add_argument("--inputs", type=Path)
+    parser.add_argument("--candidate", choices=("swinir", "swin2sr-compressed"), default="swinir")
     parser.add_argument("--device", choices=("cpu", "cuda"), required=True)
     parser.add_argument("--threads", type=int, default=4)
-    parser.add_argument("--tile", type=int, default=128, help="Input tile with overlap 16; 0 means whole frame.")
+    parser.add_argument("--tile", type=int, default=128, help="Input tile with overlap 16; 0 means whole frame (Swin2SR needs both input dimensions divisible by 8).")
     args = parser.parse_args()
     try:
         run(args)
     except Exception as error:
         # Fixed diagnostics only; partial output has no report.json and is never adopted.
-        code = str(error) if str(error) in {"cuda_unavailable", "inputs_changed", "candidate_digest_mismatch", "output_must_be_outside_checkout", "network_disabled", "nonfinite_output"} else "enhancement_probe_failed"
+        code = str(error) if str(error) in {"cuda_unavailable", "inputs_changed", "candidate_digest_mismatch", "output_must_be_outside_checkout", "network_disabled", "nonfinite_output", "compressed_whole_frame_requires_multiple_of_8"} else "enhancement_probe_failed"
         if type(error).__name__ == "OutOfMemoryError":
             code = "cuda_out_of_memory"
         print(code, file=sys.stderr)

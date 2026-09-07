@@ -274,12 +274,21 @@ the number left as source text. Such segments show **[원문]** in the actual ca
   on their claimed generation. Processing continues when the player closes.
 - **일시정지** stops the child; **처리 재개** retries with durable completed results.
 - An interrupted running job becomes paused on server startup. A completed transcript
-  is reused; translation resumes after the last committed batch. New completed units
+  is reused. New ASR jobs also save each completed Silero speech span atomically,
+  with its source interval, cues and hash; resume checks the same VAD plan and skips
+  saved inference. Silence boundaries avoid hard cuts inside speech. The last 200
+  plain-text tokens restore prior context; fresh predicted timestamps are intersected
+  with the input span before strict storage validation. The UI shows saved span count.
+  Full audio decode/VAD still repeat, and uninterrupted speech has **no fixed maximum
+  replay interval**. This is partial ASR recovery, not bounded-memory streaming or word
+  alignment. Existing complete transcripts retain their old translation identity.
+  [Actual CPU interruption comparison](quality-check.md#speech-span-checkpoints--2026-09-07).
+- Translation resumes after the last committed batch. New completed units
   append atomically every 20 units or after a batch completes at least five seconds
   after the last save. No growing prefix is rewritten. A hard stop repeats at most
   20 units; the five-second threshold does not interrupt an in-flight generation.
-  Completed pending outputs also save on a caught runtime error. Interruption during
-  ASR reruns that ASR stage; partial ASR and within-cue translation are not checkpoints.
+  Completed pending outputs also save on a caught runtime error. Within-span ASR and
+  within-unit translation are not checkpoints.
 - Original byte identity, model paths/file metadata (device, inode, size, modification/
   change time), execution device, adapter settings and dependency versions bind reusable
   results. This is a change fingerprint, not a fresh model byte-integrity certificate.
