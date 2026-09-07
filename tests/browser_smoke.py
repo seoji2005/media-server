@@ -90,7 +90,8 @@ def run():
             port_file = work / f'{phase}.port'
             with log_path.open('wb') as log:
                 server = subprocess.Popen([sys.executable, str(Path(__file__).resolve()),
-                    '--serve', str(data), str(port_file)], cwd=ROOT, stdout=log, stderr=log)
+                    '--serve', str(data), str(port_file)], cwd=ROOT, stdout=log, stderr=log,
+                    env={**os.environ, 'GEMINI_API_KEY':''})
             try:
                 deadline = time.monotonic() + 15
                 while True:

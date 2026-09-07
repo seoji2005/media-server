@@ -3,7 +3,7 @@ from .storage import MediaError
 import re
 import uuid
 
-VERSION = 7
+VERSION = 8
 
 
 def companion_identity(db):
@@ -186,6 +186,8 @@ def migrate(db):
                 )''')
                 db.execute('INSERT INTO companion_identity VALUES(1,?,?)',
                            (uuid.uuid4().hex, uuid.uuid4().hex))
+        if version < 8:
+            _add(db, 'subtitle_jobs', 'translation_config', 'TEXT')
         # Existing malformed identities, including old draft v6, never regenerate.
         companion_identity(db)
         db.execute(f'PRAGMA user_version={VERSION}')

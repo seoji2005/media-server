@@ -17,7 +17,7 @@ import uuid
 from .storage import ID, MediaError, Store, no_symlink
 from .subtitles import MAX_SUBTITLE_BYTES, parse_srt, validate_cues, webvtt, translation_units, korean_text
 from .subtitle_layout import generated_layout
-from . import asr_checkpoints
+from . import asr_checkpoints, gemini
 
 TRANSLATION_WARNINGS = {'translation_truncated', 'translation_empty', 'translation_input_too_long'}
 
@@ -205,23 +205,32 @@ class Jobs:
     def status(self, item_id):
         media = self.store._row(item_id)
         with self.store.db() as db:
-            jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error,fallback_count,audio_index,asr_completed,asr_until,source_track_id FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
+            jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error,fallback_count,audio_index,asr_completed,asr_until,source_track_id,translation_config FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
             tracks = db.execute('''SELECT t.id,t.source,t.input_sha,t.warnings,t.presentation_summary,t.audio_index,
                 EXISTS(SELECT 1 FROM subtitle_jobs j WHERE j.id=t.job_id AND j.item_id=t.item_id
                     AND j.input_sha=t.input_sha AND j.audio_index=t.audio_index
                     AND j.transcript IS NOT NULL AND j.transcript_sha IS NOT NULL) AS has_transcript
+                ,(SELECT j.translation_config FROM subtitle_jobs j WHERE j.id=t.job_id) AS translation_config
                 FROM subtitle_tracks t WHERE t.item_id=? ORDER BY t.created_at DESC,t.id DESC''', (item_id,)).fetchall()
+        def label(config):
+            return 'local' if config is None else 'gemini' if config == gemini.CONFIG else 'unknown'
         result = []
         for r in tracks:
             if r['input_sha'] != media['sha256']:
                 continue
             summary = json.loads(r['presentation_summary'] or '{}')
             result.append({'id':r['id'], 'source':r['source'], 'language':'ko', 'audio_index':r['audio_index'],
+                           'provider':label(r['translation_config']),
                            'has_transcript':r['source'] == 'generated' and bool(r['has_transcript']),
                            'fallback_count':len(json.loads(r['warnings'] or '[]')),
                            'layout':summary.get('layout'), 'review_count':summary.get('review_count',0),
                            'fast_count':summary.get('fast_count',0), 'import_notes':summary.get('import_notes')})
-        return {'jobs':[dict(r) for r in jobs], 'tracks':result}
+        public_jobs = []
+        for r in jobs:
+            value = dict(r)
+            value['provider'] = label(value.pop('translation_config'))
+            public_jobs.append(value)
+        return {'jobs':public_jobs, 'tracks':result, 'gemini_configured':gemini.configured()}
 
     def saved_results(self, row, units, duration):
         """Read each completed batch once. Legacy prefix bytes remain untouched."""
@@ -286,28 +295,34 @@ class Jobs:
             db.commit()
             return job_id
 
-    def _queue_translation(self, db, media, seed):
+    def _queue_translation(self, db, media, seed, translation_config=None):
         from .models import translation_identity
-        config = retranslation_identity(translation_identity(self.store.root), seed)
+        cloud = gemini.provider(translation_config) == 'gemini'
+        if cloud:
+            gemini.api_key()
+        config = retranslation_identity(gemini.identity() if cloud else translation_identity(self.store.root), seed)
         self.store.open_verified(media).close()
         job_id = uuid.uuid4().hex
         db.execute('''INSERT INTO subtitle_jobs(id,item_id,input_sha,state,stage,audio_index,
-            source_track_id,transcript,transcript_sha,config_sha) VALUES(?,?,?,'queued','translation',?,?,?,?,?)''',
+            source_track_id,transcript,transcript_sha,config_sha,translation_config) VALUES(?,?,?,'queued','translation',?,?,?,?,?,?)''',
             (job_id,media['id'],seed['input_sha'],seed['audio_index'],seed['source_track_id'],
-             seed['transcript'],seed['transcript_sha'],config))
+             seed['transcript'],seed['transcript_sha'],config,translation_config))
         return job_id
 
-    def retranslate(self, item_id, track_id):
+    def retranslate(self, item_id, track_id, provider='local'):
+        if provider not in ('local', 'gemini'):
+            raise MediaError('invalid_request', 422)
+        translation_config = gemini.CONFIG if provider == 'gemini' else None
         media = self.store._row(item_id)
         with self.lock, self.store.db() as db:
             db.execute('BEGIN IMMEDIATE')
             seed = saved_transcript(db, media, track_id)
-            active = db.execute("SELECT id,source_track_id FROM subtitle_jobs WHERE item_id=? AND state IN ('queued','running','paused')", (item_id,)).fetchone()
+            active = db.execute("SELECT id,source_track_id,translation_config FROM subtitle_jobs WHERE item_id=? AND state IN ('queued','running','paused')", (item_id,)).fetchone()
             if active:
-                if active['source_track_id'] != track_id:
+                if active['source_track_id'] != track_id or active['translation_config'] != translation_config:
                     raise MediaError('processing_busy', 409)
                 return active['id']
-            job_id = self._queue_translation(db, media, seed)
+            job_id = self._queue_translation(db, media, seed, translation_config)
             db.commit()
             return job_id
 
@@ -316,6 +331,9 @@ class Jobs:
             if self.recovery_pending:
                 raise MediaError('processing_worker_active', 409)
             row = self.row(job_id)
+            cloud = gemini.provider(row['translation_config']) == 'gemini'
+            if cloud and not row['source_track_id']:
+                raise MediaError('processing_checkpoint_invalid', 409)
             if action == 'restart':
                 if row['state'] not in ('failed','paused'):
                     raise MediaError('processing_busy', 409)
@@ -332,7 +350,7 @@ class Jobs:
                     seed = saved_transcript(db, media, row['source_track_id']) if row['source_track_id'] else None
                     db.execute("UPDATE subtitle_jobs SET state='superseded' WHERE id=?", (job_id,))
                     if seed:
-                        self._queue_translation(db, media, seed)
+                        self._queue_translation(db, media, seed, row['translation_config'])
                     else:
                         db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index) VALUES(?,?,?,?,?)',
                                    (uuid.uuid4().hex,row['item_id'],media['sha256'],'queued',row['audio_index']))
@@ -351,7 +369,10 @@ class Jobs:
                 if row['state'] not in ('paused','failed'):
                     return
                 from .models import local_models
-                local_models(self.store.root, check_packages=True, translation_only=bool(row['source_track_id']))
+                if cloud:
+                    gemini.api_key()
+                else:
+                    local_models(self.store.root, check_packages=True, translation_only=bool(row['source_track_id']))
                 with self.store.db() as db:
                     other = db.execute("SELECT 1 FROM subtitle_jobs WHERE item_id=? AND id<>? AND state IN ('queued','running','paused')", (row['item_id'],job_id)).fetchone()
                 if other:
@@ -436,13 +457,15 @@ def execute(store, job_id, backend_factory=None):
         _execute(store, job_id, backend_factory)
 
 
-def translate_chunk(backend, units):
+def translate_chunk(backend, units, neighbors=None):
     """Only known content failures use marked source text; runtime/storage errors stop."""
     results = [None] * len(units)
     foreign = [i for i,cue in enumerate(units) if not korean_text(cue['text'])]
     if foreign:
         texts = [units[i]['text'] for i in foreign]
-        if hasattr(backend, 'translate_many'):
+        if hasattr(backend, 'translate_context'):
+            values = backend.translate_context(texts, [neighbors[i] for i in foreign])
+        elif hasattr(backend, 'translate_many'):
             values = backend.translate_many(texts)
         else:
             values = []
@@ -459,7 +482,7 @@ def translate_chunk(backend, units):
             # Model output is plain text, but MADLAD sometimes emits HTML entities.
             # Decode once before validation; webvtt() still escapes all markup.
             # Source passthrough/fallback text never takes this path.
-            results[i] = html.unescape(value) if isinstance(value, str) else value
+            results[i] = html.unescape(value) if isinstance(value, str) and not hasattr(backend, 'translate_context') else value
     cues, codes = [], []
     for index, (unit, value) in enumerate(zip(units, results)):
         code = None
@@ -501,7 +524,11 @@ def _execute(store, job_id, backend_factory):
                 seed = saved_transcript(db, media, row['source_track_id'])
             if any(row[k] != seed[k] for k in seed) or row['asr_completed'] or row['asr_until']:
                 raise MediaError('processing_checkpoint_invalid', 409)
-        backend = backend_factory(store.root) if backend_factory else LocalModels(store.root, translation_only=bool(row['source_track_id']))
+        cloud = gemini.provider(row['translation_config']) == 'gemini'
+        if cloud and not row['source_track_id']:
+            raise MediaError('processing_checkpoint_invalid', 409)
+        backend = gemini.Gemini(row['translation_config']) if cloud else (
+            backend_factory(store.root) if backend_factory else LocalModels(store.root, translation_only=bool(row['source_track_id'])))
         def input_identity():
             value = backend.identity()
             if row['source_track_id']:
@@ -573,14 +600,18 @@ def _execute(store, job_id, backend_factory):
         units = translation_units(transcript)
         translated, warnings = jobs.saved_results(row, units, media['duration'])
         jobs.update(job_id, stage='translation', total=len(units))
-        batch_size = min(2, max(1, getattr(backend, 'batch_size', 1)))
+        batch_size = min(8 if cloud else 2, max(1, getattr(backend, 'batch_size', 1)))
         checkpoint_size = min(20, max(1, getattr(backend, 'checkpoint_size', 1)))
         saved = len(translated); pending_cues, pending_codes = [], []
         encoded_bytes = sum(len(document(c).encode())+1 for c in translated)
         last_save = time.monotonic()
         try:
             for start in range(saved, len(units), batch_size):
-                part, codes = translate_chunk(backend, units[start:start+batch_size])
+                # Only dialogue leaves the worker. IDs, timing, paths and media stay local.
+                neighbors = [(units[i-1]['text'][-400:] if i else '',
+                              units[i+1]['text'][:400] if i+1 < len(units) else '')
+                             for i in range(start, min(start+batch_size, len(units)))] if cloud else None
+                part, codes = translate_chunk(backend, units[start:start+batch_size], neighbors)
                 part = validate_cues(part, media['duration'])
                 encoded_bytes += sum(len(document(c).encode())+1 for c in part)
                 if encoded_bytes + 2 > MAX_SUBTITLE_BYTES * 4:

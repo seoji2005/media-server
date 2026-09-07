@@ -46,7 +46,11 @@ translation and timing separate; changed inputs/model/config invalidate stale re
 Protect media, subtitles, thumbnails, prompts, analysis and search/taste/watch history.
 Private scopes stay out of general search/recommendations/alerts and external metadata.
 Verify offline operation and absence of private payloads in logs/Git; no private
-egress by default. Cloud samples must be permitted and non-private.
+egress by default. Development cloud samples must be permitted and non-private.
+Owner-approved Gemini retranslation is an explicit per-video choice: send saved
+dialogue and bounded neighboring text only, with egress/billing disclosure. No media,
+titles, paths, watch history or credentials enter prompts. Keep local translation the
+default and never automatically retry or switch providers.
 
 ## Quality and delivery
 
