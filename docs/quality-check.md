@@ -181,3 +181,18 @@ and actual Chrome playback/native Korean captions, Range 206 and server restart 
 logs passed; external page requests were zero. This establishes CPU/browser recovery,
 not Windows 11/RTX inference or natural long-dialogue quality. For later revisions,
 use the PR's current checks.
+
+## Windows viewing launcher — 2026-09-07
+
+`start-media-clarity.cmd` runs the existing local venv and opens the page after successful
+server bind. Missing setup and browser-handler failure give fixed recovery instructions;
+the default CLI remains quiet. No installer, model or harness framework was added.
+
+At `bf8b174`, Python ran 147 tests in 40.492 s (one Windows-only skip) and all seven
+DOM suites passed. The real port-conflict test verified that no browser opened and
+the store lease released. Fresh independent review found no actionable defects.
+An initial browser-test marker read raced its writer; polling for complete content fixed
+that observation step. The subsequent real Chrome launch failed with socket EPERM in
+this container, before playback. CI checks actual Chrome and Windows shell dispatch.
+The browser handler itself is mocked; actual Windows 11 double-click/OS browser dispatch,
+Ctrl+C interaction and RTX inference remain unverified. See the active PR's CI results.

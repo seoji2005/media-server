@@ -76,10 +76,44 @@ reviewer independently passed 28 subtitle tests (4.154 s) with no actionable fin
 at local `9b7d469`, complete tree `f56413f637730d536695035b89b4c723d51d59ee`, identical
 to published `5ea410c`. That review supplies no real-model/browser/Windows evidence.
 
-Remaining gates: natural rapid language changes, omissions/proper nouns, fluent Korean,
+At that stage, remaining gates included natural rapid language changes, omissions/proper nouns, fluent Korean,
 long-cue readability, long films, actual browser caption playback/seek/resume, Windows
 setup, CUDA bfloat16 and 12 GB fit. Successful jobs do not make these gates complete.
 
 The [12-minute viewing quality check](quality-check.md) extends real execution to an
 entire short film and records conditional translation errors and browser caption playback.
 It does not establish 60+ minute recovery or target Windows/RTX readiness.
+
+## Span-boundary comparison — 2026-09-07
+
+At `3ead6b1`, the prior whole-audio adapter and new checkpointed speech spans ran on
+six cases below, using the same pinned large-v3/int8 CPU setup. FLEURS recordings were
+restored from the pinned source above; their bytes remained unchanged. Film dialogue
+uses a 52-second Tears of Steel excerpt, source time 18–70 s ([attribution](scene-retrieval.md)).
+These are actual ASR calls, with **no translation inference**. [Compact results and method](evidence/asr_span_quality.json).
+
+| Case | Prior / spans, seconds | Text inspection |
+| --- | --- | --- |
+| Japanese 0000 | 25.63 / 26.56 | Same course/configuration error; 3/45 normalized reference edits in both. |
+| Japanese 0002 | 25.27 / 25.58 | Same proper-name errors; 7/71 edits in both. |
+| Korean 0000 | 22.87 / 23.27 | Same text and 3/53 edits, including numeric notation differences. |
+| Mixed, appended 0.5 s | 43.53 / 54.42 | Same normalized words; However still missing in both. Punctuation and cue partition differ. |
+| Mixed, appended 3 s | 43.83 / 51.55 | Same text, including However. |
+| Film dialogue | 41.70 / 53.73 | Same text; 12 versus 15 source cues yield the same 12 translation-input strings. |
+
+No added lexical omission/repetition appeared in this sample after the earlier
+normalization; that is not a general accuracy claim. Punctuation, timing and translation
+quality remain separate. The film has no independent spoken-word gold in this check.
+Mixed inputs are concatenated read speech, with original silence retained, not natural
+code-switching. The short-gap English VAD onset was 0.772 s later within its source
+utterance than in the long-gap case; its relationship to the missing connector needs
+an isolated test before changing VAD policy.
+
+Fresh processes resumed the long-gap mixture and film after receiving their first saved
+span. Both returned exactly the uninterrupted parts/text/timing (40.39 / 32.12 s for
+remaining processing). This checks adapter context restoration; the separate
+[actual worker-kill test](quality-check.md#speech-span-checkpoints--2026-09-07) covers DB recovery.
+Single-run timings include decode/VAD/model load, exclude worker startup, and show
+overhead rather than a speed improvement. No new browser, MT, memory or target RTX
+claim is made. Keep the processing code unchanged on this evidence; prioritize the
+everyday Windows launch path next, while recognition and enhancement quality remain open.

@@ -18,19 +18,29 @@ def serve(data, port_file):
     """Run the production CLI with a socket held by this test child from bind onward."""
     sys.path.insert(0, str(ROOT))
     import uvicorn
+    import webbrowser
     from media_clarity.__main__ import main
     with socket.socket() as sock:
         if os.name == 'nt':
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         sock.bind(('127.0.0.1', 0))
         sock.listen(128)
-        Path(port_file).write_text(str(sock.getsockname()[1]), encoding='ascii')
-        def run_with_socket(app, **options):
-            options.pop('host')
-            options.pop('port')
-            uvicorn.Server(uvicorn.Config(app, **options)).run(sockets=[sock])
-        uvicorn.run = run_with_socket
-        sys.argv = ['media_clarity', '--data-dir', data]
+        port = sock.getsockname()[1]
+        Path(port_file).write_text(str(port), encoding='ascii')
+        original_run = uvicorn.Server.run
+        def run_with_socket(server, sockets=None):
+            return original_run(server, sockets=[sock])
+        uvicorn.Server.run = run_with_socket
+        def unavailable_browser(url, new=0):
+            # An OS handler failure must leave this successfully bound app usable.
+            with urllib.request.urlopen(url + '/api/session', timeout=5) as response:
+                assert response.status == 200
+            Path(port_file + '.opened').write_text(url, encoding='ascii')
+            return False
+        webbrowser.open = unavailable_browser
+        sys.argv = ['media_clarity', '--data-dir', data, '--port', str(port)]
+        if Path(port_file).name.startswith('first'):
+            sys.argv.append('--open-browser')
         return main()
 
 
@@ -69,6 +79,18 @@ def run():
                         if time.monotonic() >= deadline:
                             raise RuntimeError('test server readiness timed out') from None
                         time.sleep(.1)
+                if phase == 'first':
+                    opened = Path(str(port_file) + '.opened')
+                    observed = None
+                    while time.monotonic() < deadline:
+                        try:
+                            observed = opened.read_text(encoding='ascii')
+                        except FileNotFoundError:
+                            pass
+                        if observed == base:
+                            break
+                        time.sleep(.05)
+                    assert observed == base, f'browser opener URL mismatch: {observed!r}'
                 subprocess.run(['node', 'tests/ui/browser.mjs', base, str(source), str(subtitle), phase],
                     cwd=ROOT, check=True, timeout=75)
                 assert server.poll() is None, 'browser must use the newly launched server'
@@ -80,11 +102,16 @@ def run():
                     except subprocess.TimeoutExpired:
                         server.kill()
                         server.wait(timeout=5)
-            assert log_path.read_bytes() == b'', 'production server unexpectedly logged data'
+            if phase == 'first':
+                expected = (f'감상 준비가 끝났습니다: {base}\n종료하려면 이 창에서 Ctrl+C를 누르세요.\n'
+                            '브라우저를 열지 못했습니다. 위 주소를 브라우저에 직접 입력해 주세요.\n')
+                assert log_path.read_text(encoding='utf-8') == expected, 'unexpected launcher diagnostics'
+            else:
+                assert log_path.read_bytes() == b'', 'production server unexpectedly logged data'
         assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
         originals = list((data / 'files').glob('*/original.mp4'))
         assert len(originals) == 1 and hashlib.sha256(originals[0].read_bytes()).hexdigest() == digest
-        print('PASS browser source/copy preservation, quiet server, persisted restart (synthetic20s; no model/GPU evidence)')
+        print('PASS browser source/copy preservation, bound-server launch/fallback, quiet default restart (synthetic20s; OS browser handler mocked; no model/GPU evidence)')
 
 
 if __name__ == '__main__':
