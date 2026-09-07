@@ -361,7 +361,11 @@ function renderSubtitleNotes(){
   }
   if(track&&(track.audio_index||0)!==(activeItem?.audio_index||0))notes.unshift(`오디오 ${(track.audio_index||0)+1}에서 만든 자막입니다. 현재 음성과 다를 수 있습니다.`);
   $("subtitle-notes").textContent=notes.join(" · ");$("subtitle-notes").hidden=!notes.length;
-  renderPreparationSummary();
+  renderRetranslation();renderPreparationSummary();
+}
+function renderRetranslation(){
+  const {track}=selectedSubtitle();
+  $("subtitle-retranslate").hidden=!track?.has_transcript||track.source!=="generated"||!!(subtitleJob&&["queued","running","paused"].includes(subtitleJob.state));
 }
 function renderPreparationSummary(){
   const j=subtitleJob,{track,transcript}=selectedSubtitle();
@@ -421,6 +425,8 @@ async function refreshSubtitles(owner){
     generate.textContent=matching.length?"새 자막 만들기":"한국어 자막 만들기";
     generate.dataset.regenerate=matching.length?"true":"false";
     $("subtitle-pause").hidden=!busy;$("subtitle-resume").hidden=!j||!["paused","failed"].includes(j.state);$("subtitle-restart").hidden=$("subtitle-resume").hidden;
+    $("subtitle-restart").textContent=j?.source_track_id?"번역 처음부터 다시":"처음부터 다시 만들기";
+    renderRetranslation();
     const progress=$("subtitle-progress");progress.hidden=!busy;if(j?.stage==="translation"&&j.total)progress.value=j.completed/j.total*100;else progress.removeAttribute("value");
     const paused=j?.state==="paused"&&(!j.error||j.error==="processing_interrupted");
     const asrNote=j?.asr_completed?`음성 인식 ${j.asr_completed}구간을 저장했습니다. 재개하면 저장된 다음 말소리 구간부터 이어갑니다.`:"아직 저장된 말소리 구간이 없어 재개하면 음성 인식을 처음부터 다시 합니다.";
@@ -441,6 +447,11 @@ $("subtitle-input").addEventListener("change",async()=>{
   }catch(e){toast(e.message,true);}finally{$("subtitle-input").value="";}
 });
 $("subtitle-generate").addEventListener("click",async()=>{const owner=activeItem;if(!owner)return;const suffix=$("subtitle-generate").dataset.regenerate==="true"?"/regenerate":"";try{await api(`/api/library/${owner.id}/subtitle-jobs${suffix}${audioQuery(owner)}`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)subtitleError(e.message);}});
+$("subtitle-retranslate").addEventListener("click",async()=>{
+  const owner=activeItem,{track}=selectedSubtitle();if(!owner||!track?.has_transcript||track.source!=="generated")return;
+  try{await api(`/api/library/${owner.id}/subtitles/${track.id}/retranslate`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}
+  catch(e){if(activeItem===owner&&selectedSubtitle().track?.id===track.id)subtitleError(e.message);}
+});
 for(const action of ["pause","resume","restart"])$("subtitle-"+action).addEventListener("click",async()=>{const owner=activeItem,job=subtitleJob;if(!owner||!job)return;try{await api(`/api/subtitle-jobs/${job.id}/${action}`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)subtitleError(e.message);}});
 
 let subtitleSearch={state:"empty",cues:[]}, subtitleSearchTimer=null;

@@ -3,7 +3,7 @@ from .storage import MediaError
 import re
 import uuid
 
-VERSION = 6
+VERSION = 7
 
 
 def companion_identity(db):
@@ -170,16 +170,24 @@ def migrate(db):
                 PRIMARY KEY(job_id,ordinal)
             )''')
         if version < 6:
-            db.execute('''CREATE TABLE IF NOT EXISTS companion_identity (
-                slot INTEGER PRIMARY KEY CHECK(slot=1),
-                server_id TEXT NOT NULL, library_id TEXT NOT NULL
-            )''')
-            # Preserve an existing identity in legacy-upgrade fixtures or an explicitly
-            # restored database; never change identity just because a schema is older.
-            if not db.execute('SELECT 1 FROM companion_identity').fetchone():
+            _add(db, 'subtitle_jobs', 'source_track_id', 'TEXT REFERENCES subtitle_tracks(id)')
+        if version < 7:
+            # The unreleased companion draft also used v6, before upstream reserved
+            # it for retranslation. Preserve its identity and add its missing column.
+            has_identity = db.execute("SELECT 1 FROM sqlite_master WHERE name='companion_identity'").fetchone()
+            if (version == 6 and not has_identity
+                    and 'source_track_id' not in {r['name'] for r in db.execute('PRAGMA table_info(subtitle_jobs)')}):
+                raise MediaError('library_identity_invalid', 503)
+            _add(db, 'subtitle_jobs', 'source_track_id', 'TEXT REFERENCES subtitle_tracks(id)')
+            if not has_identity:
+                db.execute('''CREATE TABLE companion_identity (
+                    slot INTEGER PRIMARY KEY CHECK(slot=1),
+                    server_id TEXT NOT NULL, library_id TEXT NOT NULL
+                )''')
                 db.execute('INSERT INTO companion_identity VALUES(1,?,?)',
                            (uuid.uuid4().hex, uuid.uuid4().hex))
-        companion_identity(db)  # Already-v6 missing/corrupt identity must not regenerate.
+        # Existing malformed identities, including old draft v6, never regenerate.
+        companion_identity(db)
         db.execute(f'PRAGMA user_version={VERSION}')
         db.commit()
     except BaseException:

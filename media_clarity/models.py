@@ -14,8 +14,10 @@ from .storage import MediaError, file_signature, no_symlink, run_media
 from .subtitles import MAX_CUES
 from .asr_checkpoints import PROFILE, validate_part
 
-PIPELINE = 'korean-subtitles-v6:silero6-jit-0.5-2000ms-pad400ms:source-clips:sentence-12s-400ch-gap0.8:ko-numeric-units:madlad-ko-native-sp-bf16-beam4-512-batch2:plaintext-entities-once:stat-identity'
+TRANSLATION_PROFILE = 'sentence-12s-400ch-gap0.8:ko-numeric-units:madlad-ko-native-sp-bf16-beam4-512-batch2:plaintext-entities-once:stat-identity'
+PIPELINE = 'korean-subtitles-v6:silero6-jit-0.5-2000ms-pad400ms:source-clips:' + TRANSLATION_PROFILE
 PACKAGES = ('faster-whisper','ctranslate2','transformers','torch','torchaudio','silero-vad','sentencepiece','protobuf','tokenizers','numpy','av')
+TRANSLATION_PACKAGES = ('transformers','torch','sentencepiece','protobuf','tokenizers')
 
 
 def require_private_runtime():
@@ -44,7 +46,7 @@ def device_configuration(root):
     return result
 
 
-def check_runtime(device):
+def check_runtime(device, translation_only=False):
     """Cheap runtime/precision preflight, before decoding or loading large weights."""
     require_private_runtime()
     try:
@@ -64,6 +66,14 @@ def check_runtime(device):
             native_bf16 = False
         if not native_bf16:
             raise MediaError('model_bf16_unavailable', 503)
+    if translation_only:
+        try:
+            import transformers
+            import sentencepiece
+            import google.protobuf
+        except Exception:
+            raise MediaError('model_runtime_incompatible', 503) from None
+        return
     try:
         import ctranslate2
         if device == 'cuda' and ctranslate2.get_cuda_device_count() < 1:
@@ -93,7 +103,7 @@ def check_runtime(device):
         torch.set_num_threads(threads)  # Silero import changes this global setting.
 
 
-def local_models(root, check_packages=False):
+def local_models(root, check_packages=False, translation_only=False):
     if check_packages:
         require_private_runtime()
     base = root / 'models'
@@ -101,6 +111,8 @@ def local_models(root, check_packages=False):
     paths = {'asr':base/'asr', 'translation':base/'translation'}
     required = {'asr':('model.bin','config.json','tokenizer.json','preprocessor_config.json'),
                 'translation':('config.json','tokenizer_config.json','spiece.model')}
+    if translation_only:
+        del paths['asr'], required['asr']
     for kind, names in required.items():
         for name in names:
             path = paths[kind] / name
@@ -110,18 +122,45 @@ def local_models(root, check_packages=False):
     if not any(paths['translation'].glob('*.safetensors')):
         raise MediaError('local_models_missing', 503)
     if check_packages:
+        packages = ('transformers','torch','sentencepiece','google.protobuf') if translation_only else (
+            'faster_whisper','transformers','torch','torchaudio','silero_vad','sentencepiece','google.protobuf')
         try:
-            missing = any(importlib.util.find_spec(n) is None for n in
-                ('faster_whisper','transformers','torch','torchaudio','silero_vad','sentencepiece','google.protobuf'))
+            missing = any(importlib.util.find_spec(n) is None for n in packages)
         except (ImportError, ValueError):
             missing = True
         if missing:
             raise MediaError('model_runtime_missing', 503)
-        paths['vad'] = Path(importlib.metadata.distribution('silero-vad').locate_file('silero_vad/data'))
-        no_symlink(paths['vad'] / 'silero_vad.jit')
-        if not (paths['vad'] / 'silero_vad.jit').is_file():
-            raise MediaError('model_runtime_missing', 503)
+        if not translation_only:
+            paths['vad'] = Path(importlib.metadata.distribution('silero-vad').locate_file('silero_vad/data'))
+            no_symlink(paths['vad'] / 'silero_vad.jit')
+            if not (paths['vad'] / 'silero_vad.jit').is_file():
+                raise MediaError('model_runtime_missing', 503)
     return paths
+
+
+def model_identity(paths, device, translation_only=False):
+    profile = TRANSLATION_PROFILE if translation_only else PIPELINE
+    digest = hashlib.sha256((profile+':'+device).encode())
+    if not translation_only:
+        digest.update(run_media(['ffmpeg','-version'],10,16384))
+    for package in TRANSLATION_PACKAGES if translation_only else PACKAGES:
+        digest.update((package+':'+importlib.metadata.version(package)).encode())
+    for kind, root in paths.items():
+        digest.update(str(root.absolute()).encode())
+        for path in sorted(root.rglob('*')):
+            no_symlink(path)
+            if not path.is_file():
+                continue
+            digest.update((kind+'/'+path.relative_to(root).as_posix()+'\0').encode())
+            with path.open('rb') as stream:
+                digest.update(repr(file_signature(stream)).encode())
+    return digest.hexdigest()
+
+
+def translation_identity(root):
+    """Freeze installed MT configuration without loading weights or a GPU runtime."""
+    paths = local_models(root, check_packages=True, translation_only=True)
+    return model_identity(paths, device_configuration(root)['device'], translation_only=True)
 
 
 def translation_tokenizer(path):
@@ -133,33 +172,22 @@ def translation_tokenizer(path):
 
 
 class LocalModels:
+    translation_only = False
     asr_profile = PROFILE
     audio_timing = 'source-timestamps-v1'
     batch_size = 2
     checkpoint_size = 20
-    def __init__(self, root):
+    def __init__(self, root, translation_only=False):
         for name in ('HF_HUB_OFFLINE','TRANSFORMERS_OFFLINE','HF_HUB_DISABLE_TELEMETRY','DO_NOT_TRACK','ORT_DISABLE_TELEMETRY'):
             os.environ[name] = '1'
-        self.paths = local_models(root, check_packages=True)
+        self.translation_only = translation_only
+        self.paths = local_models(root, check_packages=True, translation_only=translation_only)
         self.device = device_configuration(root)['device']
-        check_runtime(self.device)
+        check_runtime(self.device, translation_only=translation_only)
         self.model = self.tokenizer = None
 
     def identity(self):
-        digest = hashlib.sha256((PIPELINE+':'+self.device).encode())
-        digest.update(run_media(['ffmpeg','-version'],10,16384))
-        for package in PACKAGES:
-            digest.update((package+':'+importlib.metadata.version(package)).encode())
-        for kind, root in self.paths.items():
-            digest.update(str(root.absolute()).encode())
-            for path in sorted(root.rglob('*')):
-                no_symlink(path)
-                if not path.is_file():
-                    continue
-                digest.update((kind+'/'+path.relative_to(root).as_posix()+'\0').encode())
-                with path.open('rb') as stream:
-                    digest.update(repr(file_signature(stream)).encode())
-        return digest.hexdigest()
+        return model_identity(self.paths, self.device, self.translation_only)
 
     def transcribe(self, path, duration, audio_index=0):
         audio = self.decode_audio(path, duration, audio_index)

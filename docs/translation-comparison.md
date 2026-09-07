@@ -242,3 +242,54 @@ These are previously observed development inputs, not a held-out quality benchma
 For example, `tos_52` still mistranslates “ad-lib” as advertising, and awkward wording,
 idiom/register errors and omissions remain. The repair makes no general Korean quality,
 provider-censorship or Windows 11/RTX/CUDA claim. The local engine remains the default.
+
+## Bounded decoding comparison · 2026-09-07
+
+[Full inputs/outputs and timing](evidence/retranslation.json) retain three actual
+sentence-split probes and two fixed decoding candidates on eight previously observed
+failure/control inputs. Same native MADLAD revision, Linux CPU float32, four threads;
+no ASR rerun or network attempt. No candidate was adopted.
+
+Splitting `auth_08/09/21` at their explicit Japanese sentence marks restored the
+shooting prohibition in `auth_21`, but `あと十分で着くよ。` became “충분히 멀리 떨어져 있다.”
+instead of arriving in ten minutes. More output did not establish correct coverage.
+Beam eight also restored `auth_21`, retained the `auth_08` omission and left the idiom
+errors; `Jae` changed spelling. Length penalty 1.3 restored `auth_21` but rendered
+`auth_08` as “충분히 빨리 갈 수 있을 거야”, still losing the ten-minute meaning. The current
+beam-four/length-one behavior remains unchanged.
+
+The bounded commands were `timeout 120 python probe_sentence_translation.py`
+(**22.539 s**, three paired sentence calls) and `timeout 300 python
+probe_translation_search.py` (**51.296 s** beam-eight, **40.156 s** length-1.3), with
+`OMP_NUM_THREADS=4 MKL_NUM_THREADS=4`. All exited 0. Scripts were session-local; the
+search probe changed only `generate` kwargs over the unchanged production adapter and
+fixed eight fixture IDs. Weights loaded in the split run and first search candidate,
+then stayed loaded for the second. These are not equal-work speed benchmarks or a
+held-out Korean quality evaluation.
+
+## Reusing saved ASR · 2026-09-07
+
+At local reviewed code `6d27d9a`, a selected generated version can be translated again
+without decoding audio, loading VAD/ASR or overwriting earlier versions. A new job copies
+its verified transcript bytes/hash and audio index, and freezes the translation-only
+configuration before queueing. Missing-config guards remain intact. Normal existing
+jobs retain exactly the previous pipeline identity; ASR-only changes do not invalidate
+retranslation. Changed MT setup requires a new attempt from the same selected source.
+
+Actual `probe_retranslation_api_final.py` ran the production CLI/server and worker
+against synthetic four-second H.264/AAC media with two saved authored fixture sentences.
+Only translation weights were present; ASR dependency imports and external Python
+socket connections were blocked. The real MADLAD job succeeded in **16.289 s**, with
+zero such attempts, zero ASR spans and a zero-byte server log. A store restart preserved
+the selected old job, original transcript/VTT, Korean VTT and original media. This is
+actual translation and API integration, not a new ASR-quality or browser-playback run.
+The earlier pre-review execution also succeeded in 16.070 s; the final run verified
+binding after separating the translation profile from the ASR profile.
+
+Linux Python validation: **156 tests**, 42.571 s, exit 0 (one Windows-only skip).
+Subtitle DOM checks passed; five focused post-review regressions passed in 0.849 s.
+Fresh independent review verified v5→v6 migration/rollback, old-row preservation,
+source/input/ASR-counter tamper rejection, no-ASR pause/recovery/resume, restart rollback
+and exact compatibility of normal model identity. Its MT-profile and browser-test
+findings were fixed and rereviewed without remaining findings. Real browser behavior
+is gated by the PR's Linux/Windows CI. Target Windows 11/RTX remains unavailable.

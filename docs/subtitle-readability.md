@@ -2,8 +2,10 @@
 
 New generated captions separate translation sentences from display cues. Existing
 ready versions, imported SRT bytes, ASR text and translation/checkpoint units stay
-unchanged. Choose **새 자막 만들기** to create a new presentation for an existing video;
-this currently reruns processing, so do not regenerate a long film just to reflow text.
+unchanged. **새 자막 만들기** reruns speech recognition and translation for a new version.
+For a version with saved ASR, **저장된 원문으로 다시 번역** skips recognition but still
+reruns translation. Neither is a cost-free text reflow; avoid rerunning a long film
+solely for layout changes.
 
 ## Applied benchmark
 

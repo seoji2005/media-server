@@ -26,13 +26,14 @@ class CompanionIdentityTests(unittest.TestCase):
         with (store or self.store).db() as db:
             return migrations.companion_identity(db)
 
-    def legacy_fixture(self):
-        # A disposable v5-schema fixture. The separate handoff HTTP test upgrades
-        # a database actually created by the unmodified pinned v5 server.
+    def legacy_fixture(self, version=6):
+        # Synthetic legacy schema; the separate HTTP test uses unmodified upstream.
         self.store.close()
         with closing(sqlite3.connect(self.root/'library.sqlite3')) as db, db:
             db.execute('DROP TABLE companion_identity')
-            db.execute('PRAGMA user_version=5')
+            if version == 5:
+                db.execute('ALTER TABLE subtitle_jobs DROP COLUMN source_track_id')
+            db.execute(f'PRAGMA user_version={version}')
 
     def snapshot(self):
         with closing(sqlite3.connect(self.root/'library.sqlite3')) as db:
@@ -67,8 +68,9 @@ class CompanionIdentityTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
         self.store.start()
         self.assertEqual(self.identity()['version'], 1)
+        self.assertEqual(self.snapshot()[0], 7)
 
-    def test_abrupt_exit_before_commit_keeps_v5_and_retry_succeeds(self):
+    def test_abrupt_exit_before_commit_keeps_v6_and_retry_succeeds(self):
         self.legacy_fixture(); before = self.snapshot()
         code = '''
 import os,sys
@@ -88,6 +90,7 @@ Store(Path(sys.argv[1])).start()
         self.assertEqual(self.snapshot(), before)
         self.store.start()
         self.assertEqual(self.identity()['version'], 1)
+        self.assertEqual(self.snapshot()[0], 7)
 
     def test_current_missing_corrupt_or_duplicate_identity_never_recreated(self):
         self.store.close()
@@ -126,6 +129,82 @@ Store(Path(sys.argv[1])).start()
         with self.assertRaisesRegex(MediaError, 'database_version_newer'):
             self.store.start()
         self.assertEqual(self.snapshot(), before)
+
+    def test_v5_and_v6_upgrade_preserves_records_and_source_track(self):
+        self.store.close()
+        for version in (5, 6):
+            with self.subTest(version=version):
+                root = Path(self.temp.name)/f'v{version}'
+                shutil.copytree(self.root, root)
+                upgraded = Store(root)
+                try:
+                    with closing(sqlite3.connect(root/'library.sqlite3')) as db, db:
+                        db.row_factory = sqlite3.Row
+                        db.execute('DROP TABLE companion_identity')
+                        if version == 5:
+                            db.execute('ALTER TABLE subtitle_jobs DROP COLUMN source_track_id')
+                        db.execute("INSERT INTO files(id,sha256,size,extension,mime,duration,width,height) "
+                                   "VALUES('file','synthetic-hash',1,'mp4','video/mp4',8,160,90)")
+                        db.execute("INSERT INTO items(id,file_id,title,position) VALUES('item','file','Synthetic',4.5)")
+                        db.execute("INSERT INTO item_preferences(item_id,included,revision,preference) "
+                                   "VALUES('item',1,3,'like')")
+                        db.execute("INSERT INTO subtitle_jobs(id,item_id,input_sha,state,transcript) "
+                                   "VALUES('job','item','synthetic-hash','succeeded','[]')")
+                        db.execute("INSERT INTO subtitle_tracks(id,item_id,input_sha,job_id,source,cues,sha256) "
+                                   "VALUES('track','item','synthetic-hash','job','generated','[]','caption-hash')")
+                        if version == 6:
+                            db.execute("UPDATE subtitle_jobs SET source_track_id='track'")
+                        db.execute(f'PRAGMA user_version={version}')
+                        tables = ['files','items','item_preferences','subtitle_jobs','subtitle_tracks']
+                        before = {t: [dict(r) for r in db.execute(f'SELECT * FROM {t}')] for t in tables}
+                    upgraded.start()
+                    with upgraded.db() as db:
+                        self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 7)
+                        for table, rows in before.items():
+                            if version == 5 and table == 'subtitle_jobs':
+                                rows[0]['source_track_id'] = None
+                            self.assertEqual([dict(r) for r in db.execute(f'SELECT * FROM {table}')], rows)
+                        self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+                    identity = self.identity(upgraded)
+                    upgraded.close(); upgraded.start()
+                    self.assertEqual(self.identity(upgraded), identity)
+                finally:
+                    upgraded.close()
+
+    def test_old_draft_v6_keeps_identity_and_gains_retranslation_column(self):
+        identity = self.identity()
+        self.store.close()
+        with closing(sqlite3.connect(self.root/'library.sqlite3')) as db, db:
+            db.execute('ALTER TABLE subtitle_jobs DROP COLUMN source_track_id')
+            db.execute('PRAGMA user_version=6')
+        self.store.start()
+        self.assertEqual(self.identity(), identity)
+        with self.store.db() as db:
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 7)
+            self.assertIn('source_track_id', {r['name'] for r in db.execute('PRAGMA table_info(subtitle_jobs)')})
+
+    def test_corrupt_old_draft_v6_is_untouched(self):
+        self.store.close()
+        with closing(sqlite3.connect(self.root/'library.sqlite3')) as db, db:
+            db.execute('ALTER TABLE subtitle_jobs DROP COLUMN source_track_id')
+            db.execute('PRAGMA user_version=6')
+        for statement in ('DELETE FROM companion_identity', 'DROP TABLE companion_identity'):
+            with self.subTest(statement=statement):
+                root = Path(self.temp.name)/statement.split()[0]
+                shutil.copytree(self.root, root)
+                broken = Store(root)
+                try:
+                    with closing(sqlite3.connect(root/'library.sqlite3')) as db, db:
+                        db.execute(statement)
+                        before = list(db.iterdump())
+                    with self.assertRaisesRegex(MediaError, 'library_identity_invalid'):
+                        broken.start()
+                    self.assertIsNone(broken.lock_file)
+                    with closing(sqlite3.connect(root/'library.sqlite3')) as db:
+                        self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 6)
+                        self.assertEqual(list(db.iterdump()), before)
+                finally:
+                    broken.close()
 
     def test_unclassified_legacy_original_cannot_validate_before_basis_change(self):
         from media_clarity.moment_entry import reference, validate
