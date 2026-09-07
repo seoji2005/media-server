@@ -311,8 +311,14 @@ window.addEventListener("hashchange",async()=>{
 });
 (async()=>{try{const session=await api("/api/session");sessionToken=session.token;settleMomentSession();const d=session.diagnostics;renderModelSetup(d.models);const notes=[];if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);if(notes.length){$("diagnostic").textContent=notes.join(" ");$("diagnostic").hidden=false;}await refresh();if(initialMoment&&momentRequest===0)await openPlayer(initialMoment.item_id,initialMoment);}catch(e){$("diagnostic").textContent=e.message;$("diagnostic").hidden=false;}finally{settleMomentSession();$("loading-state").hidden=true;}})();
 
-let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null, subtitleTracks=[];
+let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null, subtitleTracks=[], geminiConfigured=false;
 const subtitleMessages={
+  gemini_key_missing:"Gemini API 키가 설정되지 않았습니다. 설치 안내에 따라 GEMINI_API_KEY를 설정한 뒤 앱을 다시 시작해 주세요.",
+  gemini_auth_failed:"Gemini API 키 또는 프로젝트 권한을 확인해 주세요. 완료한 번역은 보존했습니다.",
+  gemini_quota:"Gemini 사용 한도에 도달했습니다. 결제·할당량을 확인한 뒤 재개해 주세요. 완료한 번역은 보존했습니다.",
+  gemini_unavailable:"Gemini에 연결하지 못했습니다. 연결을 확인한 뒤 재개해 주세요. 완료한 번역은 보존했습니다.",
+  gemini_blocked:"Gemini가 이 번역을 거절해 중단했습니다. 원문과 완료한 번역은 보존했습니다.",
+  gemini_response_invalid:"Gemini 응답이 완전한 자막 형식이 아니어서 중단했습니다. 완료한 번역은 보존했습니다.",
   model_settings_invalid:"자막 장치 설정이 올바르지 않습니다. 설치 안내의 CPU·GPU 설정을 확인해 주세요.",
   model_torch_unavailable:"자막 실행 엔진을 불러오지 못했습니다. PyTorch 설치와 Windows 런타임을 확인해 주세요.",
   model_cuda_unavailable:"PyTorch에서 NVIDIA GPU를 사용할 수 없습니다. CUDA용 PyTorch와 NVIDIA 드라이버를 확인해 주세요. CPU 사용은 별도로 설정해야 합니다.",
@@ -355,7 +361,7 @@ $("model-check").addEventListener("click",async()=>{
   catch(e){$("model-check-state").textContent=e.code==="processing_worker_active"?"자막 처리 중에는 진단할 수 없습니다. 작업을 마치거나 일시정지한 뒤 다시 확인해 주세요.":e.message;}
   finally{button.disabled=false;if(hadFocus&&$("settings-dialog").open&&document.activeElement===document.body)button.focus();}
 });
-function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
+function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];geminiConfigured=false;$("subtitle-translator").value="local";renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
 function selectedSubtitle(){const [id,view]=(subtitleLoaded||"").split(":");return {track:subtitleTracks.find(t=>t.id===id),transcript:view==="transcript"};}
 function renderSubtitleNotes(){
   const {track,transcript}=selectedSubtitle(),notes=[];
@@ -377,7 +383,12 @@ function renderSubtitleNotes(){
 function renderRetranslation(){
   const {track}=selectedSubtitle();
   $("subtitle-retranslate").hidden=!track?.has_transcript||track.source!=="generated"||!!(subtitleJob&&["queued","running","paused"].includes(subtitleJob.state));
+  $("subtitle-translator-panel").hidden=$("subtitle-retranslate").hidden;
+  const cloud=$("subtitle-translator").value==="gemini";
+  $("subtitle-cloud-note").hidden=!cloud;
+  $("subtitle-cloud-note").textContent=cloud?`저장된 대사와 앞뒤 문맥 텍스트를 Google로 보내 한국어로 번역합니다. 영상·음성 파일은 보내지 않습니다. API 사용료가 발생합니다. ${geminiConfigured?"API 키가 설정되어 있습니다. 연결은 번역을 시작할 때 확인합니다.":"API 키 설정이 필요합니다. 설치 안내를 확인해 주세요."} 중단 후 재개하면 처리 중이던 요청이 다시 전송되어 과금될 수 있습니다.`:"";
 }
+$("subtitle-translator").addEventListener("change",renderRetranslation);
 function renderPreparationSummary(){
   const j=subtitleJob,{track,transcript}=selectedSubtitle();
   let label=subtitleTracks.some(t=>(t.audio_index||0)===(activeItem?.audio_index||0))?"자막 준비됨":"파일 열기 · 자동 생성";
@@ -418,12 +429,12 @@ async function refreshSubtitles(owner){
   clearTimeout(subtitleTimer);
   try{
     const data=await api(`/api/library/${owner.id}/subtitles`);if(activeItem!==owner)return;
-    subtitleTracks=data.tracks;
+    subtitleTracks=data.tracks;geminiConfigured=!!data.gemini_configured;
     const select=$("subtitle-select"),was=select.value;
     select.replaceChildren(new Option("자막 끄기",""));
     for(const [i,t] of data.tracks.entries()){
       const version=` · ${data.tracks.length-i}${(owner.audio_tracks||[]).length>1?` · 오디오 ${(t.audio_index||0)+1}`:""}`;
-      select.add(new Option(`${t.source==="supplied"?"가져온 자막":"한국어 · 자동 번역"}${version}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));
+      select.add(new Option(`${t.source==="supplied"?"가져온 자막":t.provider==="gemini"?"한국어 · Gemini":"한국어 · 자동 번역"}${version}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));
       if(t.has_transcript)select.add(new Option(`원문 · 자동 전사${version}`,`${t.id}:transcript`));
     }
     const matching=data.tracks.filter(t=>(t.audio_index||0)===(owner.audio_index||0));
@@ -445,6 +456,7 @@ async function refreshSubtitles(owner){
     $("subtitle-state").textContent=paused?`${j.error?subtitleMessages[j.error]:"자막 처리를 일시정지했습니다."} ${resumeNote}`:j?.error?(subtitleMessages[j.error]||message(j.error)):busy?(j.stage==="translation"?`한국어 번역 중 · ${j.completed}/${j.total} 구간 저장됨${j.fallback_count?` · 원문 ${j.fallback_count}구간`:""}`:`음성 인식 중 · ${j.asr_completed||0}구간 저장됨. 중단하면 현재 말소리 구간을 다시 처리합니다. 원본은 계속 감상할 수 있습니다.`):data.tracks.length?"자막이 준비됐습니다. 번역하지 못한 구간은 [원문]으로 표시합니다. 새로 만들어도 기존 자막은 보존됩니다.":"가진 한국어 SRT를 열거나 이 기기에서 자막을 만들 수 있습니다.";
     if(busy)subtitleTimer=setTimeout(()=>refreshSubtitles(owner),1500);
     if(j&&(j.audio_index||0)!==(owner.audio_index||0))$("subtitle-state").textContent=`오디오 ${(j.audio_index||0)+1}의 자막 작업입니다. `+$("subtitle-state").textContent;
+    if(j?.provider==="gemini")$("subtitle-state").textContent="Gemini · "+$("subtitle-state").textContent+(["queued","running","paused","failed"].includes(j.state)?" 완료한 구간은 재사용합니다. 처리 중이던 요청은 재개할 때 다시 전송되어 과금될 수 있습니다.":"");
     renderPreparationSummary();
   }catch(e){if(activeItem===owner)subtitleError(e.message);}
 }
@@ -460,7 +472,7 @@ $("subtitle-input").addEventListener("change",async()=>{
 $("subtitle-generate").addEventListener("click",async()=>{const owner=activeItem;if(!owner)return;const suffix=$("subtitle-generate").dataset.regenerate==="true"?"/regenerate":"";try{await api(`/api/library/${owner.id}/subtitle-jobs${suffix}${audioQuery(owner)}`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)subtitleError(e.message);}});
 $("subtitle-retranslate").addEventListener("click",async()=>{
   const owner=activeItem,{track}=selectedSubtitle();if(!owner||!track?.has_transcript||track.source!=="generated")return;
-  try{await api(`/api/library/${owner.id}/subtitles/${track.id}/retranslate`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}
+  try{await api(`/api/library/${owner.id}/subtitles/${track.id}/retranslate`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider:$("subtitle-translator").value})});if(activeItem===owner)await refreshSubtitles(owner);}
   catch(e){if(activeItem===owner&&selectedSubtitle().track?.id===track.id)subtitleError(e.message);}
 });
 for(const action of ["pause","resume","restart"])$("subtitle-"+action).addEventListener("click",async()=>{const owner=activeItem,job=subtitleJob;if(!owner||!job)return;try{await api(`/api/subtitle-jobs/${job.id}/${action}`,{method:"POST"});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)subtitleError(e.message);}});

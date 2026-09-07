@@ -146,6 +146,28 @@ try {
     assert.equal(blocked.status(), 503);
     assert.equal((await blocked.json()).error, 'local_models_missing');
     assert.equal(await selector.inputValue(), sourceId);
+    const provider = page.locator('#subtitle-translator');
+    assert.equal(await provider.inputValue(), 'local');
+    const before = await video.evaluate(v => ({src:v.currentSrc, track:v.querySelector('track').getAttribute('src'), time:v.currentTime}));
+    await video.evaluate(v => v.play());
+    await provider.selectOption('gemini');
+    const disclosure = page.locator('#subtitle-cloud-note');
+    assert.equal(await disclosure.isVisible(), true);
+    assert.match(await disclosure.textContent(), /텍스트를 Google로/);
+    assert.match(await disclosure.textContent(), /영상·음성 파일은 보내지 않습니다/);
+    const cloudResponse = page.waitForResponse(r => r.url().endsWith(`/subtitles/${sourceId.split(':')[0]}/retranslate`) && r.request().method() === 'POST');
+    await retranslate.click();
+    const cloudBlocked = await cloudResponse;
+    assert.equal(cloudBlocked.status(), 503);
+    assert.equal((await cloudBlocked.json()).error, 'gemini_key_missing');
+    await page.waitForFunction(() => document.querySelector('#subtitle-state').textContent.includes('Gemini API 키'));
+    assert.equal(await selector.inputValue(), sourceId);
+    await page.waitForFunction(t => {
+      const v=document.querySelector('#video');return !v.paused&&!v.seeking&&v.currentTime>t+.25;
+    }, before.time);
+    assert.deepEqual(await video.evaluate(v => ({src:v.currentSrc, track:v.querySelector('track').getAttribute('src')})), {src:before.src,track:before.track});
+    await video.evaluate((v,t) => {v.pause();v.currentTime=t;}, before.time);
+    await page.waitForFunction(() => !document.querySelector('#video').seeking);
     await page.locator('#subtitle-search-panel > summary').click();
     await page.locator('#subtitle-query').fill('Original');
     await page.locator('#subtitle-results button').waitFor();
@@ -178,7 +200,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
-    nativeCaption: true, transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
+    nativeCaption: true, transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   await browser.close();
 }

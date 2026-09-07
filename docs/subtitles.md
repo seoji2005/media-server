@@ -48,7 +48,7 @@ The original transcription can still contain recognition errors, and running the
 translator again does not promise better wording. Use **새 자막 만들기** when fresh speech
 recognition is needed instead.
 
-Retranslation needs only the local translation weights/runtime. The standard environment
+Local retranslation needs only the translation weights/runtime. The standard environment
 check still checks full ASR + translation setup. The new job freezes the selected source
 and translation configuration before queueing. Pause/resume retains completed translation
 units; changed configuration requires **번역 처음부터 다시** with the same saved source.
@@ -60,6 +60,69 @@ offer this action.
 token/same-origin boundary and returns a job ID. The source version determines audio;
 there is no separate client-supplied audio override. The schema's nullable source reference
 does not change existing jobs' configuration identity or normal ASR resume behavior.
+
+### Optional Gemini retranslation
+
+Select a generated version with saved original text, open **자막 준비**, set
+**다시 번역할 엔진 → Google Gemini · 3.8 Flash**, then press
+**저장된 원문으로 다시 번역**. Gemini needs no local translation/ASR models for this
+action. Fresh **한국어 자막 만들기 / 새 자막 만들기** still uses local ASR and MADLAD.
+Opening another video resets this choice to local. Existing versions keep playing;
+completed cloud versions are labeled **한국어 · Gemini**.
+
+Set `GEMINI_API_KEY` in the environment of the process launching the app, then restart
+the app. There is no browser key form or key stored in app settings/database. A configured
+key indicator checks presence/format only; it does not make an API call. For example,
+Windows PowerShell, from the repository directory:
+
+```powershell
+$geminiKey = Read-Host 'Gemini API key' -AsSecureString
+$env:GEMINI_API_KEY = [System.Net.NetworkCredential]::new('', $geminiKey).Password
+.\.venv\Scripts\python -m media_clarity
+Remove-Item Env:GEMINI_API_KEY
+```
+
+Bash on Linux/macOS:
+
+```bash
+read -r -s -p 'Gemini API key: ' GEMINI_API_KEY
+export GEMINI_API_KEY
+.venv/bin/python -m media_clarity
+unset GEMINI_API_KEY
+```
+
+The explicit choice sends saved dialogue and up to one neighboring unit on each side
+(400 characters each) to Google's fixed HTTPS Gemini endpoint. No video/audio, timing,
+title, path, library/track identifiers or watch/search/taste data enter the prompt. Target
+IDs are request-local ordinals. Korean-only units pass through locally; neighboring
+Korean dialogue may still be sent as context for another target. Use a paid API project
+for private dialogue: Google's [paid-service terms](https://ai.google.dev/gemini-api/terms)
+exclude prompts/responses from product improvement but allow limited abuse/legal retention.
+This is a cloud service, with its own retention and [API charges](https://ai.google.dev/gemini-api/docs/pricing).
+
+Schema v8 adds nullable `translation_config`; legacy NULL means local. Queueing freezes
+the provider, model ID, prompt digest, batching/context and generation profile together
+with the exact saved transcript identity. Resume and restart retain the selected provider
+and source; rotating the API key does not discard checkpoints. The endpoint accepts only
+`{"provider":"local"}` or `{"provider":"gemini"}` (empty body remains local).
+
+Up to eight foreign units are requested with `gemini-3.8-flash`, low thinking,
+4,096 output tokens and a JSON response schema. Every successful request is validated
+for full ordered IDs, nonempty bounded text and STOP completion, then checkpointed before
+the next request. Refusal, malformed/truncated output, quota and transport errors stop
+without publishing a partial version or falling back to untranslated source. Requests
+are not retried automatically, redirected or sent through environment proxies. A timeout,
+hard pause/crash or failed checkpoint may leave a billed response unsaved; manual resume
+can resend that request and incur another charge. Completed batches are reused. No
+exactly-once billing, deterministic output or Korean quality improvement is promised.
+
+Integration validation uses synthetic responses, including a separate worker process,
+store restart, partial failure/resume, key rotation, provider conflicts, source/config
+tampering, migration preservation and strict transport/output checks. No real API key
+was available for this implementation. The earlier [16/80 Gemini comparison](translation-comparison.md#post-payment-diagnosis)
+is unchanged; its temporary key was removed. Live API execution and remaining 64 inputs
+still require a configured key. Local Chrome remains blocked by socket EPERM; actual
+Linux/Windows Chrome selection, missing-key and uninterrupted playback checks run in CI.
 
 ### Model setup
 
