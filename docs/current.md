@@ -1,14 +1,17 @@
 # Current work
 
-- **Milestone:** resume completed ASR speech spans after interruption; compare recovery
-  with actual local Whisper while retaining prior jobs, captions and original files.
-- **Branch / PR / HEAD:** `app/long-resume`, based on owner-approved #10 merge `175b8ac`.
-  Owner authorized continuation and merge on 2026-09-07; resolve live HEAD/merge state in
-  [PR #11](https://github.com/seoji2005/media-server/pull/11). One writer; [product](product.md) and AGENTS.md govern.
+- **Milestone:** a simple Windows viewing launcher, alongside completed real ASR
+  speech/dialogue comparisons; preserve existing startup/recovery and quiet default CLI.
+- **Branch / PR / HEAD:** `app/windows-viewing-launch`, from main `7d09815` after
+  [PR #11](https://github.com/seoji2005/media-server/pull/11) merged. Resolve live work in
+  [open PRs](https://github.com/seoji2005/media-server/pulls). One writer; [product](product.md) and AGENTS.md govern.
 - **What works:** import/compatible copies, shared audio, playback/resume, actual local
   ASR/Korean captions, recoverable jobs, literal/visual scene search, previews and explicit
-  feedback. New ASR spans survive actual worker kill with identical resumed text/timing on
-  a short repeated English fixture; [evidence and limits](quality-check.md#speech-span-checkpoints--2026-09-07).
+  feedback. ASR spans survive [actual worker kill](quality-check.md#speech-span-checkpoints--2026-09-07).
+  [Six speech/dialogue comparisons](speech-quality.md#span-boundary-comparison--2026-09-07)
+  retained normalized words; two fresh-process resumes matched text/timing exactly.
+  The [Windows launcher](../README.md#설치와-실행) opens the local page only after this
+  server binds; browser failure leaves it usable. [Checks and limits](quality-check.md#windows-viewing-launcher--2026-09-07).
   [Runtime/recovery](subtitles.md), [readability](subtitle-readability.md),
   [audio/UI](compatible-renditions.md), [scene search](scene-search.md).
   [Verification](../README.md#검증과-작업-방식) runs Python, all seven DOM suites and real browser checks.
@@ -19,8 +22,9 @@
   currently fails with socket EPERM; [Linux/Windows CPU CI](https://github.com/seoji2005/media-server/actions/workflows/verify.yml)
   is available under the owner's spending approval. Earlier long-film/larger-encoder
   requests ended in cancelled approval; do not bypass them.
-- **Next action:** check span-boundary recognition/context on existing permitted non-repeated
-  dialogue and language-change samples; extend input length when permitted material is
-  available. Target Windows/RTX takes priority on access. Keep all October features included.
+- **Next action:** complete the launcher's Linux/Windows CI, then inspect Korean output
+  from the already permitted film dialogue through actual translation and caption display.
+  Target Windows/RTX takes priority on access; natural long speech and useful enhancement
+  remain open. Keep all October features included.
   [Gemini comparison](translation-comparison.md#post-payment-diagnosis) remains incomplete
   (16/80); local stays default and private egress stays opt-in.

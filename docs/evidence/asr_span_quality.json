@@ -1,0 +1,36 @@
+{
+  "date": "2026-09-07",
+  "code_revision": "3ead6b1189e59d4d1347e09e386ac1884f7215b8",
+  "environment": "Linux CPU; Python 3.12.13; faster-whisper 1.2.1; CTranslate2 4.8.2; Torch 2.8.0+cpu; Silero 6.0.0; FFmpeg 6.1.1; four Torch/OMP/MKL threads",
+  "model": "Systran/faster-whisper-large-v3@edaa852ec7e145841d8ffdb056a99866b5f0a478, int8, beam5, local-only",
+  "sources": {
+    "fleurs": "FluidInference/fleurs-full@1cca811bb8ea4d370345f108f00518167040282c; Google FLEURS, CC BY 4.0; attribution in speech-quality.md",
+    "film": "Tears of Steel — (CC) Blender Foundation | mango.blender.org, CC BY 3.0; 18–70 s excerpt; source https://media.xiph.org/tearsofsteel/tears_of_steel_1080p.webm",
+    "fleurs_hashes_unchanged": true,
+    "all_wrapped_input_hashes_unchanged": true
+  },
+  "method": {
+    "command": "timeout 540 .venv/bin/python /tmp/media-asr-quality/run.py CASES; per-child timeout 180 s",
+    "probe_sha256": "7ff6ade2644fd94f0c4a2c6a0b5197a41864d0bc504324bdfd714fee42146daa",
+    "preparation": "Same black H.264/AAC wrapper. Mixed cases retain source silence and append 0.5/3 s after ja0000,en0000,ja0001. No repeated sentence inside a case.",
+    "timing": "Adapter wall time including audio decode, VAD and model load; excludes worker import/startup; one serial run per mode/case.",
+    "resume": "Fresh process receives first completed production-format span; compare remaining output and final complete parts/cues. This run does not re-test database crash recovery.",
+    "text_comparison": "NFKC, casefold, alphanumeric characters, Levenshtein; reference_edits means legacy,spans,reference_characters.",
+    "translation": "Only compare translation input unit strings; no MT inference."
+  },
+  "observation": "Short-gap English VAD starts 1.716 s into source utterance versus 0.944 s with long gap; However missing in both short-gap ASR modes, present in both long-gap modes. Causation not isolated.",
+  "limits": [
+    "Six short cases; no natural within-sentence code switching or 60+ minute dialogue.",
+    "Film compared with prior adapter, not independent spoken-word gold.",
+    "Punctuation/cue timing can differ despite equal normalized text; no word-alignment or translated-caption quality claim.",
+    "No new browser, Windows 11, RTX, peak-memory or throughput evidence."
+  ],
+  "cases": [
+    {"case":"ja_jp_0000","input_seconds":10.44,"input_sha256":"4c8d597f22288a30fe86083ee8bd10e3d811f910892c4dd82e1c43a3d769afa6","legacy_seconds":25.634,"span_seconds":26.558,"cue_counts":[1,1],"normalized_adapter_text_edits":0,"reference_edits":[3,3,45],"translation_unit_texts_equal":true,"max_span_seconds":7.328},
+    {"case":"ja_jp_0002","input_seconds":12.84,"input_sha256":"784967733c88a5d4420add16b82e02bf12dcc1c92832965f48da6682ffbef66e","legacy_seconds":25.266,"span_seconds":25.583,"cue_counts":[4,4],"normalized_adapter_text_edits":0,"reference_edits":[7,7,71],"translation_unit_texts_equal":true,"max_span_seconds":9.44},
+    {"case":"ko_kr_0000","input_seconds":12.48,"input_sha256":"30530a3a128944125dd81881ec441e24a65f99328fa336ade2a9f298b78c6b01","legacy_seconds":22.867,"span_seconds":23.266,"cue_counts":[1,1],"normalized_adapter_text_edits":0,"reference_edits":[3,3,53],"translation_unit_texts_equal":true,"max_span_seconds":9.856},
+    {"case":"mixed_short","input_seconds":36.72,"input_sha256":"c0759525895a79581a7a6198e0cfccae11e2172379b44c45629f62650090578d","legacy_seconds":43.53,"span_seconds":54.422,"cue_counts":[5,3],"normalized_adapter_text_edits":0,"reference_edits":[11,11,172],"translation_unit_texts_equal":false,"max_span_seconds":8.576},
+    {"case":"mixed_long","input_seconds":44.22,"input_sha256":"061ba574df7ebb0c773db64bcf57eb8eece0cc2c6b9a7fad89ab5c0c01b06bbd","legacy_seconds":43.831,"span_seconds":51.547,"cue_counts":[3,3],"normalized_adapter_text_edits":0,"reference_edits":[4,4,172],"translation_unit_texts_equal":true,"max_span_seconds":8.576,"resume":{"seconds":40.392,"saved_spans_reused":1,"remaining_spans":2,"parts_and_cues_exact":true}},
+    {"case":"dialogue","input_seconds":52.0011875,"input_sha256":"3203fe32c8712447d0a6187dcb9a5a72f186c4a9fd48c458decc54f68f56da33","legacy_seconds":41.695,"span_seconds":53.731,"cue_counts":[12,15],"normalized_adapter_text_edits":0,"reference_edits":null,"translation_unit_texts_equal":true,"max_span_seconds":22.304,"resume":{"seconds":32.124,"saved_spans_reused":1,"remaining_spans":2,"parts_and_cues_exact":true}}
+  ]
+}

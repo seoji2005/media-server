@@ -46,6 +46,11 @@ ffprobe -version
 .\.venv\Scripts\python -m media_clarity
 ```
 
+최초 설치 뒤에는 **start-media-clarity.cmd를 더블클릭**하면 됩니다. 보관함과 서버가
+준비된 뒤 기본 브라우저를 엽니다. 실행 창에서 Ctrl+C로 종료하세요. 브라우저가 열리지
+않으면 창에 표시된 주소를 직접 입력하면 됩니다. 실행 환경이 없거나 서버가 시작되지
+않으면 안내를 남깁니다. 명령줄에서는 `--open-browser`를 붙여 같은 동작을 사용할 수 있습니다.
+
 macOS/Linux:
 
 ```sh
