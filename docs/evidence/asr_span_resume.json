@@ -1,0 +1,71 @@
+{
+  "date": "2026-09-07",
+  "code_revision": "e6d2219a721a963d59686b18d8a9524f47cd4787",
+  "environment": "Linux CPU, Python 3.12.13, Torch 2.8.0+cpu, faster-whisper 1.2.1, CTranslate2 4.8.2, Silero 6.0.0, FFmpeg 6.1.1, four Torch/OMP threads",
+  "model": {
+    "id": "Systran/faster-whisper-large-v3",
+    "revision": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
+    "precision": "int8",
+    "beam": 5,
+    "network": "local weights only; ORT import blocked"
+  },
+  "input": {
+    "source": "Existing public JFK sample repeated three times with silence; provenance in docs/subtitles.md",
+    "seconds": 48,
+    "speech_repetitions": 3,
+    "sha256": "689927ed997b39be56aaaf72752ad1b52e3b176299fd81c5a9efdb22c762c7e2",
+    "vad_intervals": [
+      [
+        3.92,
+        14.896
+      ],
+      [
+        19.12,
+        29.872
+      ],
+      [
+        34.16,
+        44.88
+      ]
+    ]
+  },
+  "method": {
+    "command": ".venv/bin/python /tmp/media-asr-checkpoint/probe.py",
+    "probe_sha256": "f2f04189c2aa1229f95e061323b979182c04c587ed4e390f62a437c164ba350b",
+    "execution": "Separate real Jobs workers: legacy complete-audio control; complete span control; kill worker 0.8 s after second span invocation, recover Store and resume same job",
+    "translation": "Fixed Korean fixture; no actual MT or browser evidence in this probe"
+  },
+  "observations": {
+    "legacy_job_seconds": 44.98,
+    "span_job_seconds": 51.46,
+    "killed_resumed_job_seconds": 59.51,
+    "seconds_before_kill": 23.43,
+    "saved_until_seconds": 14.896,
+    "saved_spans_at_kill": 1,
+    "completed_spans": 3,
+    "attempts": 2,
+    "called_span_durations_seconds": [
+      10.976,
+      10.752,
+      10.752,
+      10.72
+    ],
+    "resume_transcript_text_and_timing_equal": true,
+    "resume_audio_and_prompt_hashes_equal": true,
+    "saved_payload_unchanged": true,
+    "old_track_preserved": true,
+    "source_unchanged": true,
+    "legacy_vs_span_text_equal": true,
+    "legacy_vs_span_max_time_delta_seconds": 0.02
+  },
+  "failures_and_fixes": [
+    "Initial restored model folder lacked preprocessor_config.json: expected 128 input features, got 80. Restored pinned file; app now rejects missing config before inference.",
+    "Fresh reviewer found special prompt tokens and possible predicted timestamp overshoot; plain encoding and fresh-output clipping fixed before successful runs."
+  ],
+  "limits": [
+    "One repeated English sample, no natural long-dialogue or multilingual quality conclusion.",
+    "Full decode and VAD repeat; no replay-duration cap for uninterrupted speech.",
+    "Single-run timings include process/model loading and fixture translation; not throughput forecasts.",
+    "No Windows 11/RTX or new browser validation."
+  ]
+}

@@ -59,6 +59,8 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  await w.qa.refreshSubtitles(w.qa.owner());assert(state.textContent.includes('음성 인식을 처음부터'));assert(!state.textContent.includes('전사와 번역'));
  data.jobs[0].error=null;await w.qa.refreshSubtitles(w.qa.owner());assert(state.textContent.includes('처음부터'));
  data.jobs[0].state='running';await w.qa.refreshSubtitles(w.qa.owner());assert(state.textContent.includes('중단하면'));
+ data.jobs[0].asr_completed=2;await w.qa.refreshSubtitles(w.qa.owner());assert(state.textContent.includes('2구간 저장됨'));
+ data.jobs[0].state='paused';await w.qa.refreshSubtitles(w.qa.owner());assert(state.textContent.includes('다음 말소리 구간부터'));assert(!state.textContent.includes('처음부터'));
  data.jobs[0].state='failed';data.jobs[0].error='processing_config_changed';await w.qa.refreshSubtitles(w.qa.owner());
  assert(state.textContent.includes('설정이 바뀌어'));assert(!state.textContent.includes('다음 구간부터'));
  data.jobs[0].error=null;data.jobs[0].stage='translation';data.jobs[0].completed=1;data.jobs[0].total=2;

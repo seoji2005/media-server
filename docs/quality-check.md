@@ -131,13 +131,46 @@ no cue lay wholly inside the long silence. There is no word-alignment gold or sa
 uninterrupted control. The displayed “왜 그녀는 이렇게 우리는 / 이미 그 하나를 시도”
 is awkward Korean; successful recovery and two-line rendering do not resolve quality.
 
-The UI now distinguishes ASR replay from resuming saved translation, including a warning
+At that revision the UI distinguished ASR replay from resuming saved translation, including a warning
 before pausing ASR; the previous generic preservation message hid the repeated work.
 `node tests/ui/subtitles.cjs` passed with both interruption states and configuration-error
 coverage. Main's [post-merge Linux/Windows check](https://github.com/seoji2005/media-server/actions/runs/34034514143)
 passed; inspect the active PR's live checks for subsequent changes.
 
-Partial ASR recovery remains open. This sparse input alone does not justify replacing
-the decoder with a new chunk runtime. Next: one compression-aware enhancement candidate;
-use natural long dialogue and target Windows/RTX as soon as available. No October feature
+This run established the cost of losing partial ASR; the following change addresses
+completed speech spans. It did not establish natural long-dialogue quality. Enhancement
+comparisons are in [their existing record](enhancement-spike.md); no October feature
 has been removed or counted complete by this operational check.
+
+## Speech-span checkpoints — 2026-09-07
+
+At `e6d2219`, real large-v3/int8 CPU ran the existing 48-second public JFK/silence
+fixture in three modes through actual Jobs workers. Translation was a fixed Korean
+fixture, not MADLAD. [Measured results](evidence/asr_span_resume.json):
+
+| Run | Wall time including worker/model load | Result |
+| --- | --- | --- |
+| Prior whole-audio adapter | 44.98 s | Three cues |
+| Uninterrupted speech spans | 51.46 s | Same text; maximum timing difference 20 ms |
+| Kill second span, recover and resume | 59.51 s total | First saved span reused; final text/timing identical to uninterrupted spans |
+
+The kill occurred after 23.43 s with one span durable through source time 14.896 s.
+Call order was spans **1, 2 (interrupted), 2, 3**; resumed audio/prompt hashes matched
+the control suffix. Saved payload, existing SRT track and source bytes stayed unchanged.
+This short case adds recovery with modest overhead; it does not prove longer/mixed
+speech quality. Full PCM decode and VAD still repeat, with no fixed replay cap for
+uninterrupted speech. No new local browser or target RTX evidence is claimed.
+
+Fresh review caught unintended prompt control tokens and valid Whisper end-time
+overshoot; both were fixed and rechecked. Five focused tests cover real child kill,
+stale/corrupt storage, source offsets/prompt restoration, legacy completed transcripts
+and missing feature configuration. The first real control failed because restored
+weights lacked `preprocessor_config.json` (128 versus 80 features); restoring it fixed
+inference and the app now reports missing setup before running.
+
+Validation: Python 142 tests passed before the final setup check; the final five-test
+module and all seven DOM suites passed afterward. An initial run with the wrong
+interpreter failed one existing subprocess test; restored venv execution passed all
+31 subtitle tests. The npm wrapper was cancelled by environment approval, so the same
+seven installed Node scripts ran directly (exit 0). Documentation links passed.
+CI runs the complete final suite and real browser gate; use the PR's current checks.

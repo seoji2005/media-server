@@ -185,7 +185,7 @@ prepare(s,sys.argv[2],1)
         try:
             ready=prepare(other,item['id']);self.assertTrue(ready['available']);self.assertEqual(ready['position'],2.25)
             with other.db() as db:
-                self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],4)
+                self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],5)
                 self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(),[])
                 for t,rows in before.items():self.assertEqual([tuple(r)[:-1] for r in db.execute(f'SELECT * FROM {t}')],rows)
             prepare(other,item['id'],1)

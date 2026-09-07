@@ -17,6 +17,7 @@ import uuid
 from .storage import ID, MediaError, Store, no_symlink
 from .subtitles import MAX_SUBTITLE_BYTES, parse_srt, validate_cues, webvtt, translation_units, korean_text
 from .subtitle_layout import generated_layout
+from . import asr_checkpoints
 
 TRANSLATION_WARNINGS = {'translation_truncated', 'translation_empty', 'translation_input_too_long'}
 
@@ -168,7 +169,7 @@ class Jobs:
     def status(self, item_id):
         media = self.store._row(item_id)
         with self.store.db() as db:
-            jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error,fallback_count,audio_index FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
+            jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error,fallback_count,audio_index,asr_completed,asr_until FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
             tracks = db.execute('SELECT id,source,input_sha,warnings,presentation_summary,audio_index FROM subtitle_tracks WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
         result = []
         for r in tracks:
@@ -420,6 +421,10 @@ def _execute(store, job_id, backend_factory):
         backend = (backend_factory or LocalModels)(store.root)
         def input_identity():
             value = backend.identity()
+            # Keep completed legacy transcripts resumable; only new span-based ASR
+            # includes this profile. Saved spans retain it during translation too.
+            if hasattr(backend, 'transcribe_parts') and (row['transcript'] is None or row['asr_completed']):
+                value = hashlib.sha256(document([value,backend.asr_profile]).encode()).hexdigest()
             timing = getattr(backend, 'audio_timing', None)
             # A saved pre-upgrade transcript needs no re-decode; keep its original
             # timing and model identity. New decodes include the timestamp policy.
@@ -427,7 +432,8 @@ def _execute(store, job_id, backend_factory):
                 return value
             return hashlib.sha256(document([value,row['audio_index'],timing]).encode()).hexdigest()
         identity = input_identity()
-        has_checkpoint = row['transcript'] is not None or row['translation'] != '[]' or row['completed'] or row['total']
+        saved_asr = asr_checkpoints.load(store, row, media['duration'])
+        has_checkpoint = row['transcript'] is not None or row['translation'] != '[]' or row['completed'] or row['total'] or saved_asr
         if has_checkpoint and not row['config_sha']:
             raise MediaError('processing_checkpoint_invalid', 409)
         if row['config_sha'] and row['config_sha'] != identity:
@@ -441,7 +447,27 @@ def _execute(store, job_id, backend_factory):
             try:
                 # FFmpeg reads the app-owned original without another video copy.
                 # Revalidate after decode and before publishing any ready result.
-                transcript = validate_cues(backend.transcribe(store.file_path(media), media['duration'], row['audio_index']), media['duration'])
+                if hasattr(backend, 'transcribe_parts'):
+                    transcript = [c for part in saved_asr for c in part['cues']]
+                    size = sum(len(document(p).encode()) for p in saved_asr)
+                    until = row['asr_until']
+                    parts = backend.transcribe_parts(store.file_path(media), media['duration'], row['audio_index'], saved_asr)
+                    try:
+                        for ordinal, part in enumerate(parts, len(saved_asr)):
+                            part = asr_checkpoints.validate_part(part, media['duration'])
+                            size += len(document(part).encode())
+                            if len(transcript) + len(part['cues']) > asr_checkpoints.MAX_CUES or size > MAX_SUBTITLE_BYTES * 4:
+                                raise MediaError('subtitles_too_large', 422)
+                            part = asr_checkpoints.save(store, job_id, jobs.expected_attempt, ordinal, part, until, media['duration'])
+                            until = part['clip'][1]
+                            transcript.extend(part['cues'])
+                    finally:
+                        parts.close()
+                    transcript = validate_cues(transcript, media['duration'])
+                else:
+                    if saved_asr:
+                        raise MediaError('processing_config_changed', 409)
+                    transcript = validate_cues(backend.transcribe(store.file_path(media), media['duration'], row['audio_index']), media['duration'])
             finally:
                 verified.close()
             store.open_verified(media).close()
@@ -455,6 +481,8 @@ def _execute(store, job_id, backend_factory):
             if hashlib.sha256(row['transcript'].encode()).hexdigest() != row['transcript_sha']:
                 raise MediaError('processing_checkpoint_invalid', 409)
             transcript = validate_cues(json.loads(row['transcript']), media['duration'])
+            if saved_asr and transcript != [c for part in saved_asr for c in part['cues']]:
+                raise MediaError('processing_checkpoint_invalid', 409)
         units = translation_units(transcript)
         translated, warnings = jobs.saved_results(row, units, media['duration'])
         jobs.update(job_id, stage='translation', total=len(units))
