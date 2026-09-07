@@ -1,7 +1,7 @@
 """Transactional SQLite upgrades, including pre-versioned local libraries."""
 from .storage import MediaError
 
-VERSION = 5
+VERSION = 6
 
 
 def _statements(db, sql):
@@ -157,6 +157,8 @@ def migrate(db):
                 payload TEXT NOT NULL, sha256 TEXT NOT NULL,
                 PRIMARY KEY(job_id,ordinal)
             )''')
+        if version < 6:
+            _add(db, 'subtitle_jobs', 'source_track_id', 'TEXT REFERENCES subtitle_tracks(id)')
         db.execute(f'PRAGMA user_version={VERSION}')
         db.commit()
     except BaseException:

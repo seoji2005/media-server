@@ -22,6 +22,42 @@ from . import asr_checkpoints
 TRANSLATION_WARNINGS = {'translation_truncated', 'translation_empty', 'translation_input_too_long'}
 
 
+def retranslation_identity(model_sha, row):
+    return hashlib.sha256(document(['saved-transcript-v1',model_sha,row['source_track_id'],
+        row['input_sha'],row['audio_index'],row['transcript_sha']]).encode()).hexdigest()
+
+
+def saved_transcript(db, media, track_id):
+    """Verify the selected version and return its exact stored ASR bytes/hash."""
+    if not ID.fullmatch(track_id):
+        raise MediaError('subtitle_not_found', 404)
+    track = db.execute('SELECT * FROM subtitle_tracks WHERE id=? AND item_id=?', (track_id,media['id'])).fetchone()
+    if not track or track['source'] != 'generated':
+        raise MediaError('subtitle_not_found', 404)
+    digest = hashlib.sha256((track['cues']+(track['warnings'] or '')+(track['presentation'] or '')+(track['presentation_summary'] or '')).encode()).hexdigest()
+    if track['input_sha'] != media['sha256'] or digest != track['sha256']:
+        raise MediaError('subtitle_changed', 409)
+    audio = json.loads(media['audio_tracks']) if media['audio_tracks'] is not None else None
+    if not 0 <= track['audio_index'] < 128 or (audio is not None and track['audio_index'] >= len(audio)):
+        raise MediaError('subtitle_changed', 409)
+    job = db.execute('''SELECT transcript,transcript_sha FROM subtitle_jobs
+        WHERE id=? AND item_id=? AND input_sha=? AND audio_index=?''',
+        (track['job_id'],media['id'],track['input_sha'],track['audio_index'])).fetchone()
+    if not job or job['transcript'] is None:
+        raise MediaError('subtitle_not_found', 404)
+    encoded = job['transcript'].encode()
+    if len(encoded) > MAX_SUBTITLE_BYTES * 4 or hashlib.sha256(encoded).hexdigest() != job['transcript_sha']:
+        raise MediaError('subtitle_changed', 409)
+    try:
+        cues = validate_cues(json.loads(job['transcript']), media['duration'])
+        if not cues:
+            raise ValueError('empty transcript')
+    except (ValueError, MediaError):
+        raise MediaError('subtitle_changed', 409) from None
+    return {'source_track_id':track_id, 'input_sha':track['input_sha'], 'audio_index':track['audio_index'],
+            'transcript':job['transcript'], 'transcript_sha':job['transcript_sha']}
+
+
 def document(value):
     return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(',', ':'))
 
@@ -169,7 +205,7 @@ class Jobs:
     def status(self, item_id):
         media = self.store._row(item_id)
         with self.store.db() as db:
-            jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error,fallback_count,audio_index,asr_completed,asr_until FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
+            jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error,fallback_count,audio_index,asr_completed,asr_until,source_track_id FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
             tracks = db.execute('''SELECT t.id,t.source,t.input_sha,t.warnings,t.presentation_summary,t.audio_index,
                 EXISTS(SELECT 1 FROM subtitle_jobs j WHERE j.id=t.job_id AND j.item_id=t.item_id
                     AND j.input_sha=t.input_sha AND j.audio_index=t.audio_index
@@ -234,10 +270,12 @@ class Jobs:
             raise MediaError('invalid_audio_track', 422)
         # Supplied Korean subtitles should avoid needless expensive ASR.
         with self.lock, self.store.db() as db:
-            existing = db.execute("SELECT id,audio_index FROM subtitle_jobs WHERE item_id=? AND state IN ('queued','running','paused')", (item_id,)).fetchone()
+            existing = db.execute("SELECT id,audio_index,source_track_id FROM subtitle_jobs WHERE item_id=? AND state IN ('queued','running','paused')", (item_id,)).fetchone()
             if existing:
                 if existing['audio_index'] != index:
                     raise MediaError('processing_audio_conflict', 409)
+                if existing['source_track_id']:
+                    raise MediaError('processing_busy', 409)
                 return self.row(existing['id'])['id']
             if not force and db.execute('SELECT 1 FROM subtitle_tracks WHERE item_id=? AND audio_index=?', (item_id,index)).fetchone():
                 raise MediaError('subtitles_already_available', 409)
@@ -245,6 +283,31 @@ class Jobs:
             self.store.open_verified(row).close()
             job_id = uuid.uuid4().hex
             db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index) VALUES(?,?,?,?,?)', (job_id,item_id,row['sha256'],'queued',index))
+            db.commit()
+            return job_id
+
+    def _queue_translation(self, db, media, seed):
+        from .models import translation_identity
+        config = retranslation_identity(translation_identity(self.store.root), seed)
+        self.store.open_verified(media).close()
+        job_id = uuid.uuid4().hex
+        db.execute('''INSERT INTO subtitle_jobs(id,item_id,input_sha,state,stage,audio_index,
+            source_track_id,transcript,transcript_sha,config_sha) VALUES(?,?,?,'queued','translation',?,?,?,?,?)''',
+            (job_id,media['id'],seed['input_sha'],seed['audio_index'],seed['source_track_id'],
+             seed['transcript'],seed['transcript_sha'],config))
+        return job_id
+
+    def retranslate(self, item_id, track_id):
+        media = self.store._row(item_id)
+        with self.lock, self.store.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            seed = saved_transcript(db, media, track_id)
+            active = db.execute("SELECT id,source_track_id FROM subtitle_jobs WHERE item_id=? AND state IN ('queued','running','paused')", (item_id,)).fetchone()
+            if active:
+                if active['source_track_id'] != track_id:
+                    raise MediaError('processing_busy', 409)
+                return active['id']
+            job_id = self._queue_translation(db, media, seed)
             db.commit()
             return job_id
 
@@ -257,7 +320,8 @@ class Jobs:
                 if row['state'] not in ('failed','paused'):
                     raise MediaError('processing_busy', 409)
                 from .models import local_models
-                local_models(self.store.root, check_packages=True)
+                if not row['source_track_id']:
+                    local_models(self.store.root, check_packages=True)
                 media = self.store._row(row['item_id'])
                 self.store.open_verified(media).close()
                 with self.store.db() as db:
@@ -265,9 +329,13 @@ class Jobs:
                     other = db.execute("SELECT 1 FROM subtitle_jobs WHERE item_id=? AND id<>? AND state IN ('queued','running','paused')", (row['item_id'],job_id)).fetchone()
                     if other:
                         raise MediaError('processing_busy', 409)
+                    seed = saved_transcript(db, media, row['source_track_id']) if row['source_track_id'] else None
                     db.execute("UPDATE subtitle_jobs SET state='superseded' WHERE id=?", (job_id,))
-                    db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index) VALUES(?,?,?,?,?)',
-                               (uuid.uuid4().hex,row['item_id'],media['sha256'],'queued',row['audio_index']))
+                    if seed:
+                        self._queue_translation(db, media, seed)
+                    else:
+                        db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index) VALUES(?,?,?,?,?)',
+                                   (uuid.uuid4().hex,row['item_id'],media['sha256'],'queued',row['audio_index']))
                     db.commit()
                 return
             if action == 'pause':
@@ -283,7 +351,7 @@ class Jobs:
                 if row['state'] not in ('paused','failed'):
                     return
                 from .models import local_models
-                local_models(self.store.root, check_packages=True)
+                local_models(self.store.root, check_packages=True, translation_only=bool(row['source_track_id']))
                 with self.store.db() as db:
                     other = db.execute("SELECT 1 FROM subtitle_jobs WHERE item_id=? AND id<>? AND state IN ('queued','running','paused')", (row['item_id'],job_id)).fetchone()
                 if other:
@@ -348,19 +416,8 @@ class Jobs:
         if transcript:
             # Read the saved ASR for this version, never the newest job or audio.
             with self.store.db() as db:
-                job = db.execute('''SELECT transcript,transcript_sha FROM subtitle_jobs
-                    WHERE id=? AND item_id=? AND input_sha=? AND audio_index=?''',
-                    (row['job_id'],item_id,row['input_sha'],row['audio_index'])).fetchone()
-            if row['source'] != 'generated' or not job or job['transcript'] is None:
-                raise MediaError('subtitle_not_found', 404)
-            encoded = job['transcript'].encode()
-            if len(encoded) > MAX_SUBTITLE_BYTES * 4 or hashlib.sha256(encoded).hexdigest() != job['transcript_sha']:
-                raise MediaError('subtitle_changed', 409)
-            try:
-                cues = validate_cues(json.loads(job['transcript']), media['duration'])
-            except (ValueError, MediaError):
-                raise MediaError('subtitle_changed', 409) from None
-            return webvtt(cues)
+                seed = saved_transcript(db, media, track_id)
+            return webvtt(validate_cues(json.loads(seed['transcript']), media['duration']))
         warning_json = row['warnings'] or '[]'
         warnings = json.loads(warning_json)
         fallback = {w['index'] for w in warnings}
@@ -439,9 +496,16 @@ def _execute(store, job_id, backend_factory):
         if media['sha256'] != row['input_sha']:
             raise MediaError('processing_input_changed', 409)
         store.open_verified(media).close()
-        backend = (backend_factory or LocalModels)(store.root)
+        if row['source_track_id']:
+            with store.db() as db:
+                seed = saved_transcript(db, media, row['source_track_id'])
+            if any(row[k] != seed[k] for k in seed) or row['asr_completed'] or row['asr_until']:
+                raise MediaError('processing_checkpoint_invalid', 409)
+        backend = backend_factory(store.root) if backend_factory else LocalModels(store.root, translation_only=bool(row['source_track_id']))
         def input_identity():
             value = backend.identity()
+            if row['source_track_id']:
+                return retranslation_identity(value, row)
             # Keep completed legacy transcripts resumable; only new span-based ASR
             # includes this profile. Saved spans retain it during translation too.
             if hasattr(backend, 'transcribe_parts') and (row['transcript'] is None or row['asr_completed']):
@@ -454,6 +518,8 @@ def _execute(store, job_id, backend_factory):
             return hashlib.sha256(document([value,row['audio_index'],timing]).encode()).hexdigest()
         identity = input_identity()
         saved_asr = asr_checkpoints.load(store, row, media['duration'])
+        if row['source_track_id'] and saved_asr:
+            raise MediaError('processing_checkpoint_invalid', 409)
         has_checkpoint = row['transcript'] is not None or row['translation'] != '[]' or row['completed'] or row['total'] or saved_asr
         if has_checkpoint and not row['config_sha']:
             raise MediaError('processing_checkpoint_invalid', 409)
