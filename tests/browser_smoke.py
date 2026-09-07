@@ -146,7 +146,17 @@ def run():
                     f'sanitized_server_errors={observed.count("Local server operation failed; check the in-app diagnostic.")}'
                 )
             else:
-                assert log_path.read_bytes() == b'', 'production server unexpectedly logged data'
+                observed = log_path.read_text(encoding='utf-8', errors='replace')
+                # Fixed categories only; retain the strict gate without publishing
+                # paths, URLs or arbitrary exception messages from the server.
+                categories = ('ConnectionResetError', 'ClientDisconnect', 'CancelledError',
+                              'RuntimeError', 'Exception in callback',
+                              'Local server operation failed; check the in-app diagnostic.')
+                assert observed == '', (
+                    'production server unexpectedly logged data: '
+                    f'lines={len(observed.splitlines())}, '
+                    f'categories={dict((name, observed.count(name)) for name in categories)}'
+                )
         assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
         originals = list((data / 'files').glob('*/original.mp4'))
         assert len(originals) == 1 and hashlib.sha256(originals[0].read_bytes()).hexdigest() == digest

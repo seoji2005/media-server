@@ -12,9 +12,68 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import run_translation_compare as compare
+import continue_gemini_comparison as continuation
 
 
 class ComparisonTests(unittest.TestCase):
+    def test_overlapping_continuation_cannot_call_or_overwrite_accounting(self):
+        from media_clarity.storage import MediaError
+        calls=[]
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GEMINI_API_KEY':'dummy'}),contextlib.redirect_stdout(io.StringIO()):
+            out=Path(temp)/'run'
+            def forbidden(*args):self.fail('overlapping paid call')
+            def outer(key,method,body,model):
+                calls.append(json.loads(body['contents'][0]['parts'][0]['text'])[0]['id'])
+                reserved=(out/'report.json').read_bytes()
+                with self.assertRaisesRegex(MediaError,'processing_worker_active'):
+                    continuation.run(out,model,1,Decimal('2'),forbidden)
+                self.assertEqual((out/'report.json').read_bytes(),reserved)
+                return {'seconds':1,'error':'http_error','http_status':503}
+            report=continuation.run(out,'gemini-3.1-flash-lite',1,Decimal('2'),outer)
+            self.assertEqual(calls,['tos_00'])
+            self.assertEqual(len(report['requests']),1)
+            self.assertEqual(report,json.loads((out/'report.json').read_text()))
+
+    def test_continuation_reuses_prior_results_and_does_not_repeat_completed_calls(self):
+        seen = []
+        def call(key,method,body,model):
+            ids=[r['id'] for r in json.loads(body['contents'][0]['parts'][0]['text'])]
+            seen.append(ids)
+            return {'seconds':1,'data':{'usageMetadata':{'promptTokenCount':100,'totalTokenCount':200},
+                'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':json.dumps(
+                    {'translations':[{'id':i,'text':'검증 번역'} for i in ids]})}]}}]}}
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GEMINI_API_KEY':'dummy'}),contextlib.redirect_stdout(io.StringIO()):
+            out=Path(temp)/'run'
+            first=continuation.run(out,'gemini-3.8-flash',1,Decimal('2'),call)
+            self.assertEqual(first['attempted_unique_cases'],24)
+            second=continuation.run(out,'gemini-3.8-flash',1,Decimal('2'),call)
+            self.assertEqual(second['attempted_unique_cases'],32)
+            self.assertEqual(seen,[[f'tos_{i:02}' for i in range(16,24)], [f'tos_{i:02}' for i in range(24,32)]])
+            before=(out/'report.json').read_bytes()
+            with self.assertRaises(ValueError):continuation.run(out,'gemini-3.1-flash-lite',1,Decimal('2'),call)
+            self.assertEqual((out/'report.json').read_bytes(),before)
+
+    def test_continuation_keeps_unknown_reservation_and_stops_repeated_transport_failure(self):
+        calls=[]
+        def crash(*args):
+            calls.append('crash')
+            raise KeyboardInterrupt()
+        def fail(*args):
+            calls.append('fail')
+            return {'seconds':1,'error':'http_error','http_status':503}
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'GEMINI_API_KEY':'dummy'}),contextlib.redirect_stdout(io.StringIO()):
+            out=Path(temp)/'run'
+            with self.assertRaises(KeyboardInterrupt):continuation.run(out,'gemini-3.1-flash-lite',1,Decimal('2'),crash)
+            saved=json.loads((out/'report.json').read_text())
+            self.assertEqual(saved['requests'][0]['state'],'reserved')
+            self.assertGreater(Decimal(saved['requests'][0]['accounted_usd']),0)
+            report=continuation.run(out,'gemini-3.1-flash-lite',8,Decimal('2'),fail)
+            self.assertEqual(calls,['crash','fail'])
+            self.assertEqual(report['state'],'consecutive_failure_stop')
+            self.assertEqual(report['attempted_unique_cases'],16)
+            continuation.run(out,'gemini-3.1-flash-lite',8,Decimal('2'),fail)
+            self.assertEqual(calls,['crash','fail'])
+
     def run_fake(self, response, budget='1'):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)

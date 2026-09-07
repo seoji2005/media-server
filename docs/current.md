@@ -1,9 +1,9 @@
 # Current work
 
-- **Milestone:** explicit Gemini retranslation of saved original dialogue; text-only
-  requests, durable per-request results and provider-preserving resume/restart.
-- **Branch / PR / HEAD:** `app/gemini-translation`, based on main `633192b` after
-  [PR #19](https://github.com/seoji2005/media-server/pull/19) merged. Resolve live work in
+- **Milestone:** [measured API selection](translation-api-selection.md): Gemini 3.1
+  Flash-Lite for new explicit Gemini jobs; preserve existing 3.8 jobs and local default.
+- **Branch / PR / HEAD:** `eval/gemini-api-comparison`, based on main `1adcfec` after
+  [PR #20](https://github.com/seoji2005/media-server/pull/20) merged. Resolve live work in
   [open PRs](https://github.com/seoji2005/media-server/pulls). One writer; [product](product.md) and AGENTS.md govern.
 - **What works:** import/compatible copies, shared audio, playback/resume, actual local
   ASR/Korean captions, recoverable jobs, literal/visual scene search, previews and explicit
@@ -31,11 +31,13 @@
   currently fails with socket EPERM; [Linux/Windows CPU CI](https://github.com/seoji2005/media-server/actions/workflows/verify.yml)
   is available under the owner's spending approval. Earlier long-film/larger-encoder
   requests ended in cancelled approval; do not bypass them.
-- **Next action:** configure `GEMINI_API_KEY`, verify the production saved-transcript
-  path against the real API, and complete the remaining 64 comparison inputs using the
-  16 preserved results. Owner authorized Gemini; its previous temporary key is absent.
-  [Integration and limits](subtitles.md#optional-gemini-retranslation). No real Gemini
-  execution or quality adoption is claimed by the fixture checks. Establish runtime
+- **Next action:** Qwen-MT-Flash is the next translation-focused API candidate if an
+  Alibaba key is supplied; Mistral Small 4 is another documented candidate. Neither has
+  measured quality/refusal evidence here. Gemini 3.8 and 3.1 Lite each completed 80
+  attempts with 79 valid outputs; both blocked the same non-graphic trauma report.
+  2.5 Lite returned 404 twice despite being listed, so it was stopped. The owner-provided
+  Gemini authorization key is retained privately in this work environment, never Git.
+  [Integration and limits](subtitles.md#optional-gemini-retranslation). Establish runtime
   capacity before downloading any further local weights.
   [Qwen3.5 Q6_K](translation-comparison.md#qwen35-q6_k-comparison--2026-09-07)
   completed 80 cases but is not adopted: 64 matched the response format and several
@@ -50,5 +52,5 @@
   treating it as a new holdout. Idioms, register and omissions remain unresolved.
   Target Windows/RTX takes priority on access; natural long speech and useful enhancement
   remain open. Keep all October features included.
-  [Gemini comparison](translation-comparison.md#post-payment-diagnosis) remains incomplete
-  (16/80); local stays default and private egress stays opt-in.
+  The earlier [16/80 Gemini results](translation-comparison.md#post-payment-diagnosis)
+  were reused in the completed comparison; local stays default and private egress stays opt-in.

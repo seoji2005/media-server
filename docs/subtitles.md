@@ -64,7 +64,7 @@ does not change existing jobs' configuration identity or normal ASR resume behav
 ### Optional Gemini retranslation
 
 Select a generated version with saved original text, open **자막 준비**, set
-**다시 번역할 엔진 → Google Gemini · 3.8 Flash**, then press
+**다시 번역할 엔진 → Google Gemini · 3.1 Flash-Lite**, then press
 **저장된 원문으로 다시 번역**. Gemini needs no local translation/ASR models for this
 action. Fresh **한국어 자막 만들기 / 새 자막 만들기** still uses local ASR and MADLAD.
 Opening another video resets this choice to local. Existing versions keep playing;
@@ -106,7 +106,7 @@ with the exact saved transcript identity. Resume and restart retain the selected
 and source; rotating the API key does not discard checkpoints. The endpoint accepts only
 `{"provider":"local"}` or `{"provider":"gemini"}` (empty body remains local).
 
-Up to eight foreign units are requested with `gemini-3.8-flash`, low thinking,
+Up to eight foreign units are requested with `gemini-3.1-flash-lite`, low thinking,
 4,096 output tokens and a JSON response schema. Every successful request is validated
 for full ordered IDs, nonempty bounded text and STOP completion, then checkpointed before
 the next request. Refusal, malformed/truncated output, quota and transport errors stop
@@ -116,12 +116,18 @@ hard pause/crash or failed checkpoint may leave a billed response unsaved; manua
 can resend that request and incur another charge. Completed batches are reused. No
 exactly-once billing, deterministic output or Korean quality improvement is promised.
 
-Integration validation uses synthetic responses, including a separate worker process,
+Existing 3.8 jobs retain their original configuration and model on resume/restart.
+The [API comparison and selection](translation-api-selection.md) measured 80 inputs for
+3.8 and 3.1 Lite. Both returned 79/80 outputs and blocked the same non-graphic trauma
+report; neither has a proven low-refusal guarantee for private sensitive media.
+
+Recovery validation uses synthetic responses, including a separate worker process,
 store restart, partial failure/resume, key rotation, provider conflicts, source/config
-tampering, migration preservation and strict transport/output checks. No real API key
-was available for this implementation. The earlier [16/80 Gemini comparison](translation-comparison.md#post-payment-diagnosis)
-is unchanged; its temporary key was removed. Live API execution and remaining 64 inputs
-still require a configured key. Local Chrome remains blocked by socket EPERM; actual
+tampering, migration preservation and strict transport/output checks. The earlier
+[16/80 comparison](translation-comparison.md#post-payment-diagnosis) is preserved and
+its results were reused when the owner supplied an authorization key. Real public-text
+inference is now measured; source ASR and model quality are not established by fixtures.
+Local Chrome remains blocked by socket EPERM; actual
 Linux/Windows Chrome selection, missing-key and uninterrupted playback checks run in CI.
 
 ### Model setup
