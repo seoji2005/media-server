@@ -24,12 +24,23 @@ def response(rows):
     return {'candidates':[{'finishReason':'STOP', 'content':{'parts':[{'text':json.dumps({'translations':rows})}]}}]}
 
 
-def reply(body, key):
+def reply(body, key, model=None):
     targets = json.loads(body['contents'][0]['parts'][0]['text'])
     return response([{'id':t['id'], 'text':'번역 '+t['text']} for t in targets])
 
 
 class GeminiTransportTests(unittest.TestCase):
+    def test_authorization_key_format_without_header_injection(self):
+        for key in ('synthetic-key','AQ.synthetic_auth-key.123'):
+            with patch.dict(os.environ,{'GEMINI_API_KEY':key}):
+                self.assertEqual(gemini.api_key(),key)
+                self.assertTrue(gemini.configured())
+        for key in ('','x\r\ny: z','x y','x\t','x'*513,'한글'):
+            with patch.dict(os.environ,{'GEMINI_API_KEY':key}):
+                self.assertFalse(gemini.configured())
+                with self.assertRaisesRegex(MediaError,'gemini_key_missing'):
+                    gemini.api_key()
+
     def test_request_fixed_destination_no_proxy_redirect_or_retry(self):
         data = json.dumps(response([{'id':'0', 'text':'안녕'}])).encode()
         with patch('media_clarity.gemini.urllib.request.build_opener') as build:
@@ -107,9 +118,10 @@ class GeminiJobTests(unittest.TestCase):
         original = self.jobs.row(old);vtt=self.jobs.track(self.item['id'],track)
         media = self.store.file_path(self.store._row(self.item['id'])).read_bytes()
         calls = []
-        def capture(body, key):
+        def capture(body, key, model):
             calls.append(body)
             self.assertEqual(key, 'synthetic-key')
+            self.assertEqual(model, 'gemini-3.1-flash-lite')
             return reply(body,key)
         with (patch('media_clarity.models.LocalModels',side_effect=AssertionError('local runtime loaded')),
               patch('media_clarity.gemini.request',side_effect=capture)):
@@ -143,7 +155,7 @@ from media_clarity.storage import Store, MediaError
 from media_clarity.jobs import execute
 from tests.test_gemini import reply
 root=Path(sys.argv[1]); calls=0
-def transport(body,key):
+def transport(body,key,model):
     global calls
     calls+=1
     if calls==2: raise MediaError('gemini_quota',503)
@@ -177,6 +189,35 @@ with patch('media_clarity.gemini.request',side_effect=transport):
         self.assertEqual(successor['translation_config'],gemini.CONFIG)
         self.assertEqual(successor['source_track_id'],track)
         self.assertEqual(successor['transcript'],self.jobs.row(old)['transcript'])
+
+    def test_legacy_38_job_resumes_and_restarts_with_its_original_model(self):
+        from media_clarity.jobs import saved_transcript
+        _,track=self.seed_source()
+        legacy=gemini.CONFIGS['gemini-3.8-flash']
+        self.assertEqual(gemini.model_for(gemini.CONFIG),'gemini-3.1-flash-lite')
+        media=self.store._row(self.item['id'])
+        with self.store.db() as db:
+            seed=saved_transcript(db,media,track)
+            jid=self.jobs._queue_translation(db,media,seed,legacy);db.commit()
+        before=self.jobs.row(jid)
+        self.jobs.action(jid,'pause');self.jobs.action(jid,'resume')
+        with patch('media_clarity.gemini.request',side_effect=reply) as transport:
+            execute(self.store,jid)
+        self.assertEqual(self.jobs.row(jid)['state'],'succeeded')
+        self.assertEqual(transport.call_args.args[2],'gemini-3.8-flash')
+        self.assertEqual(self.jobs.row(jid)['config_sha'],before['config_sha'])
+        # A paused historical job restarts with its saved model, not today's choice.
+        with self.store.db() as db:
+            old=self.jobs._queue_translation(db,media,seed,legacy);db.commit()
+        self.jobs.action(old,'pause');self.jobs.action(old,'restart')
+        with self.store.db() as db:
+            successor=dict(db.execute("SELECT * FROM subtitle_jobs WHERE state='queued'").fetchone())
+        self.assertEqual(successor['translation_config'],legacy)
+        self.assertEqual(successor['config_sha'],before['config_sha'])
+        with patch('media_clarity.gemini.request',side_effect=reply) as transport:
+            execute(self.store,successor['id'])
+        self.assertEqual(transport.call_args.args[2],'gemini-3.8-flash')
+
 
     def test_tampering_and_refusal_never_send_or_publish(self):
         _,track=self.seed_source()

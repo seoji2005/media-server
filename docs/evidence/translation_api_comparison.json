@@ -1,0 +1,4697 @@
+{
+  "date": "2026-09-07",
+  "base": "1adcfec8bd65fcd4a89424c5f1e7743c56017931",
+  "fixture_sha256": "d6a3734789dd02e5d9425635e81484fa187e1fdf58163e3e05dda55955501dec",
+  "fixture_units": 80,
+  "film_units": 56,
+  "authored_units": 24,
+  "sensitive_units": 12,
+  "runs": {
+    "gemini38": {
+      "model": "gemini-3.8-flash",
+      "state": "attempted_all",
+      "rates_per_million_usd": [
+        "0.75",
+        "3.75"
+      ],
+      "totals": {
+        "attempted_units": 80,
+        "valid_units": 79,
+        "blocked_ids": [
+          "auth_17"
+        ],
+        "api_seconds_including_failures": 360.7646925920053,
+        "film_batch8_median_seconds": 16.621364912003628,
+        "common_current40_film_seconds": 90.15259698202135,
+        "usage_price_estimate_usd": "0.01313850",
+        "unknown_cost_reservations_usd": "0"
+      },
+      "requests": [
+        {
+          "ids": [
+            "tos_00",
+            "tos_01",
+            "tos_02",
+            "tos_03",
+            "tos_04",
+            "tos_05",
+            "tos_06",
+            "tos_07"
+          ],
+          "reused": true,
+          "request_sha256": "2e31a478305415ec1ddeed7700bc7e2549364484c99e5fa4c85064ffea9d4dae",
+          "seconds": 14.688945639005397,
+          "usage_price_estimate_usd": "0.00164250",
+          "usage": {
+            "promptTokenCount": 605,
+            "candidatesTokenCount": 317,
+            "totalTokenCount": 922,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 605
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_00",
+                "text": "메인 엔진 가동, 4, 3, 2, 1."
+              },
+              {
+                "id": "tos_01",
+                "text": "실리아, 우린 각자의 열정을 따라야 해."
+              },
+              {
+                "id": "tos_02",
+                "text": "넌 로봇 공학이 있고 난 그저 우주에서 멋지게 살고 싶다고."
+              },
+              {
+                "id": "tos_03",
+                "text": "내 로봇 손이 무섭다고 솔직히 인정하는 게 어때?"
+              },
+              {
+                "id": "tos_04",
+                "text": "무서운 거 아니거든."
+              },
+              {
+                "id": "tos_05",
+                "text": "좋아, 그래. 무서워 죽겠어."
+              },
+              {
+                "id": "tos_06",
+                "text": "이 거대한 로봇 집게발한테 쫓기는 악몽까지 꾼다고."
+              },
+              {
+                "id": "tos_07",
+                "text": "마음대로 해, 톰. 우린 끝났어."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_08",
+            "tos_09",
+            "tos_10",
+            "tos_11",
+            "tos_12",
+            "tos_13",
+            "tos_14",
+            "tos_15"
+          ],
+          "reused": true,
+          "request_sha256": "2b97c053b787b0bbe5fc50c4c80b8bb7e860bc39051d2992fc0259975e6448b1",
+          "seconds": 13.201084490996436,
+          "usage_price_estimate_usd": "0.00135600",
+          "usage": {
+            "promptTokenCount": 433,
+            "candidatesTokenCount": 275,
+            "totalTokenCount": 708,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 433
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_08",
+                "text": "로봇 메모리 동기화 및 고정 완료."
+              },
+              {
+                "id": "tos_09",
+                "text": "이거 꽤 소름 돋네."
+              },
+              {
+                "id": "tos_10",
+                "text": "밑에서 어디 있었어?"
+              },
+              {
+                "id": "tos_11",
+                "text": "어젯밤에 너희 얘기하는 거 들었어."
+              },
+              {
+                "id": "tos_12",
+                "text": "내 탓은 아니잖아."
+              },
+              {
+                "id": "tos_13",
+                "text": "당연히 준비됐지. 넌 록스타잖아!"
+              },
+              {
+                "id": "tos_14",
+                "text": "상황이 어때, 발리?"
+              },
+              {
+                "id": "tos_15",
+                "text": "10분 정도 남았어요."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_16",
+            "tos_17",
+            "tos_18",
+            "tos_19",
+            "tos_20",
+            "tos_21",
+            "tos_22",
+            "tos_23"
+          ],
+          "reused": false,
+          "request_sha256": "bb554cbc67f4f26b7fcc2bb62dbcedf9654a92dcc23c2714147650ace792026b",
+          "seconds": 17.51557606800634,
+          "usage_price_estimate_usd": "0.00121950",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 436,
+            "candidatesTokenCount": 238,
+            "totalTokenCount": 674,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 436
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_16",
+                "text": "완벽하네요."
+              },
+              {
+                "id": "tos_17",
+                "text": "1분이면 돼요."
+              },
+              {
+                "id": "tos_18",
+                "text": "준비 완료!"
+              },
+              {
+                "id": "tos_19",
+                "text": "그래, 어서 가! 가!"
+              },
+              {
+                "id": "tos_20",
+                "text": "좋네요."
+              },
+              {
+                "id": "tos_21",
+                "text": "걱정할 것 없어요."
+              },
+              {
+                "id": "tos_22",
+                "text": "톰!"
+              },
+              {
+                "id": "tos_23",
+                "text": "이게 네 열정이잖아."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_24",
+            "tos_25",
+            "tos_26",
+            "tos_27",
+            "tos_28",
+            "tos_29",
+            "tos_30",
+            "tos_31"
+          ],
+          "reused": false,
+          "request_sha256": "e40e1b9321814b69406004feff868c6a240918b7192665ecbcbe95315d5723fe",
+          "seconds": 16.361247628003184,
+          "usage_price_estimate_usd": "0.00127125",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 430,
+            "candidatesTokenCount": 253,
+            "totalTokenCount": 683,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 430
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_24",
+                "text": "솔직해져 봐."
+              },
+              {
+                "id": "tos_25",
+                "text": "사랑이 뭔지 일깨워 줘."
+              },
+              {
+                "id": "tos_26",
+                "text": "운행이 진행 중입니다."
+              },
+              {
+                "id": "tos_27",
+                "text": "너 정말 재수 없어, 톰!"
+              },
+              {
+                "id": "tos_28",
+                "text": "아, 미안해!"
+              },
+              {
+                "id": "tos_29",
+                "text": "미안."
+              },
+              {
+                "id": "tos_30",
+                "text": "있잖아, 실리아."
+              },
+              {
+                "id": "tos_31",
+                "text": "우린 각자의 열정을 따라야 해."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_32",
+            "tos_33",
+            "tos_34",
+            "tos_35",
+            "tos_36",
+            "tos_37",
+            "tos_38",
+            "tos_39"
+          ],
+          "reused": false,
+          "request_sha256": "ca8c1b2281e1262c24f64a9ccb4dbda5a2e3104474316cd88e7cb4c0edea22cf",
+          "seconds": 16.621364912003628,
+          "usage_price_estimate_usd": "0.00088275",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 457,
+            "candidatesTokenCount": 144,
+            "totalTokenCount": 601,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 457
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_32",
+                "text": "넌 로봇 공학이 있잖아"
+              },
+              {
+                "id": "tos_33",
+                "text": "난 그저 우주에서 멋진 사람이 되고 싶을 뿐이야"
+              },
+              {
+                "id": "tos_34",
+                "text": "들어가는 게 좋겠어"
+              },
+              {
+                "id": "tos_35",
+                "text": "2분 남았습니다"
+              },
+              {
+                "id": "tos_36",
+                "text": "2분이요"
+              },
+              {
+                "id": "tos_37",
+                "text": "속도 좀 내, 톰!"
+              },
+              {
+                "id": "tos_38",
+                "text": "비바 치초!"
+              },
+              {
+                "id": "tos_39",
+                "text": "내 로봇 손이 겁난다고 그냥 인정하지 그래?"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_40",
+            "tos_41",
+            "tos_42",
+            "tos_43",
+            "tos_44",
+            "tos_45",
+            "tos_46",
+            "tos_47"
+          ],
+          "reused": false,
+          "request_sha256": "481257e2997a35cfe7a528763ef3586ed55d60d27ffacd7834c458ce8e40b71b",
+          "seconds": 21.329529214002832,
+          "usage_price_estimate_usd": "0.00084900",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 422,
+            "candidatesTokenCount": 142,
+            "totalTokenCount": 564,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 422
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_40",
+                "text": "내 말 들어 봐, 실리아."
+              },
+              {
+                "id": "tos_41",
+                "text": "그땐 어렸고"
+              },
+              {
+                "id": "tos_42",
+                "text": "재수 없게 굴었지."
+              },
+              {
+                "id": "tos_43",
+                "text": "하지만 세상을 파괴할 이유는 없잖아."
+              },
+              {
+                "id": "tos_44",
+                "text": "얜 왜 이러는 거야?"
+              },
+              {
+                "id": "tos_45",
+                "text": "그건 이미 해 봤어."
+              },
+              {
+                "id": "tos_46",
+                "text": "안 돼!"
+              },
+              {
+                "id": "tos_47",
+                "text": "날 비참하게 차 버렸잖아!"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_48",
+            "tos_49",
+            "tos_50",
+            "tos_51",
+            "tos_52",
+            "tos_53",
+            "tos_54",
+            "tos_55"
+          ],
+          "reused": false,
+          "request_sha256": "a4eff1a01bc6820121047e8f19fef006d683c591e2fa9589f559293520792dc5",
+          "seconds": 18.324879160005366,
+          "usage_price_estimate_usd": "0.00080775",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 407,
+            "candidatesTokenCount": 134,
+            "totalTokenCount": 541,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 407
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_48",
+                "text": "지구에 날 두고 갔잖아."
+              },
+              {
+                "id": "tos_49",
+                "text": "알아."
+              },
+              {
+                "id": "tos_50",
+                "text": "확 짓밟아 버릴까 보다!"
+              },
+              {
+                "id": "tos_51",
+                "text": "미안해."
+              },
+              {
+                "id": "tos_52",
+                "text": "애드리브 좋았어."
+              },
+              {
+                "id": "tos_53",
+                "text": "내 잘못 아니야!"
+              },
+              {
+                "id": "tos_54",
+                "text": "갈아입어, 실리아."
+              },
+              {
+                "id": "tos_55",
+                "text": "카메라는 안 돼."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_00",
+            "auth_01",
+            "auth_02",
+            "auth_03",
+            "auth_04",
+            "auth_05"
+          ],
+          "reused": false,
+          "request_sha256": "0d64d9a366779c1de1f30971988e4ccbb774997cb54a8deed8fdcc992151bd91",
+          "seconds": 16.707290140002442,
+          "usage_price_estimate_usd": "0.00106500",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 410,
+            "candidatesTokenCount": 202,
+            "totalTokenCount": 612,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 410
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_00",
+                "text": "잘됐네. 딱 바라던 바야."
+              },
+              {
+                "id": "auth_01",
+                "text": "이제 와서 날 포기하려는 건 아니지?"
+              },
+              {
+                "id": "auth_02",
+                "text": "실수로 말해 버렸어."
+              },
+              {
+                "id": "auth_03",
+                "text": "미나가 재 대신 일해 준대."
+              },
+              {
+                "id": "auth_04",
+                "text": "아뇨, 괜찮습니다."
+              },
+              {
+                "id": "auth_05",
+                "text": "혼자서도 괜찮아."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_06",
+            "auth_07",
+            "auth_08",
+            "auth_09",
+            "auth_10",
+            "auth_11"
+          ],
+          "reused": false,
+          "request_sha256": "9265b0ab2cec1b54ed812f88e8596ec8590bac6ebbf9d9381f5a1ac5f19b8861",
+          "seconds": 15.234173778000695,
+          "usage_price_estimate_usd": "0.00109725",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 423,
+            "candidatesTokenCount": 208,
+            "totalTokenCount": 631,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 423
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_06",
+                "text": "죄송하지만 내일까지 기다려 주시겠습니까?"
+              },
+              {
+                "id": "auth_07",
+                "text": "안 온다고는 안 했어."
+              },
+              {
+                "id": "auth_08",
+                "text": "5시 15분. 10분 뒤에 도착해."
+              },
+              {
+                "id": "auth_09",
+                "text": "RAM은 충분해. GPU 메모리가 꽉 찬 거야."
+              },
+              {
+                "id": "auth_10",
+                "text": "그런 문제가 아니야."
+              },
+              {
+                "id": "auth_11",
+                "text": "들어줄까?"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_12"
+          ],
+          "reused": false,
+          "request_sha256": "4117fd7606ab774fd075d081affd28b71c568adcccbf76afced369366441472a",
+          "seconds": 17.508073670993326,
+          "usage_price_estimate_usd": "0.00022950",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 201,
+            "candidatesTokenCount": 21,
+            "totalTokenCount": 222,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 201
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_12",
+                "text": "내 집에서 당장 꺼져!"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_13"
+          ],
+          "reused": false,
+          "request_sha256": "24f20cc2546e7c830d188512b338dce0c5f806b6c94a04fa2033c0b99bdd10ed",
+          "seconds": 15.415811681996274,
+          "usage_price_estimate_usd": "0.00024600",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 203,
+            "candidatesTokenCount": 25,
+            "totalTokenCount": 228,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 203
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_13",
+                "text": "누구한테라도 말하면 죽여버릴 거야."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_14"
+          ],
+          "reused": false,
+          "request_sha256": "3d1c03c59e0608b27f4baa315a967916b301ecba089bfafa504819862784cd83",
+          "seconds": 16.0986782330001,
+          "usage_price_estimate_usd": "0.00025725",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 203,
+            "candidatesTokenCount": 28,
+            "totalTokenCount": 231,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 203
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_14",
+                "text": "그 남자는 클럽 밖에서 코카인을 팔고 있었습니다."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_15"
+          ],
+          "reused": false,
+          "request_sha256": "98d1aa4e8099a3bbede68af7ee7e9b18e1bc41c108460efa87a2144309d8a7bf",
+          "seconds": 15.503684372000862,
+          "usage_price_estimate_usd": "0.00034575",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 206,
+            "candidatesTokenCount": 51,
+            "totalTokenCount": 257,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 206
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_15",
+                "text": "잠자리를 갖긴 했지만, 다시 사귀는 건 아니야."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_16"
+          ],
+          "reused": false,
+          "request_sha256": "9447c5ed1befc9d2d06affb5211a90d15bdf7385477eb7faa50c752e375e2841",
+          "seconds": 16.07901550799579,
+          "usage_price_estimate_usd": "0.00022725",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 198,
+            "candidatesTokenCount": 21,
+            "totalTokenCount": 219,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 198
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_16",
+                "text": "콘돔 쓰는 게 좋겠어."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_17"
+          ],
+          "reused": false,
+          "request_sha256": "6b4d45a6d6123130b4a07730a3a6c515eaab0dcfbd216603e2e781e70be66528",
+          "seconds": 15.358739242998126,
+          "usage_price_estimate_usd": "0.00015600",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 208,
+            "totalTokenCount": 208,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 208
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": false,
+            "problem": "candidate_count",
+            "prompt_feedback": {
+              "blockReason": "PROHIBITED_CONTENT"
+            },
+            "model_version": "gemini-3.8-flash"
+          }
+        },
+        {
+          "ids": [
+            "auth_18"
+          ],
+          "reused": false,
+          "request_sha256": "74e3284d54c11648baa22d52271b90d2cab60f468a05112b8fe9369c3b4c5f47",
+          "seconds": 16.447650324997085,
+          "usage_price_estimate_usd": "0.00026925",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 209,
+            "candidatesTokenCount": 30,
+            "totalTokenCount": 239,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 209
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_18",
+                "text": "자살할까 생각했거든, 그래서 도움을 요청하려고 전화했어."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_19"
+          ],
+          "reused": false,
+          "request_sha256": "7e2347c9171c4c679441ca0c5ed5caac647f945ac7d43397490a37d99f9e96c9",
+          "seconds": 15.779127752997738,
+          "usage_price_estimate_usd": "0.00029025",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 207,
+            "candidatesTokenCount": 36,
+            "totalTokenCount": 243,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 207
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_19",
+                "text": "그 사람은 인종차별적 모욕을 썼어요. 이곳에선 용납되지 않아요."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_20"
+          ],
+          "reused": false,
+          "request_sha256": "5ac7916301885697c63ff3545834fee38f5a18694d6b68e0b684438d8befb4c8",
+          "seconds": 17.23564633099886,
+          "usage_price_estimate_usd": "0.00022650",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 202,
+            "candidatesTokenCount": 20,
+            "totalTokenCount": 222,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 202
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_20",
+                "text": "젠장, 장난해?"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_21"
+          ],
+          "reused": false,
+          "request_sha256": "6f07c54ea8a94b994c2e08a194552e8e9a9484d66460a26bf4ce2304b70a8a1a",
+          "seconds": 15.248064289000467,
+          "usage_price_estimate_usd": "0.00024450",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 211,
+            "candidatesTokenCount": 23,
+            "totalTokenCount": 234,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 211
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_21",
+                "text": "쏘지 마! 그 사람은 의사야!"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_22"
+          ],
+          "reused": false,
+          "request_sha256": "f41f615ed5516c54eed47a44e0972207a3f509709b5a77a4a89a7ab48567853b",
+          "seconds": 16.575258432996634,
+          "usage_price_estimate_usd": "0.00023850",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 208,
+            "candidatesTokenCount": 22,
+            "totalTokenCount": 230,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 208
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_22",
+                "text": "오늘 밤엔 관계하고 싶지 않아."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_23"
+          ],
+          "reused": false,
+          "request_sha256": "451d013202fc97206b7070618ce810bdcdf5f9ff10422755092b38f1f23bf3ac",
+          "seconds": 33.53085172200372,
+          "usage_price_estimate_usd": "0.00021675",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 204,
+            "candidatesTokenCount": 17,
+            "totalTokenCount": 221,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 204
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.8-flash",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_23",
+                "text": "콘돔 있어?"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "gemini31lite": {
+      "model": "gemini-3.1-flash-lite",
+      "state": "attempted_all",
+      "rates_per_million_usd": [
+        "0.25",
+        "1.50"
+      ],
+      "totals": {
+        "attempted_units": 80,
+        "valid_units": 79,
+        "blocked_ids": [
+          "auth_17"
+        ],
+        "api_seconds_including_failures": 372.09556399999565,
+        "film_batch8_median_seconds": 16.99821111300116,
+        "common_current40_film_seconds": 82.32013158899645,
+        "usage_price_estimate_usd": "0.00753075",
+        "unknown_cost_reservations_usd": "0"
+      },
+      "requests": [
+        {
+          "ids": [
+            "tos_00",
+            "tos_01",
+            "tos_02",
+            "tos_03",
+            "tos_04",
+            "tos_05",
+            "tos_06",
+            "tos_07"
+          ],
+          "reused": false,
+          "request_sha256": "f409977d381137f1c4f8077afbe96c2e9860e0be5571d661635bdc79e9266fe8",
+          "seconds": 18.80055220599752,
+          "usage_price_estimate_usd": "0.00062525",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 605,
+            "candidatesTokenCount": 198,
+            "totalTokenCount": 921,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 605
+              }
+            ],
+            "thoughtsTokenCount": 118,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_00",
+                "text": "메인 엔진 점화, 4, 3, 2, 1."
+              },
+              {
+                "id": "tos_01",
+                "text": "봐, 셀리아. 우린 각자 열정을 따라야 해."
+              },
+              {
+                "id": "tos_02",
+                "text": "넌 로봇 공학을 하고, 난 그냥 우주에서 멋지게 살고 싶을 뿐이야."
+              },
+              {
+                "id": "tos_03",
+                "text": "그냥 내 로봇 손이 무섭다고 인정하면 안 돼?"
+              },
+              {
+                "id": "tos_04",
+                "text": "안 무서워."
+              },
+              {
+                "id": "tos_05",
+                "text": "그래, 알았어. 무서워."
+              },
+              {
+                "id": "tos_06",
+                "text": "거대한 로봇 발톱에 쫓기는 악몽까지 꾼다고."
+              },
+              {
+                "id": "tos_07",
+                "text": "됐어, 톰. 우리 끝내 끝이야."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_08",
+            "tos_09",
+            "tos_10",
+            "tos_11",
+            "tos_12",
+            "tos_13",
+            "tos_14",
+            "tos_15"
+          ],
+          "reused": false,
+          "request_sha256": "54ad2458d264b4a26c2b11e3cc28fc380a870f5ec489fcd426fc1729bca479e8",
+          "seconds": 17.582533057000546,
+          "usage_price_estimate_usd": "0.00053875",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 433,
+            "candidatesTokenCount": 165,
+            "totalTokenCount": 720,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 433
+              }
+            ],
+            "thoughtsTokenCount": 122,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_08",
+                "text": "로봇 메모리 동기화 및 잠금 완료."
+              },
+              {
+                "id": "tos_09",
+                "text": "이거 좀 기분 나쁘네."
+              },
+              {
+                "id": "tos_10",
+                "text": "밑에서 뭐 하고 있었어?"
+              },
+              {
+                "id": "tos_11",
+                "text": "어젯밤에 너희들 얘기하는 거 다 들었어."
+              },
+              {
+                "id": "tos_12",
+                "text": "내 잘못이 아니야, 알잖아."
+              },
+              {
+                "id": "tos_13",
+                "text": "당연히 준비됐지. 넌 락스타니까!"
+              },
+              {
+                "id": "tos_14",
+                "text": "상황은 어때, 발리?"
+              },
+              {
+                "id": "tos_15",
+                "text": "10분 정도 시간 있어."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_16",
+            "tos_17",
+            "tos_18",
+            "tos_19",
+            "tos_20",
+            "tos_21",
+            "tos_22",
+            "tos_23"
+          ],
+          "reused": false,
+          "request_sha256": "bb554cbc67f4f26b7fcc2bb62dbcedf9654a92dcc23c2714147650ace792026b",
+          "seconds": 17.051549263997003,
+          "usage_price_estimate_usd": "0.00048550",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 436,
+            "candidatesTokenCount": 129,
+            "totalTokenCount": 687,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 436
+              }
+            ],
+            "thoughtsTokenCount": 122,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_16",
+                "text": "잘됐네, 완벽해."
+              },
+              {
+                "id": "tos_17",
+                "text": "우린 하나뿐이야."
+              },
+              {
+                "id": "tos_18",
+                "text": "모든 시스템 정상!"
+              },
+              {
+                "id": "tos_19",
+                "text": "그래, 가! 어서 가!"
+              },
+              {
+                "id": "tos_20",
+                "text": "좋네."
+              },
+              {
+                "id": "tos_21",
+                "text": "걱정할 거 없어."
+              },
+              {
+                "id": "tos_22",
+                "text": "톰!"
+              },
+              {
+                "id": "tos_23",
+                "text": "이건 너의 열정이야."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_24",
+            "tos_25",
+            "tos_26",
+            "tos_27",
+            "tos_28",
+            "tos_29",
+            "tos_30",
+            "tos_31"
+          ],
+          "reused": false,
+          "request_sha256": "e40e1b9321814b69406004feff868c6a240918b7192665ecbcbe95315d5723fe",
+          "seconds": 16.08563539500028,
+          "usage_price_estimate_usd": "0.00046600",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 430,
+            "candidatesTokenCount": 137,
+            "totalTokenCount": 669,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 430
+              }
+            ],
+            "thoughtsTokenCount": 102,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_24",
+                "text": "솔직해져 봐."
+              },
+              {
+                "id": "tos_25",
+                "text": "사랑이 뭔지 다시 알려줘."
+              },
+              {
+                "id": "tos_26",
+                "text": "운행 중인 차량이 있습니다."
+              },
+              {
+                "id": "tos_27",
+                "text": "톰, 당신 정말 최악이야!"
+              },
+              {
+                "id": "tos_28",
+                "text": "아, 미안해요!"
+              },
+              {
+                "id": "tos_29",
+                "text": "미안해요."
+              },
+              {
+                "id": "tos_30",
+                "text": "봐요, 셀리아."
+              },
+              {
+                "id": "tos_31",
+                "text": "우린 열정을 따라야 해요."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_32",
+            "tos_33",
+            "tos_34",
+            "tos_35",
+            "tos_36",
+            "tos_37",
+            "tos_38",
+            "tos_39"
+          ],
+          "reused": false,
+          "request_sha256": "ca8c1b2281e1262c24f64a9ccb4dbda5a2e3104474316cd88e7cb4c0edea22cf",
+          "seconds": 16.99821111300116,
+          "usage_price_estimate_usd": "0.00050425",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 457,
+            "candidatesTokenCount": 147,
+            "totalTokenCount": 717,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 457
+              }
+            ],
+            "thoughtsTokenCount": 113,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_32",
+                "text": "넌 로봇 공학이 있잖아."
+              },
+              {
+                "id": "tos_33",
+                "text": "난 그냥 우주에서 멋진 사람이 되고 싶어."
+              },
+              {
+                "id": "tos_34",
+                "text": "어서 들어오는 게 좋겠어."
+              },
+              {
+                "id": "tos_35",
+                "text": "2분 남았어."
+              },
+              {
+                "id": "tos_36",
+                "text": "2분."
+              },
+              {
+                "id": "tos_37",
+                "text": "서둘러, 톰!"
+              },
+              {
+                "id": "tos_38",
+                "text": "비바 치초!"
+              },
+              {
+                "id": "tos_39",
+                "text": "내 로봇 손 때문에 겁먹었다고 그냥 인정하지 그래."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_40",
+            "tos_41",
+            "tos_42",
+            "tos_43",
+            "tos_44",
+            "tos_45",
+            "tos_46",
+            "tos_47"
+          ],
+          "reused": false,
+          "request_sha256": "481257e2997a35cfe7a528763ef3586ed55d60d27ffacd7834c458ce8e40b71b",
+          "seconds": 16.103873519001354,
+          "usage_price_estimate_usd": "0.00047150",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 422,
+            "candidatesTokenCount": 136,
+            "totalTokenCount": 666,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 422
+              }
+            ],
+            "thoughtsTokenCount": 108,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_40",
+                "text": "들어봐, 셀리아."
+              },
+              {
+                "id": "tos_41",
+                "text": "그땐 어렸어."
+              },
+              {
+                "id": "tos_42",
+                "text": "그리고 개자식이었지."
+              },
+              {
+                "id": "tos_43",
+                "text": "하지만 세상을 파괴할 이유는 없어."
+              },
+              {
+                "id": "tos_44",
+                "text": "왜 저러는 거지?"
+              },
+              {
+                "id": "tos_45",
+                "text": "그건 이미 해봤잖아."
+              },
+              {
+                "id": "tos_46",
+                "text": "안 돼!"
+              },
+              {
+                "id": "tos_47",
+                "text": "내 마음을 아프게 했어!"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "tos_48",
+            "tos_49",
+            "tos_50",
+            "tos_51",
+            "tos_52",
+            "tos_53",
+            "tos_54",
+            "tos_55"
+          ],
+          "reused": false,
+          "request_sha256": "a4eff1a01bc6820121047e8f19fef006d683c591e2fa9589f559293520792dc5",
+          "seconds": 16.080862297996646,
+          "usage_price_estimate_usd": "0.00048425",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 407,
+            "candidatesTokenCount": 133,
+            "totalTokenCount": 662,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 407
+              }
+            ],
+            "thoughtsTokenCount": 122,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "tos_48",
+                "text": "넌 날 지구에 두고 왔어."
+              },
+              {
+                "id": "tos_49",
+                "text": "알아."
+              },
+              {
+                "id": "tos_50",
+                "text": "널 으깨버려야겠어!"
+              },
+              {
+                "id": "tos_51",
+                "text": "미안해."
+              },
+              {
+                "id": "tos_52",
+                "text": "좋은 애드리브네."
+              },
+              {
+                "id": "tos_53",
+                "text": "내 탓이 아니야!"
+              },
+              {
+                "id": "tos_54",
+                "text": "바꿔, 셀리아."
+              },
+              {
+                "id": "tos_55",
+                "text": "카메라 치워."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_00",
+            "auth_01",
+            "auth_02",
+            "auth_03",
+            "auth_04",
+            "auth_05"
+          ],
+          "reused": false,
+          "request_sha256": "0d64d9a366779c1de1f30971988e4ccbb774997cb54a8deed8fdcc992151bd91",
+          "seconds": 16.731087806001597,
+          "usage_price_estimate_usd": "0.00044300",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 410,
+            "candidatesTokenCount": 113,
+            "totalTokenCount": 637,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 410
+              }
+            ],
+            "thoughtsTokenCount": 114,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_00",
+                "text": "잘됐다. 딱 우리가 필요했던 거네."
+              },
+              {
+                "id": "auth_01",
+                "text": "지금 나 포기하려는 건 아니지?"
+              },
+              {
+                "id": "auth_02",
+                "text": "말실수해 버렸어."
+              },
+              {
+                "id": "auth_03",
+                "text": "미나가 재 대신 근무 서기로 했어."
+              },
+              {
+                "id": "auth_04",
+                "text": "아뇨, 괜찮습니다."
+              },
+              {
+                "id": "auth_05",
+                "text": "혼자서 괜찮아."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_06",
+            "auth_07",
+            "auth_08",
+            "auth_09",
+            "auth_10",
+            "auth_11"
+          ],
+          "reused": false,
+          "request_sha256": "9265b0ab2cec1b54ed812f88e8596ec8590bac6ebbf9d9381f5a1ac5f19b8861",
+          "seconds": 17.12548675200378,
+          "usage_price_estimate_usd": "0.00044625",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 423,
+            "candidatesTokenCount": 123,
+            "totalTokenCount": 650,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 423
+              }
+            ],
+            "thoughtsTokenCount": 104,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_06",
+                "text": "죄송하지만 내일까지 기다려 주시겠어요?"
+              },
+              {
+                "id": "auth_07",
+                "text": "안 온다고는 안 했어."
+              },
+              {
+                "id": "auth_08",
+                "text": "5시 15분. 10분 뒤에 도착해."
+              },
+              {
+                "id": "auth_09",
+                "text": "RAM은 충분해. GPU 메모리가 꽉 찼어."
+              },
+              {
+                "id": "auth_10",
+                "text": "그런 문제가 아니야."
+              },
+              {
+                "id": "auth_11",
+                "text": "좀 들어줄까?"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_12"
+          ],
+          "reused": false,
+          "request_sha256": "4117fd7606ab774fd075d081affd28b71c568adcccbf76afced369366441472a",
+          "seconds": 36.90774759300257,
+          "usage_price_estimate_usd": "0.00025725",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 201,
+            "candidatesTokenCount": 20,
+            "totalTokenCount": 339,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 201
+              }
+            ],
+            "thoughtsTokenCount": 118,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_12",
+                "text": "당장 내 집에서 나가!"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_13"
+          ],
+          "reused": false,
+          "request_sha256": "24f20cc2546e7c830d188512b338dce0c5f806b6c94a04fa2033c0b99bdd10ed",
+          "seconds": 17.158453520001785,
+          "usage_price_estimate_usd": "0.00025325",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 203,
+            "candidatesTokenCount": 25,
+            "totalTokenCount": 338,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 203
+              }
+            ],
+            "thoughtsTokenCount": 110,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_13",
+                "text": "누구한테든 말하면 죽여버릴 거야."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_14"
+          ],
+          "reused": false,
+          "request_sha256": "3d1c03c59e0608b27f4baa315a967916b301ecba089bfafa504819862784cd83",
+          "seconds": 15.682107102998998,
+          "usage_price_estimate_usd": "0.00023975",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 203,
+            "candidatesTokenCount": 27,
+            "totalTokenCount": 329,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 203
+              }
+            ],
+            "thoughtsTokenCount": 99,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_14",
+                "text": "그 클럽 밖에서 코카인을 팔고 있었어요."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_15"
+          ],
+          "reused": false,
+          "request_sha256": "98d1aa4e8099a3bbede68af7ee7e9b18e1bc41c108460efa87a2144309d8a7bf",
+          "seconds": 17.458046973995806,
+          "usage_price_estimate_usd": "0.00029600",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 206,
+            "candidatesTokenCount": 27,
+            "totalTokenCount": 369,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 206
+              }
+            ],
+            "thoughtsTokenCount": 136,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_15",
+                "text": "잠자리는 했지만, 다시 사귀는 건 아니야."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_16"
+          ],
+          "reused": false,
+          "request_sha256": "9447c5ed1befc9d2d06affb5211a90d15bdf7385477eb7faa50c752e375e2841",
+          "seconds": 16.515261514003214,
+          "usage_price_estimate_usd": "0.00025800",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 198,
+            "candidatesTokenCount": 22,
+            "totalTokenCount": 337,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 198
+              }
+            ],
+            "thoughtsTokenCount": 117,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_16",
+                "text": "콘돔을 사용하는 게 좋겠어."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_17"
+          ],
+          "reused": false,
+          "request_sha256": "6b4d45a6d6123130b4a07730a3a6c515eaab0dcfbd216603e2e781e70be66528",
+          "seconds": 15.863541475002421,
+          "usage_price_estimate_usd": "0.00005200",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 208,
+            "totalTokenCount": 208,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 208
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": false,
+            "problem": "candidate_count",
+            "prompt_feedback": {
+              "blockReason": "PROHIBITED_CONTENT"
+            },
+            "model_version": "gemini-3.1-flash-lite"
+          }
+        },
+        {
+          "ids": [
+            "auth_18"
+          ],
+          "reused": false,
+          "request_sha256": "74e3284d54c11648baa22d52271b90d2cab60f468a05112b8fe9369c3b4c5f47",
+          "seconds": 16.17210919199715,
+          "usage_price_estimate_usd": "0.00030875",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 209,
+            "candidatesTokenCount": 26,
+            "totalTokenCount": 380,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 209
+              }
+            ],
+            "thoughtsTokenCount": 145,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_18",
+                "text": "자살을 생각해서 도움을 요청하려고 전화했어."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_19"
+          ],
+          "reused": false,
+          "request_sha256": "7e2347c9171c4c679441ca0c5ed5caac647f945ac7d43397490a37d99f9e96c9",
+          "seconds": 17.03170378300274,
+          "usage_price_estimate_usd": "0.00029025",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 207,
+            "candidatesTokenCount": 35,
+            "totalTokenCount": 366,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 207
+              }
+            ],
+            "thoughtsTokenCount": 124,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_19",
+                "text": "그 사람은 인종차별적인 모욕을 했습니다. 여기서는 용납될 수 없는 일입니다."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_20"
+          ],
+          "reused": false,
+          "request_sha256": "5ac7916301885697c63ff3545834fee38f5a18694d6b68e0b684438d8befb4c8",
+          "seconds": 16.87170192800113,
+          "usage_price_estimate_usd": "0.00028150",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 202,
+            "candidatesTokenCount": 24,
+            "totalTokenCount": 356,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 202
+              }
+            ],
+            "thoughtsTokenCount": 130,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_20",
+                "text": "젠장, 장난해!"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_21"
+          ],
+          "reused": false,
+          "request_sha256": "6f07c54ea8a94b994c2e08a194552e8e9a9484d66460a26bf4ce2304b70a8a1a",
+          "seconds": 16.31474100399646,
+          "usage_price_estimate_usd": "0.00036475",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 211,
+            "candidatesTokenCount": 21,
+            "totalTokenCount": 419,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 211
+              }
+            ],
+            "thoughtsTokenCount": 187,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_21",
+                "text": "쏘지 마! 의사라고!"
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_22"
+          ],
+          "reused": false,
+          "request_sha256": "f41f615ed5516c54eed47a44e0972207a3f509709b5a77a4a89a7ab48567853b",
+          "seconds": 16.65237255199463,
+          "usage_price_estimate_usd": "0.00021700",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 208,
+            "candidatesTokenCount": 22,
+            "totalTokenCount": 318,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 208
+              }
+            ],
+            "thoughtsTokenCount": 88,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_22",
+                "text": "오늘 밤엔 관계하고 싶지 않아."
+              }
+            ]
+          }
+        },
+        {
+          "ids": [
+            "auth_23"
+          ],
+          "reused": false,
+          "request_sha256": "451d013202fc97206b7070618ce810bdcdf5f9ff10422755092b38f1f23bf3ac",
+          "seconds": 16.907985951998853,
+          "usage_price_estimate_usd": "0.00024750",
+          "unknown_cost_reserve_usd": "0",
+          "usage": {
+            "promptTokenCount": 204,
+            "candidatesTokenCount": 17,
+            "totalTokenCount": 335,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 204
+              }
+            ],
+            "thoughtsTokenCount": 114,
+            "serviceTier": "standard"
+          },
+          "error": {},
+          "assessment": {
+            "valid": true,
+            "prompt_feedback": null,
+            "model_version": "gemini-3.1-flash-lite",
+            "finish_reason": "STOP",
+            "translations": [
+              {
+                "id": "auth_23",
+                "text": "콘돔 있어?"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "gemini25lite": {
+      "model": "gemini-2.5-flash-lite",
+      "state": "consecutive_failure_stop",
+      "rates_per_million_usd": [
+        "0.10",
+        "0.40"
+      ],
+      "totals": {
+        "attempted_units": 16,
+        "valid_units": 0,
+        "blocked_ids": [],
+        "api_seconds_including_failures": 31.630170458003704,
+        "film_batch8_median_seconds": null,
+        "common_current40_film_seconds": null,
+        "usage_price_estimate_usd": "0",
+        "unknown_cost_reservations_usd": "0.0531403"
+      },
+      "requests": [
+        {
+          "ids": [
+            "tos_00",
+            "tos_01",
+            "tos_02",
+            "tos_03",
+            "tos_04",
+            "tos_05",
+            "tos_06",
+            "tos_07"
+          ],
+          "reused": false,
+          "request_sha256": "702d4197caa11170a92056d99e9db9b9ac71c64246bbe4274a3d01644fac53b3",
+          "seconds": 16.107214946998283,
+          "usage_price_estimate_usd": null,
+          "unknown_cost_reserve_usd": "0.0266014",
+          "usage": null,
+          "error": {
+            "error": "http_error",
+            "http_status": 404,
+            "api_status": "NOT_FOUND",
+            "message_signals": []
+          },
+          "assessment": {}
+        },
+        {
+          "ids": [
+            "tos_08",
+            "tos_09",
+            "tos_10",
+            "tos_11",
+            "tos_12",
+            "tos_13",
+            "tos_14",
+            "tos_15"
+          ],
+          "reused": false,
+          "request_sha256": "fe9108e64c692d7048910e1d6b96a4720d0080a9ab8c6d57cd6b226154826650",
+          "seconds": 15.52295551100542,
+          "usage_price_estimate_usd": null,
+          "unknown_cost_reserve_usd": "0.0265389",
+          "usage": null,
+          "error": {
+            "error": "http_error",
+            "http_status": 404,
+            "api_status": "NOT_FOUND",
+            "message_signals": []
+          },
+          "assessment": {}
+        }
+      ]
+    }
+  },
+  "limits": [
+    "Public film and authored dialogue only; not private media or a representative long-film benchmark.",
+    "API elapsed includes the configured system HTTPS route; direct DNS failed in this environment.",
+    "Each new request attempted once; default provider safety, no overrides.",
+    "Gemini3.8 first16 outputs reused from prior runs, including one1024-token cap; new requests use4096.",
+    "Token-based prices are estimates, not invoices. Unknown-cost404 requests retain conservative reservations.",
+    "Two historical3.8 time samples were collected earlier; common40-film-unit timings use only current-session requests.",
+    "Ratings are AI qualitative judgments with per-case shuffled provider labels; no human review or new holdout."
+  ],
+  "assessment": {
+    "method": "Three independent AI raters; provider labels concealed and reshuffled per case; meaning and fluency each0-2; null output unscored; no human validation.",
+    "baseline_source": "translation_qwen_candidate.json assessment.baseline_outputs (native-tokenizer-restored MADLAD)",
+    "totals": {
+      "gemini38": {
+        "cases": 80,
+        "available": 79,
+        "meaning_points": 149,
+        "fluency_points": 155,
+        "major_meaning_errors": 2,
+        "best_including_ties": 71,
+        "sole_best": 8,
+        "unavailable": 1
+      },
+      "gemini31lite": {
+        "cases": 80,
+        "available": 79,
+        "meaning_points": 150,
+        "fluency_points": 154,
+        "major_meaning_errors": 1,
+        "best_including_ties": 69,
+        "sole_best": 5,
+        "unavailable": 1
+      },
+      "madlad": {
+        "cases": 80,
+        "available": 80,
+        "meaning_points": 120,
+        "fluency_points": 136,
+        "major_meaning_errors": 11,
+        "best_including_ties": 40,
+        "sole_best": 1
+      }
+    },
+    "rows": [
+      {
+        "id": "tos_00",
+        "best": [
+          "gemini38",
+          "gemini31lite",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_01",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "Literal repetition of 우리는 우리의 makes the line stiff."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_02",
+        "best": [
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 0,
+            "major": false,
+            "note": "Robotics becomes something literally possessed, and 멋진되고 is malformed Korean."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "넌 로봇 공학이 있고 is an awkward literal rendering of having a passion for robotics."
+          }
+        }
+      },
+      {
+        "id": "tos_03",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "인정하지 않겠어 is stiff for this direct conversational challenge."
+          }
+        }
+      },
+      {
+        "id": "tos_04",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 1,
+            "major": false,
+            "note": "놀라지 않습니다 suggests not being surprised rather than denying fear; 그것에 의해 is unnatural here."
+          }
+        }
+      },
+      {
+        "id": "tos_05",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "난 겁먹었어요 sounds wooden as an admission in this exchange."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_06",
+        "best": [
+          "madlad",
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_07",
+        "best": [
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "우리 끝내 끝이야 contains an awkward redundant fragment."
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "괜찮아 turns dismissive Whatever into reassurance; the breakup is less explicit."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_08",
+        "best": [
+          "madlad",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "고정 means fixed, which shifts the technical state from locked."
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_09",
+        "best": [
+          "gemini38",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "기분 나쁘네 emphasizes displeasure while losing the strange or creepy quality."
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_10",
+        "best": [
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "저기 loses the downward location in down there."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "밑에서 어디 있었어 is awkward, though it retains the source's location question."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Changes a where question into a question about what the person was doing, unsupported by the malformed source."
+          }
+        }
+      },
+      {
+        "id": "tos_11",
+        "best": [
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "다 adds a claim to having heard all of the conversation."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Omits you guys talking and can mean hearing an account about last night."
+          }
+        }
+      },
+      {
+        "id": "tos_12",
+        "best": [
+          "gemini38",
+          "madlad",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_13",
+        "best": [
+          "madlad",
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_14",
+        "best": [
+          "madlad",
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_15",
+        "best": [
+          "gemini31lite",
+          "madlad",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_16",
+        "best": [
+          "madlad",
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_17",
+        "best": [
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "우린 한 명이야 is awkward with a plural subject, although it preserves the sparse source."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Invents a one-minute duration and sufficiency; neither is stated in the source."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_18",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "작동 states that systems are operating rather than cleared or ready to proceed."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_19",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Drops the repeated urging and substantially softens the excited command."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_20",
+        "best": [
+          "gemini38",
+          "gemini31lite",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_21",
+        "best": [
+          "gemini38",
+          "madlad",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_22",
+        "best": [
+          "gemini38",
+          "madlad",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_23",
+        "best": [
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "너의 열정이야 is a somewhat literal, stiff way to identify someone's passion."
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "이것은 당신의 열정입니다 is wooden as a spoken subtitle."
+          }
+        }
+      },
+      {
+        "id": "tos_24",
+        "best": [
+          "gemini31lite",
+          "gemini38",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_25",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "상기시켜주세요 is overly formal and mechanical for this personal instruction."
+          }
+        }
+      },
+      {
+        "id": "tos_26",
+        "best": [
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 1,
+            "major": false,
+            "note": "승차가 진행 중 is awkward and can describe boarding rather than an ongoing ride."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Changes an active ride associated with the addressee into the existence of a vehicle in operation."
+          }
+        }
+      },
+      {
+        "id": "tos_27",
+        "best": [
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "당신 with the blunt ending 최악이야 sounds stiff in this direct insult."
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "멍청이 attacks intelligence rather than the inconsiderate or obnoxious behavior conveyed by jerk."
+          }
+        }
+      },
+      {
+        "id": "tos_28",
+        "best": [
+          "madlad",
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_29",
+        "best": [
+          "gemini31lite",
+          "madlad",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_30",
+        "best": [
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "Literal discourse marker sounds stilted in Korean."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "Literal discourse marker sounds stilted in Korean."
+          }
+        }
+      },
+      {
+        "id": "tos_31",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "Repeated possessives and stiff phrasing are awkward for dialogue."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_32",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 1,
+            "major": true,
+            "note": "Changes an interest in robotics into possession of a robot; stiff wording."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_33",
+        "best": [
+          "gemini31lite",
+          "gemini38",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_34",
+        "best": [
+          "madlad",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Changes coming in to going in."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_35",
+        "best": [
+          "gemini38",
+          "gemini31lite",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_36",
+        "best": [
+          "madlad",
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_37",
+        "best": [
+          "gemini31lite",
+          "gemini38",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_38",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Replaces a cheer with a greeting."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_39",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "The admission request is understandable but stilted."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_40",
+        "best": [
+          "gemini31lite",
+          "madlad",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_41",
+        "best": [
+          "gemini38",
+          "gemini31lite",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_42",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 0,
+            "major": true,
+            "note": "Translates the insult as a literal penis, breaking the self-description."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_43",
+        "best": [
+          "gemini31lite",
+          "madlad",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_44",
+        "best": [
+          "madlad",
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_45",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "Written-report register and literal pronouns sound unnatural in dialogue."
+          }
+        }
+      },
+      {
+        "id": "tos_46",
+        "best": [
+          "madlad",
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_47",
+        "best": [
+          "gemini31lite",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Invents being dumped as the specific cause of heartbreak."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_48",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Preserves being left on Earth but omits the forgetting."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Preserves being left on Earth but omits the forgetting."
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Locates the act of forgetting on Earth rather than clearly leaving the person there."
+          }
+        }
+      },
+      {
+        "id": "tos_49",
+        "best": [
+          "gemini31lite",
+          "madlad",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_50",
+        "best": [
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Replaces crushing with killing, changing the threatened action."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Narrows crushing to trampling and softens the stated intention."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_51",
+        "best": [
+          "gemini31lite",
+          "madlad",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_52",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Mistakes an ad-lib for an advertisement."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_53",
+        "best": [
+          "madlad",
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "tos_54",
+        "best": [
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Specifies changing clothes although no context establishes clothes."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Specifies changing clothes although no context establishes clothes."
+          }
+        }
+      },
+      {
+        "id": "tos_55",
+        "best": [
+          "gemini38",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Adds an instruction to remove a camera, beyond the ambiguous source."
+          }
+        }
+      },
+      {
+        "id": "auth_00",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 1,
+            "major": false,
+            "note": "The literal polite phrasing weakens the sarcastic reaction and sounds translated."
+          }
+        }
+      },
+      {
+        "id": "auth_01",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 1,
+            "major": false,
+            "note": "Shifts a challenge about giving up now toward a future reassurance; the tag sounds stiff."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_02",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Translates physical slipping rather than accidentally revealing the ending."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_03",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 1,
+            "major": true,
+            "note": "The verb suggests covering or concealing someone rather than covering their work shift."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_04",
+        "best": [
+          "gemini38",
+          "madlad",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_05",
+        "best": [
+          "gemini31lite",
+          "madlad",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_06",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 1,
+            "major": false,
+            "note": "Uses unfortunately instead of a courteous apology; the resulting request is awkward."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_07",
+        "best": [
+          "gemini31lite",
+          "gemini38",
+          "madlad"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_08",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Omits the entire arrival-in-ten-minutes statement, including a required number."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_09",
+        "best": [
+          "gemini31lite",
+          "madlad",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_10",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Can mean that this is not a problem, weakening the rejection of this kind of reasoning."
+          }
+        }
+      },
+      {
+        "id": "auth_11",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Asks permission to take something away instead of offering to carry the luggage."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_12",
+        "best": [
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Keeps an angry command but loses the coarse register of the profanity."
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Keeps the expulsion command but weakens its profane and emphatic force."
+          }
+        }
+      },
+      {
+        "id": "auth_13",
+        "best": [
+          "gemini31lite",
+          "madlad",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_14",
+        "best": [
+          "gemini31lite",
+          "madlad",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_15",
+        "best": [
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 1,
+            "major": false,
+            "note": "Back together becomes the ambiguous being together; repeated pronouns and formal wording are stiff."
+          }
+        }
+      },
+      {
+        "id": "auth_16",
+        "best": [
+          "madlad",
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_17",
+        "best": [
+          "madlad"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": false,
+            "meaning": null,
+            "fluency": null,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": false,
+            "meaning": null,
+            "fluency": null,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "Meaning is complete, but repeated explicit pronouns and the literal object phrase sound stiff in speech."
+          }
+        }
+      },
+      {
+        "id": "auth_18",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 1,
+            "fluency": 2,
+            "major": false,
+            "note": "Omits the call and replaces the explicit causal link with and; help-seeking remains."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_19",
+        "best": [
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "The collocation 모욕을 썼어요 sounds unnatural for speaking an insult."
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 1,
+            "major": false,
+            "note": "Repeated pronouns and literal wording make the spoken subtitle somewhat stiff."
+          }
+        }
+      },
+      {
+        "id": "auth_20",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Changes an angry rebuke into the statement that it is a joke."
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_21",
+        "best": [
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "madlad": {
+            "available": true,
+            "meaning": 0,
+            "fluency": 2,
+            "major": true,
+            "note": "Omits the crucial negative imperative: do not shoot."
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_22",
+        "best": [
+          "madlad",
+          "gemini38",
+          "gemini31lite"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      },
+      {
+        "id": "auth_23",
+        "best": [
+          "madlad",
+          "gemini31lite",
+          "gemini38"
+        ],
+        "ratings": {
+          "madlad": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini31lite": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          },
+          "gemini38": {
+            "available": true,
+            "meaning": 2,
+            "fluency": 2,
+            "major": false,
+            "note": ""
+          }
+        }
+      }
+    ]
+  },
+  "production_job_probe": {
+    "input": "synthetic4s; saved hello/next ASR fixture",
+    "transport": "real Google API via configured system HTTPS route injected at transport boundary; production direct DNS unavailable",
+    "api_calls": [
+      {
+        "model": "gemini-3.1-flash-lite",
+        "seconds": 35.34174231100042,
+        "error": null,
+        "usage": {
+          "promptTokenCount": 206,
+          "candidatesTokenCount": 21,
+          "totalTokenCount": 341,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 206
+            }
+          ],
+          "thoughtsTokenCount": 114,
+          "serviceTier": "standard"
+        }
+      }
+    ],
+    "state": "succeeded",
+    "error": null,
+    "completed": 2,
+    "job_seconds": 35.34706554799777,
+    "store_restart_preserved": true,
+    "original_media_preserved": true,
+    "old_subtitle_preserved": true,
+    "no_repeated_asr": true,
+    "usage_price_estimate_usd": "0.000254"
+  },
+  "decision": {
+    "selected_model": "gemini-3.1-flash-lite",
+    "basis": "Comparable AI-rated fidelity/naturalness,43%lower observed token cost; no general speed or lower-refusal advantage established.",
+    "existing_38_jobs": "retain original configuration and model",
+    "local_default": "preserved",
+    "human_review": false
+  }
+}

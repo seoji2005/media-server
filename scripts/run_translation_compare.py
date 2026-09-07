@@ -20,6 +20,8 @@ FIXTURE_SHA = 'd6a3734789dd02e5d9425635e81484fa187e1fdf58163e3e05dda55955501dec'
 HOST = 'https://generativelanguage.googleapis.com/v1beta/models/'
 INPUT_RATE, OUTPUT_RATE = Decimal('0.75') / 1000000, Decimal('3.75') / 1000000
 RATES = {'gemini-3.8-flash': (Decimal('0.75'), Decimal('3.75')),
+         'gemini-3.1-flash-lite': (Decimal('0.25'), Decimal('1.50')),
+         'gemini-2.5-flash-lite': (Decimal('0.10'), Decimal('0.40')),
          'gemini-3.7-flash': (Decimal('0.75'), Decimal('3.75')),
          'gemini-2.5-flash': (Decimal('0.30'), Decimal('2.50'))}
 # Reserve the model's entire documented output limit (including thinking), much
@@ -179,9 +181,9 @@ def run(out, limit, call=None, model=MODEL):
     input_rate, output_rate = (r / 1000000 for r in RATES[model])
     if call is None:
         call = lambda key, method, body: request(key, method, body, model)
-    if model == 'gemini-2.5-flash':
+    if model in ('gemini-2.5-flash', 'gemini-2.5-flash-lite'):
         for spec in bundle['requests']:
-            spec['body']['generationConfig']['thinkingConfig'] = {'thinkingBudget': 1024}
+            spec['body']['generationConfig']['thinkingConfig'] = {'thinkingBudget': 0 if model.endswith('-lite') else 1024}
     if out.resolve().is_relative_to(Path(__file__).resolve().parents[1]):
         raise ValueError('output_must_be_outside_repository')
     out.mkdir(mode=0o700)  # Fail before any call if it already exists.
