@@ -1,0 +1,418 @@
+{
+  "date": "2026-09-07",
+  "code_revision": "13f8a6d802db7495dafa0993447f94fa95ceea2c",
+  "weights": {
+    "size": 11761587872,
+    "sha256": "66ff5f8fcaf92291da486fdfbd4d5233cec90e1359348a56e3172c978b3a76d4",
+    "repository": "google/madlad400-3b-mt",
+    "revision": "fa184c675da0b5c9e1c8694fccd4e12e2d422094"
+  },
+  "restoration": {
+    "sha256_verified": true,
+    "final_range_download_seconds": 241.24,
+    "failures": [
+      "Initial transfer stopped with OSError errno 28: no space left on device; partial retained.",
+      "Sequential resume was interrupted with exit 130 after slow progress; partial retained."
+    ],
+    "resolution": "Moved reproducible model staging to a temporary directory and completed eight verified HTTP ranges; full size and SHA256 matched before generation."
+  },
+  "tokenizer_regression": {
+    "passed": true,
+    "seconds": 4.424,
+    "versions": {
+      "transformers": "4.57.1",
+      "sentencepiece": "0.2.2",
+      "protobuf": "7.36.1",
+      "tokenizers": "0.22.2"
+    },
+    "sha256": {
+      "tokenizer.json": "a2799ccc696b752ba00c34f58726bfe253a04921ceb6cfc620400f560474790b",
+      "spiece.model": "ef11ac9a22c7503492f56d48dce53be20e339b63605983e9f27d2cd0e0f3922c",
+      "tokenizer_config.json": "641fc660745306dfb935f666a68f8bc10a44c39241cfb357be518fda8c09662d"
+    },
+    "fixture_sha256": "d6a3734789dd02e5d9425635e81484fa187e1fdf58163e3e05dda55955501dec",
+    "inputs": 80,
+    "different_input_ids": [],
+    "byte_ids": [
+      785,
+      725,
+      737
+    ],
+    "native_decode": "찼",
+    "fast_decode": "<0xEC><0xB0><0xBC>",
+    "controls": [
+      {
+        "text": "찼어요.",
+        "actual": "찼어요.",
+        "unknown_tokens": 0
+      },
+      {
+        "text": "GPU 메모리가 찼어요.",
+        "actual": "GPU 메모리가 찼어요.",
+        "unknown_tokens": 0
+      },
+      {
+        "text": "원문에 <0xEC><0xB0><0xBC>라고 쓰였습니다.",
+        "actual": "원문에 <0xEC><0xB0><0xBC>라고 쓰였습니다.",
+        "unknown_tokens": 0
+      },
+      {
+        "text": "😀 𠮷",
+        "actual": "😀 𠮷",
+        "unknown_tokens": 0
+      }
+    ],
+    "network_attempts": [],
+    "limit": "Tokenizer behavior only; no generation, semantic quality or target CUDA measurement."
+  },
+  "same_generated_ids": {
+    "base_revision": "cfb340ab1673395fccd80232dd8fb05247ef41f1",
+    "model_revision": "fa184c675da0b5c9e1c8694fccd4e12e2d422094",
+    "fixture_sha256": "d6a3734789dd02e5d9425635e81484fa187e1fdf58163e3e05dda55955501dec",
+    "method": "Production baseline fast tokenizer; every actual generated sequence decoded again by native T5Tokenizer. Generation occurs only once per input.",
+    "device": "Linux CPU float32, beam4, batch2, four Torch/OMP/MKL threads",
+    "rows": [
+      {
+        "id": "auth_09",
+        "ids_sha256": "d56aff0f46c6fb27853894d6c0134a1b0084d1d2a75fbc47297cb82af371072d",
+        "token_count": 26,
+        "fast": "RAM이 충분해요. GPU 메모리가 가득 <0xEC><0xB0><0xBC>어요.",
+        "native": "RAM이 충분해요. GPU 메모리가 가득 찼어요.",
+        "byte_token_count": 3
+      },
+      {
+        "id": "auth_10",
+        "ids_sha256": "ebf605cfa63bbd47a374254dd85e07a05f91bc2564b9783c6cbdd861ff557f98",
+        "token_count": 26,
+        "fast": "그건 문제가 아니야.",
+        "native": "그건 문제가 아니야.",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_02",
+        "ids_sha256": "4857b7d71e7c421cf7ec958f9c66ad685353e2089854095b7c80d8260521b5f9",
+        "token_count": 35,
+        "fast": "당신은 당신의 로봇 공학을 가지고 있고 나는 그냥 우주에서 멋진되고 싶어요.",
+        "native": "당신은 당신의 로봇 공학을 가지고 있고 나는 그냥 우주에서 멋진되고 싶어요.",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_04",
+        "ids_sha256": "cd06f619880d5221053acfca97c0a07ad070476e5abf2c4facee58d55eacc6d6",
+        "token_count": 35,
+        "fast": "나는 그것에 의해 놀라지 않습니다.",
+        "native": "나는 그것에 의해 놀라지 않습니다.",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_07",
+        "ids_sha256": "e9325b990ad6e02270c41a58338a38e44b0d30f994c736e2c6ef7cf40e9a01eb",
+        "token_count": 14,
+        "fast": "괜찮아, 톰, 끝났어",
+        "native": "괜찮아, 톰, 끝났어",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_15",
+        "ids_sha256": "934881e7cd77ca673562135819574c27d12b2582bd587138312acab2bf8dfa53",
+        "token_count": 14,
+        "fast": "10분 정도 남았어요",
+        "native": "10분 정도 남았어요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_23",
+        "ids_sha256": "70dc237cda1a83558139bb24e0aeb2b953e88fe93450a200124656aeb00e4dc4",
+        "token_count": 12,
+        "fast": "이것은 당신의 열정입니다.",
+        "native": "이것은 당신의 열정입니다.",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_24",
+        "ids_sha256": "b5167b6de31d42885b475b4b7fbeac47f2a4abcb4a1c33f06af29098b4d04012",
+        "token_count": 12,
+        "fast": "솔직해지세요",
+        "native": "솔직해지세요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_30",
+        "ids_sha256": "f247f62fa8dad9942240c481ad5e83dbc29b2ba77c9eed82aae298a0fc5d096c",
+        "token_count": 13,
+        "fast": "봐, 셀리아",
+        "native": "봐, 셀리아",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_38",
+        "ids_sha256": "be65f3111d72a2c55bfd8c53aa68c31dd47a0e3f759c1a55c3e7c1141bd8ec63",
+        "token_count": 13,
+        "fast": "안녕하세요, 치치오!",
+        "native": "안녕하세요, 치치오!",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_45",
+        "ids_sha256": "465739811f14b9d77ccce1b8a9b00b899584de952b1752f537d4c609cb1ceec8",
+        "token_count": 14,
+        "fast": "우리는 이미 그것을 시도했다.",
+        "native": "우리는 이미 그것을 시도했다.",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_48",
+        "ids_sha256": "1303691a5b710b266708a8b9ddb7c04f05ab45a1766e4257ba202825b1101e77",
+        "token_count": 14,
+        "fast": "지구에서 날 잊어버렸잖아",
+        "native": "지구에서 날 잊어버렸잖아",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_52",
+        "ids_sha256": "067cb65eee0ab06868be4f58c5c1dce9adfdc0f5492f469a1937dd41a04cb526",
+        "token_count": 9,
+        "fast": "좋은 광고예요",
+        "native": "좋은 광고예요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "tos_55",
+        "ids_sha256": "4deef267db4b15298ba26f915216eb1efb58dffa926a5ada2138ac310211d146",
+        "token_count": 9,
+        "fast": "카메라 없어요",
+        "native": "카메라 없어요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_00",
+        "ids_sha256": "60cd279d032ec55ffc862315d0430c8341ae01ea6d432779aa5d75c12dc8886a",
+        "token_count": 18,
+        "fast": "좋아요, 우리가 필요했던 거죠",
+        "native": "좋아요, 우리가 필요했던 거죠",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_01",
+        "ids_sha256": "1e1c17d4dcd15c146b27d0f4e74ef709d45d3ed145d54efbc9bb61d0e4c6a1cd",
+        "token_count": 18,
+        "fast": "이제 날 포기하지 않을 거야, 그렇지?",
+        "native": "이제 날 포기하지 않을 거야, 그렇지?",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_02",
+        "ids_sha256": "e06889b77c761893488017ae477f3c460d5770248b6a482aa08de678724adce4",
+        "token_count": 17,
+        "fast": "미끄러지게 놔뒀어요",
+        "native": "미끄러지게 놔뒀어요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_03",
+        "ids_sha256": "d660abe28e4dbc46179fe9294e2a368b481e3fcbf0e306e78912be4305508f76",
+        "token_count": 17,
+        "fast": "미나가 제이를 덮어줄 거라고 했어요",
+        "native": "미나가 제이를 덮어줄 거라고 했어요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_04",
+        "ids_sha256": "a413f72f8a74541a738111d80becadddf6e49009827f218e6374c96ad74c38da",
+        "token_count": 12,
+        "fast": "아뇨, 괜찮아요",
+        "native": "아뇨, 괜찮아요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_05",
+        "ids_sha256": "4bb5e1fdd9acd3eb32951c8a2731d4d403493f0488fa2d7c671e72ae8f13facb",
+        "token_count": 12,
+        "fast": "혼자서도 괜찮아요",
+        "native": "혼자서도 괜찮아요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_06",
+        "ids_sha256": "67702b164893527341d83a0f63a3026deba161581821d06af60ef068ad087951",
+        "token_count": 20,
+        "fast": "안타깝게도, 내일까지 기다릴 수 있을까요?",
+        "native": "안타깝게도, 내일까지 기다릴 수 있을까요?",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_07",
+        "ids_sha256": "73ab467622b9e7e9e8f2f3d94252613acf1a0ac17e22580bc3c467cd90495b1c",
+        "token_count": 20,
+        "fast": "안 온다고 말한 게 아니에요",
+        "native": "안 온다고 말한 게 아니에요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_08",
+        "ids_sha256": "74ddf1d6e352a7ea686939b7878a907c6d8254acd0b455b5f37c554270a548ba",
+        "token_count": 12,
+        "fast": "5시 15분이야.",
+        "native": "5시 15분이야.",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_11",
+        "ids_sha256": "c48063f306418b5f6328aeeea42994b2c44bdcc42b532a105cd3bb209d3283d4",
+        "token_count": 12,
+        "fast": "가져가도 될까요?",
+        "native": "가져가도 될까요?",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_12",
+        "ids_sha256": "12b36ab7fcb3474b991e3f3aa8d78d32a4bfcc11b0e5bc96831b291c3d70f02d",
+        "token_count": 18,
+        "fast": "내 집에서 나가!",
+        "native": "내 집에서 나가!",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_13",
+        "ids_sha256": "0c1545231b8b5dcb3076f3bce7374102e40847e50909bbf3ba536419c9e2c213",
+        "token_count": 18,
+        "fast": "누구한테라도 말하면 죽여버릴 거야",
+        "native": "누구한테라도 말하면 죽여버릴 거야",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_14",
+        "ids_sha256": "4976ffe93fbff2afae83449b3052d6c7b013ae20ca245525bfb5a00e6fc0d6a1",
+        "token_count": 26,
+        "fast": "클럽 밖에서 코카인을 팔고 있었어요",
+        "native": "클럽 밖에서 코카인을 팔고 있었어요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_15",
+        "ids_sha256": "41bca44c5f034b5ebc9fe49f5bfc3f377bf2a20e0528d0786c4d42110ac78e6a",
+        "token_count": 26,
+        "fast": "우린 섹스를 했지만 그게 우리가 다시 함께 있다는 뜻은 아닙니다.",
+        "native": "우린 섹스를 했지만 그게 우리가 다시 함께 있다는 뜻은 아닙니다.",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_16",
+        "ids_sha256": "86a779f2b219655c44cbe5fe9e6889a4d73efb35b7f67d869a1a5d438343a137",
+        "token_count": 20,
+        "fast": "콘돔을 써야지",
+        "native": "콘돔을 써야지",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_17",
+        "ids_sha256": "d90f46f165b5149bf52f16615b2716c2b23aaed078ef568d2ab56e2a22c57ea9",
+        "token_count": 20,
+        "fast": "그는 나를 강간했고, 나는 그것을 신고했습니다.",
+        "native": "그는 나를 강간했고, 나는 그것을 신고했습니다.",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_18",
+        "ids_sha256": "6458fff721c2cb3b3408bd02364b5863395cbe8acc0b3306f369c650f9614b98",
+        "token_count": 30,
+        "fast": "자살을 생각했고 도움을 요청했어요",
+        "native": "자살을 생각했고 도움을 요청했어요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_19",
+        "ids_sha256": "ff09eff78c0c28d922d64120696f54f80d7fbba36caea0e51b304901763f1beb",
+        "token_count": 30,
+        "fast": "그는 인종차별적인 욕설을 썼어요 그건 여기서 받아들일 수 없어요",
+        "native": "그는 인종차별적인 욕설을 썼어요 그건 여기서 받아들일 수 없어요",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_20",
+        "ids_sha256": "cfa195253d5d5141cd5140cb09cfdd2c0f17da93a52268dd581c7cd690f1032f",
+        "token_count": 12,
+        "fast": "젠장, 농담이야!",
+        "native": "젠장, 농담이야!",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_21",
+        "ids_sha256": "921266dd350d73d607e37cf95465a30703de5aebf0da3ef993d5cdbae7565807",
+        "token_count": 12,
+        "fast": "그 사람은 의사야!",
+        "native": "그 사람은 의사야!",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_22",
+        "ids_sha256": "2132b9b369a82e32941baf8d146c62e6d418d270eca9a48a1576ce0f151e47fe",
+        "token_count": 18,
+        "fast": "오늘 밤은 섹스하고 싶지 않아요.",
+        "native": "오늘 밤은 섹스하고 싶지 않아요.",
+        "byte_token_count": 0
+      },
+      {
+        "id": "auth_23",
+        "ids_sha256": "6aae24079107fae59459e0fa5117cdbaec1686484a3bbe0678da2eab1ffbe79b",
+        "token_count": 18,
+        "fast": "콘돔 있어?",
+        "native": "콘돔 있어?",
+        "byte_token_count": 0
+      }
+    ],
+    "network_attempts": 0,
+    "seconds": 167.009
+  },
+  "fresh_production_generation": {
+    "pipeline": "korean-subtitles-v6:silero6-jit-0.5-2000ms-pad400ms:source-clips:sentence-12s-400ch-gap0.8:ko-numeric-units:madlad-ko-native-sp-bf16-beam4-512-batch2:plaintext-entities-once:stat-identity",
+    "device": "Linux CPU float32 beam4 batch2, four Torch threads",
+    "network_attempts": 0,
+    "rows": [
+      {
+        "id": "auth_09",
+        "actual": "RAM이 충분해요. GPU 메모리가 가득 찼어요.",
+        "expected": "RAM이 충분해요. GPU 메모리가 가득 찼어요."
+      },
+      {
+        "id": "auth_10",
+        "actual": "그건 문제가 아니야.",
+        "expected": "그건 문제가 아니야."
+      }
+    ],
+    "warnings": [
+      null,
+      null
+    ],
+    "seconds": 17.688,
+    "tokenizer_class": "T5Tokenizer",
+    "passed": true
+  },
+  "verification": {
+    "python_command": "python -m unittest discover -s tests -q",
+    "python_tests": 150,
+    "python_seconds": 43.339,
+    "python_exit": 0,
+    "skipped": "one Windows launcher test on Linux",
+    "tokenizer_command": "python scripts/check_translation_tokenizer.py --model-dir <installed-pinned-MADLAD>",
+    "generation_commands": [
+      "OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 timeout 540 python measure_madlad_decoder.py",
+      "OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 timeout 120 python verify_native_generation.py"
+    ],
+    "generation_exit_codes": [
+      0,
+      0
+    ],
+    "pip_check": "No broken requirements found.",
+    "independent_review": "No actionable findings at fixed code revision. Prior-pipeline resume rejected with processing_config_changed before inference; ready tracks, transcripts, batches and originals unchanged after restart. Fast-tokenizer negative control made the regression script exit 1."
+  },
+  "limitations": [
+    "Linux CPU float32 only; target Windows 11/RTX/CUDA BF16 remains unmeasured.",
+    "36 previously observed development inputs (12 film ASR sentences and 24 authored probes), not a held-out quality score.",
+    "Generated IDs were produced once by the baseline and decoded both ways; only auth_09/auth_10 were regenerated through a fresh production native adapter.",
+    "Tokenizer input IDs match on these 80 cases, not on every possible string.",
+    "Byte decoding repairs characters; idiom, register and omission errors remain.",
+    "Python socket audit saw zero attempts; this is not a kernel egress trace.",
+    "No full ASR-to-player pipeline or target GPU inference was rerun for this change."
+  ]
+}

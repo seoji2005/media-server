@@ -33,7 +33,7 @@ class ModelCheckTests(unittest.TestCase):
         ct=types.SimpleNamespace(get_cuda_device_count=lambda:devices,
             get_supported_compute_types=lambda device,**kw:set(compute))
         return {'torch':torch,'ctranslate2':ct,'onnxruntime':None,
-                **{k:types.ModuleType(k) for k in ('torchaudio','faster_whisper','silero_vad','transformers','sentencepiece')}}
+                **{k:types.ModuleType(k) for k in ('torchaudio','faster_whisper','silero_vad','transformers','sentencepiece','google','google.protobuf')}}
 
     def test_windows_default_and_explicit_cpu_configuration_are_read_only(self):
         with patch('media_clarity.models.sys.platform','win32'):
@@ -70,14 +70,15 @@ class ModelCheckTests(unittest.TestCase):
         for failed,code in (('torch','model_torch_unavailable'),
                             ('ctranslate2','model_asr_runtime_unavailable'),
                             ('torchaudio','model_audio_runtime_unavailable'),
-                            ('silero_vad','model_runtime_incompatible')):
+                            ('silero_vad','model_runtime_incompatible'),
+                            ('google.protobuf','model_runtime_incompatible')):
             def importing(name,*args,**kwargs):
                 if name==failed:raise OSError('secret media path and native diagnostic')
                 return original(name,*args,**kwargs)
             with self.subTest(failed=failed),patch.dict(sys.modules,self.modules()),patch('builtins.__import__',side_effect=importing):
                 with self.assertRaises(MediaError) as caught:check_runtime('cpu')
                 self.assertEqual(str(caught.exception),code)
-            if failed=='silero_vad':self.assertIn(('threads',4),self.events)
+            if failed in ('silero_vad','google.protobuf'):self.assertIn(('threads',4),self.events)
         with patch.dict(sys.modules,{'onnxruntime':object()}):
             with self.assertRaisesRegex(MediaError,'model_privacy_setup_required'):check_runtime('cpu')
 

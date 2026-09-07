@@ -6,6 +6,8 @@ it does not authorize sending the private library or change the app's offline de
 **Current decision: retain local translation pending complete comparison. API access
 recovered in the [post-payment diagnosis](#post-payment-diagnosis); 16/80 units completed,
 with Japanese and sensitive probes still untested.**
+The [native-tokenizer repair](#native-tokenizer-repair--2026-09-07) fixes a confirmed
+local character defect; it does not change that engine-selection decision.
 
 ## Frozen comparison
 
@@ -187,3 +189,56 @@ Next: retain local pending the incomplete comparison; use the saved 16 cloud out
 80 local baselines. Before more calls, reconcile old reservations against the documented
 request limits or billing usage. Do not reset the $1 cap because the owner funded an account,
 rerun completed ASR, or silently make private media use cloud translation.
+
+## Native tokenizer repair · 2026-09-07
+
+At code `13f8a6d` (base `cfb340a`), local MADLAD now uses its native SentencePiece
+encoder and decoder. The pinned fast tokenizer has no byte-fallback decoder and
+also converts some rare input characters to UNK. Native decoding alone is insufficient:
+fast input encoding treats literal `<0xEC><0xB0><0xBC>` as byte IDs; switching both
+sides preserves that literal spelling. No text replacement rule is involved.
+
+[Recorded controls, generated outputs and limits](evidence/translation_native_tokenizer.json):
+
+- Restored the same `fa184c675da0b5c9e1c8694fccd4e12e2d422094` public weights;
+  all **11,761,587,872 bytes** matched their published SHA256 before inference.
+  Initial download hit disk exhaustion; partial data survived, sequential continuation
+  was interrupted, and one bounded parallel-range continuation finished and verified.
+- The [production tokenizer check](../scripts/check_translation_tokenizer.py) retained
+  identical prefixed input IDs for all **80** existing cases. Four controls preserved
+  rare Hangul, a rare Han character, emoji and literal byte-token spelling, with no UNK.
+  An independent fast-tokenizer negative control made that check fail with exit 1.
+- Actually generated **36** outputs: the 12 known film development sentences plus all
+  24 authored probes. Each generated token sequence was decoded by both tokenizers;
+  **35 outputs were identical**. `auth_09` changed from
+  `RAM이 충분해요. GPU 메모리가 가득 <0xEC><0xB0><0xBC>어요.` to
+  `RAM이 충분해요. GPU 메모리가 가득 찼어요.` The observed three byte IDs decode to `찼`.
+- A fresh process then loaded the modified production adapter and regenerated
+  `auth_09` and the unchanged `auth_10` control; both matched the expected native output,
+  without warnings. This checks actual native generation, beyond decoding saved IDs.
+
+Commands were `python -m unittest discover -s tests -q`, the tokenizer check above,
+`OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 timeout 540 python measure_madlad_decoder.py`,
+and the analogous bounded `verify_native_generation.py` probe. The last two were
+session-local measurement scripts. The 36-case probe called baseline `translate_chunk`
+with existing fixture text, captured IDs at `decode`, and decoded those same IDs through
+native T5. The second probe called the changed `translate_chunk`/`LocalModels` adapter
+in a fresh process. Neither loaded ASR or touched the user's database/media.
+
+Linux CPU, Torch 2.8 float32, beam four, batch two, four threads: **167.009 s** for the
+36-case probe and **17.688 s** for the fresh two-case check, including weight loading
+but excluding import startup/cleanup. Both exited 0 with zero Python socket attempts;
+this is not an OS network trace or an RTX benchmark. Full Python validation passed
+**150 tests** in 43.339 s (one Windows-only skip). `pip check` passed. Existing Torch
+and fast-tokenizer deprecation/performance warnings were retained in the probe logs.
+
+The new pipeline/package identity rejects an older partial translation before
+inference. Independent fixed-code review verified that saved batches, completed
+captions, original transcripts and original media remained identical after restart.
+Setup now requires `spiece.model` and explicit protobuf; reinstall model requirements
+if missing. Existing ready captions remain available; the repair applies to new jobs.
+
+These are previously observed development inputs, not a held-out quality benchmark.
+For example, `tos_52` still mistranslates “ad-lib” as advertising, and awkward wording,
+idiom/register errors and omissions remain. The repair makes no general Korean quality,
+provider-censorship or Windows 11/RTX/CUDA claim. The local engine remains the default.

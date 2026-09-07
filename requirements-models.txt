@@ -8,5 +8,7 @@ faster-whisper==1.2.1
 onnxruntime==1.29.0
 transformers==4.57.1
 sentencepiece>=0.2,<0.3
+# Native non-legacy MADLAD SentencePiece loading.
+protobuf==7.36.1
 # Optional saved-frame visual search, using the same Torch/Transformers runtime.
 Pillow==12.3.0

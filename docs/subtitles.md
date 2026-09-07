@@ -57,6 +57,18 @@ does not take that normalization path.
 MADLAD runs batches of two with beam four, CUDA bfloat16 or CPU float32. Unsupported
 CUDA bfloat16 is diagnosed rather than silently using float16. GPU models run
 sequentially; CUDA bfloat16 execution and 12 GB feasibility are still unmeasured.
+The native SentencePiece tokenizer handles both source encoding and output decoding;
+the pinned model's fast tokenizer loses rare input characters and exposes generated
+byte tokens instead of some Hangul. Setup requires `spiece.model` and the explicit
+`protobuf` dependency in `requirements-models.txt`. The pipeline identity changes,
+so an older partial translation requires a new job; existing ready tracks remain saved.
+This repairs character handling, without claiming better translation meaning.
+
+After setup, check the actual tokenizer without loading model weights:
+
+```sh
+.venv/bin/python scripts/check_translation_tokenizer.py --model-dir "$MEDIA_CLARITY_DATA/models/translation"
+```
 
 The app does **not** download models, call hosted inference, accept license prompts,
 load remote Python code or fetch missing tokenizer files. Prepare public model files
