@@ -102,6 +102,19 @@ try {
   await page.waitForFunction(() => document.querySelector('#video').readyState >= 2);
   const selector = page.locator('#subtitle-select');
   if (phase === 'first') {
+    await page.locator('#subtitle-preparation > summary').click();
+    const provider = page.locator('#subtitle-translator');
+    assert.equal(await provider.isVisible(), true);
+    assert.equal(await provider.inputValue(), 'local');
+    await provider.selectOption('gemini');
+    assert.match(await page.locator('#subtitle-cloud-note').textContent(), /음성 인식은 이 기기/);
+    const response = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/subtitle-jobs') && r.request().method() === 'POST');
+    await page.locator('#subtitle-generate').click();
+    const blocked = await response;
+    assert.equal(blocked.status(), 503);
+    assert.equal((await blocked.json()).error, 'gemini_key_missing');
+    await provider.selectOption('local');
+    await page.locator('#subtitle-preparation > summary').click();
     await page.locator('#subtitle-input').setInputFiles(subtitle);
   } else {
     await page.waitForFunction(() => {
@@ -200,7 +213,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
-    nativeCaption: true, transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
+    nativeCaption: true, freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   await browser.close();
 }

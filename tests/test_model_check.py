@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from media_clarity.app import create_app
 from media_clarity.jobs import Jobs, worker_guard
 from media_clarity.model_check import configuration, diagnose, run_probe
-from media_clarity.models import LocalModels, check_runtime, device_configuration, local_models, translation_identity
+from media_clarity.models import LocalModels, check_runtime, device_configuration, local_models, model_identity, translation_identity
 from media_clarity.storage import MediaError
 
 
@@ -124,6 +124,47 @@ class ModelCheckTests(unittest.TestCase):
             (mt/'spiece.model').write_bytes(b'changed vocabulary')
             self.assertNotEqual(translation_identity(self.root),before)
         with self.assertRaisesRegex(MediaError,'local_models_missing'):local_models(self.root)
+
+    def test_asr_only_preflight_excludes_translation_imports_and_bf16(self):
+        original = builtins.__import__
+        def importing(name,*args,**kwargs):
+            if name in ('transformers','sentencepiece','google.protobuf'):
+                raise AssertionError('Translation dependency imported')
+            return original(name,*args,**kwargs)
+        with patch.dict(sys.modules,self.modules(bf16=False)),patch('builtins.__import__',side_effect=importing):
+            check_runtime('cuda',asr_only=True)
+        self.assertNotIn('bf16',[e[0] for e in self.events])
+        self.assertIn(('threads',4),self.events)
+        with patch.dict(sys.modules,self.modules(compute=('float32',))):
+            with self.assertRaisesRegex(MediaError,'model_asr_precision_unavailable'):
+                check_runtime('cuda',asr_only=True)
+        with patch.dict(sys.modules,{'onnxruntime':object()}):
+            with self.assertRaisesRegex(MediaError,'model_privacy_setup_required'):
+                check_runtime('cpu',asr_only=True)
+        backend=object.__new__(LocalModels);backend.asr_only=True
+        with self.assertRaisesRegex(MediaError,'processing_config_changed'):
+            backend.translate_many(['No local translation.'])
+
+    def test_asr_only_files_and_identity_ignore_madlad_but_pin_asr_vad_tokenizer(self):
+        asr=self.root/'models/asr';asr.mkdir(parents=True)
+        vad=self.root/'vad';vad.mkdir();(vad/'silero_vad.jit').write_bytes(b'fixture')
+        for name in ('model.bin','config.json','tokenizer.json','preprocessor_config.json'):
+            (asr/name).write_bytes(b'fixture')
+        distribution=types.SimpleNamespace(locate_file=lambda path:vad)
+        with patch('media_clarity.models.importlib.util.find_spec',return_value=object()) as specs,patch('media_clarity.models.importlib.metadata.distribution',return_value=distribution),patch('media_clarity.models.importlib.metadata.version',return_value='fixture') as versions,patch('media_clarity.models.run_media',return_value=b'fixture-ffmpeg'):
+            paths=local_models(self.root,check_packages=True,asr_only=True)
+            self.assertEqual(set(paths),{'asr','vad'})
+            before=model_identity(paths,'cpu',asr_only=True)
+            mt=self.root/'models/translation';mt.mkdir();(mt/'model.safetensors').write_bytes(b'unrelated')
+            self.assertEqual(model_identity(paths,'cpu',asr_only=True),before)
+            self.assertTrue({'transformers','sentencepiece','google.protobuf'}.isdisjoint(c.args[0] for c in specs.call_args_list))
+            self.assertTrue({'transformers','sentencepiece','protobuf'}.isdisjoint(c.args[0] for c in versions.call_args_list))
+            self.assertIn('tokenizers',[c.args[0] for c in versions.call_args_list])
+            (asr/'tokenizer.json').write_bytes(b'changed ASR tokenizer')
+            self.assertNotEqual(model_identity(paths,'cpu',asr_only=True),before)
+            (vad/'silero_vad.jit').unlink()
+            with self.assertRaisesRegex(MediaError,'model_runtime_missing'):
+                local_models(self.root,check_packages=True,asr_only=True)
 
     def test_native_output_is_suppressed_and_parent_eof_stops_diagnostic(self):
         code='''import atexit,os,sys,time

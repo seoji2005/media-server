@@ -347,17 +347,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     def subtitle_content(item_id: str, track_id: str, transcript: bool = False):
         return Response(jobs.track(item_id, track_id, transcript=transcript), media_type="text/vtt; charset=utf-8")
 
-    @app.post("/api/library/{item_id}/subtitle-jobs")
-    def create_subtitle_job(item_id: str, audio_index: int | None = None):
-        return JSONResponse({"id":jobs.enqueue(item_id, audio_index=audio_index)}, status_code=202)
-
-    @app.post("/api/library/{item_id}/subtitle-jobs/regenerate")
-    def regenerate_subtitle_job(item_id: str, audio_index: int | None = None):
-        # A new version; existing supplied/generated tracks remain available.
-        return JSONResponse({"id":jobs.enqueue(item_id, force=True, audio_index=audio_index)}, status_code=202)
-
-    @app.post("/api/library/{item_id}/subtitles/{track_id}/retranslate")
-    async def retranslate_subtitles(item_id: str, track_id: str, request: Request):
+    async def translation_provider(request):
         data = bytearray()
         async for chunk in request.stream():
             if len(data) + len(chunk) > 2048:
@@ -369,7 +359,24 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             raise MediaError('invalid_request', 422) from None
         if type(options) is not dict or not set(options) <= {'provider'} or options.get('provider', 'local') not in ('local', 'gemini'):
             raise MediaError('invalid_request', 422)
-        job_id = await run_in_threadpool(jobs.retranslate, item_id, track_id, options.get('provider', 'local'))
+        return options.get('provider', 'local')
+
+    @app.post("/api/library/{item_id}/subtitle-jobs")
+    async def create_subtitle_job(item_id: str, request: Request, audio_index: int | None = None):
+        provider = await translation_provider(request)
+        job_id = await run_in_threadpool(jobs.enqueue, item_id, audio_index=audio_index, provider=provider)
+        return JSONResponse({"id":job_id}, status_code=202)
+
+    @app.post("/api/library/{item_id}/subtitle-jobs/regenerate")
+    async def regenerate_subtitle_job(item_id: str, request: Request, audio_index: int | None = None):
+        # A new version; existing supplied/generated tracks remain available.
+        provider = await translation_provider(request)
+        job_id = await run_in_threadpool(jobs.enqueue, item_id, force=True, audio_index=audio_index, provider=provider)
+        return JSONResponse({"id":job_id}, status_code=202)
+
+    @app.post("/api/library/{item_id}/subtitles/{track_id}/retranslate")
+    async def retranslate_subtitles(item_id: str, track_id: str, request: Request):
+        job_id = await run_in_threadpool(jobs.retranslate, item_id, track_id, await translation_provider(request))
         return JSONResponse({"id":job_id}, status_code=202)
 
     @app.post("/api/subtitle-jobs/{job_id}/{action}")

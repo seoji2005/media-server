@@ -18,6 +18,8 @@ TRANSLATION_PROFILE = 'sentence-12s-400ch-gap0.8:ko-numeric-units:madlad-ko-nati
 PIPELINE = 'korean-subtitles-v6:silero6-jit-0.5-2000ms-pad400ms:source-clips:' + TRANSLATION_PROFILE
 PACKAGES = ('faster-whisper','ctranslate2','transformers','torch','torchaudio','silero-vad','sentencepiece','protobuf','tokenizers','numpy','av')
 TRANSLATION_PACKAGES = ('transformers','torch','sentencepiece','protobuf','tokenizers')
+ASR_PIPELINE = 'local-asr-v1:silero6-jit-0.5-2000ms-pad400ms:source-clips'
+ASR_PACKAGES = ('faster-whisper','ctranslate2','torch','torchaudio','silero-vad','tokenizers','numpy','av')
 
 
 def require_private_runtime():
@@ -46,7 +48,7 @@ def device_configuration(root):
     return result
 
 
-def check_runtime(device, translation_only=False):
+def check_runtime(device, translation_only=False, asr_only=False):
     """Cheap runtime/precision preflight, before decoding or loading large weights."""
     require_private_runtime()
     try:
@@ -60,12 +62,13 @@ def check_runtime(device, translation_only=False):
             available = False
         if not available:
             raise MediaError('model_cuda_unavailable', 503)
-        try:
-            native_bf16 = torch.cuda.is_bf16_supported(including_emulation=False)
-        except Exception:
-            native_bf16 = False
-        if not native_bf16:
-            raise MediaError('model_bf16_unavailable', 503)
+        if not asr_only:
+            try:
+                native_bf16 = torch.cuda.is_bf16_supported(including_emulation=False)
+            except Exception:
+                native_bf16 = False
+            if not native_bf16:
+                raise MediaError('model_bf16_unavailable', 503)
     if translation_only:
         try:
             import transformers
@@ -94,16 +97,19 @@ def check_runtime(device, translation_only=False):
     try:
         import faster_whisper
         import silero_vad
-        import transformers
-        import sentencepiece
-        import google.protobuf  # The non-legacy T5 SentencePiece loader needs it.
+        if not asr_only:
+            import transformers
+            import sentencepiece
+            import google.protobuf  # The non-legacy T5 SentencePiece loader needs it.
     except Exception:
         raise MediaError('model_runtime_incompatible', 503) from None
     finally:
         torch.set_num_threads(threads)  # Silero import changes this global setting.
 
 
-def local_models(root, check_packages=False, translation_only=False):
+def local_models(root, check_packages=False, translation_only=False, asr_only=False):
+    if translation_only and asr_only:
+        raise MediaError('model_settings_invalid', 422)
     if check_packages:
         require_private_runtime()
     base = root / 'models'
@@ -113,17 +119,21 @@ def local_models(root, check_packages=False, translation_only=False):
                 'translation':('config.json','tokenizer_config.json','spiece.model')}
     if translation_only:
         del paths['asr'], required['asr']
+    if asr_only:
+        del paths['translation'], required['translation']
     for kind, names in required.items():
         for name in names:
             path = paths[kind] / name
             no_symlink(path)
             if not path.is_file():
                 raise MediaError('local_models_missing', 503)
-    if not any(paths['translation'].glob('*.safetensors')):
+    if not asr_only and not any(paths['translation'].glob('*.safetensors')):
         raise MediaError('local_models_missing', 503)
     if check_packages:
         packages = ('transformers','torch','sentencepiece','google.protobuf') if translation_only else (
             'faster_whisper','transformers','torch','torchaudio','silero_vad','sentencepiece','google.protobuf')
+        if asr_only:
+            packages = ('faster_whisper','torch','torchaudio','silero_vad')
         try:
             missing = any(importlib.util.find_spec(n) is None for n in packages)
         except (ImportError, ValueError):
@@ -138,12 +148,12 @@ def local_models(root, check_packages=False, translation_only=False):
     return paths
 
 
-def model_identity(paths, device, translation_only=False):
-    profile = TRANSLATION_PROFILE if translation_only else PIPELINE
+def model_identity(paths, device, translation_only=False, asr_only=False):
+    profile = ASR_PIPELINE if asr_only else TRANSLATION_PROFILE if translation_only else PIPELINE
     digest = hashlib.sha256((profile+':'+device).encode())
     if not translation_only:
         digest.update(run_media(['ffmpeg','-version'],10,16384))
-    for package in TRANSLATION_PACKAGES if translation_only else PACKAGES:
+    for package in ASR_PACKAGES if asr_only else TRANSLATION_PACKAGES if translation_only else PACKAGES:
         digest.update((package+':'+importlib.metadata.version(package)).encode())
     for kind, root in paths.items():
         digest.update(str(root.absolute()).encode())
@@ -173,21 +183,23 @@ def translation_tokenizer(path):
 
 class LocalModels:
     translation_only = False
+    asr_only = False
     asr_profile = PROFILE
     audio_timing = 'source-timestamps-v1'
     batch_size = 2
     checkpoint_size = 20
-    def __init__(self, root, translation_only=False):
+    def __init__(self, root, translation_only=False, asr_only=False):
         for name in ('HF_HUB_OFFLINE','TRANSFORMERS_OFFLINE','HF_HUB_DISABLE_TELEMETRY','DO_NOT_TRACK','ORT_DISABLE_TELEMETRY'):
             os.environ[name] = '1'
         self.translation_only = translation_only
-        self.paths = local_models(root, check_packages=True, translation_only=translation_only)
+        self.asr_only = asr_only
+        self.paths = local_models(root, check_packages=True, translation_only=translation_only, asr_only=asr_only)
         self.device = device_configuration(root)['device']
-        check_runtime(self.device, translation_only=translation_only)
+        check_runtime(self.device, translation_only=translation_only, asr_only=asr_only)
         self.model = self.tokenizer = None
 
     def identity(self):
-        return model_identity(self.paths, self.device, self.translation_only)
+        return model_identity(self.paths, self.device, self.translation_only, self.asr_only)
 
     def transcribe(self, path, duration, audio_index=0):
         audio = self.decode_audio(path, duration, audio_index)
@@ -300,6 +312,8 @@ class LocalModels:
         return result
 
     def translate_many(self, texts):
+        if self.asr_only:
+            raise MediaError('processing_config_changed', 409)
         import torch
         from transformers import AutoModelForSeq2SeqLM
         if not 1 <= len(texts) <= self.batch_size:
