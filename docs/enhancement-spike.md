@@ -208,3 +208,49 @@ aligned 32×40 forward, eight geometry probes and three dependency-free regressi
 passed. Original/enhanced switching, useful natural enhancement, target fit and human
 acceptance remain open. Next compare a conservative non-generative filter baseline on
 longer moving clips before spending on another large image-model candidate.
+
+## Moving filter baseline · 2026-09-07
+
+**No adopted preset.** One fixed FFmpeg filter was compared over three 8-second,
+1920×800 / 24-fps clips: bridge dialogue (25 s), a dim face close-up (90 s), and
+indoor faces/hands (250 s). These are newly retrieved excerpts of the same permitted
+movie; previous temporary media did not survive the environment reset. Previewed
+320 s text-overlay and 590 s credits samples were excluded, not counted as live-action
+evidence. Prosthetics/CG and one film still limit anatomical/generalization claims.
+
+`scripts/probe_video_filters.py` takes a local 1–20 s yuv420p reference and a new output
+directory outside the checkout. It creates 960×400 bicubic/H.264 CRF28 input, then
+compares Lanczos x2 with `hqdn3d=0.75:0.5:1.0:0.75`, Lanczos x2 and
+`unsharp=3:3:0.2:3:3:0`. See the official [denoiser](https://ffmpeg.org/ffmpeg-filters.html#hqdn3d)
+and [sharpening](https://ffmpeg.org/ffmpeg-filters.html#unsharp) options. No grid search,
+model, app integration or new dependency. Example:
+
+```sh
+python scripts/probe_video_filters.py --reference /local/allowed-clip.mkv --output /local/new-comparison
+```
+
+All **576 frames** completed and input hashes remained unchanged. Mean per-frame
+YUV420 PSNR/SSIM on lossless outputs (not the earlier RGB/Pillow benchmark):
+
+| Clip | PSNR Lanczos / filter | SSIM Lanczos / filter | Filter pipeline fps |
+| --- | ---: | ---: | ---: |
+| Bridge | 36.4108 / 36.3836 | .948486 / .947427 | 54.55 |
+| Dim face | 41.0581 / 41.0083 | .974134 / .973671 | 76.88 |
+| Indoor | 35.7851 / 35.7405 | .919342 / .918602 | 61.12 |
+
+These one-run Linux CPU timings include decode, filtering and FFV1 encoding; they are
+not isolated filter speed or movie/RTX forecasts. Inspected 1:1 comparisons show slight
+edge emphasis, without a clear recovered-detail benefit. Small metric regressions
+alone do not establish perceptual harm, but neither observation justifies adoption.
+A labeled 24 s comparison was fully decoded and sampled visually. Chrome 153 launch
+failed with `socket() failed: Operation not permitted`; no browser playback or human
+motion acceptance is claimed. Delivery encoding and other failures are retained in
+[compact evidence](evidence/enhancement_filters.json).
+
+Fresh review caught adjacent-frame metric pairing from container timestamp rounding
+and discarded failure diagnostics. Fixed at `0d46411`: both metric inputs now receive
+identical frame-index timestamps; errors preserve safe stage/exit or timeout categories.
+The mixed-MKV/MP4 regression checks PSNR against actual raw decoded pixels. Two tests
+and independent 24/29.97-fps rechecks passed. The first run's corrected metrics were
+saved separately without recomputing its video. No harness changes. Next implementation
+priority is the measured ASR restart loss; useful enhancement remains required.
