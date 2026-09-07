@@ -173,4 +173,11 @@ module and all seven DOM suites passed afterward. An initial run with the wrong
 interpreter failed one existing subprocess test; restored venv execution passed all
 31 subtitle tests. The npm wrapper was cancelled by environment approval, so the same
 seven installed Node scripts ran directly (exit 0). Documentation links passed.
-CI runs the complete final suite and real browser gate; use the PR's current checks.
+[CI run 34071493106](https://github.com/seoji2005/media-server/actions/runs/34071493106)
+passed the integration of `3ead6b1` with base `175b8ac`: Linux ran 143 Python tests in
+43.722 s and Windows Server 2025 ran 143 in 78.224 s. Both passed all seven DOM suites
+and actual Chrome playback/native Korean captions, Range 206 and server restart with
+7-second resume on the synthetic 20-second fixture. Source/copy preservation and quiet
+logs passed; external page requests were zero. This establishes CPU/browser recovery,
+not Windows 11/RTX inference or natural long-dialogue quality. For later revisions,
+use the PR's current checks.

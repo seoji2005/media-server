@@ -3,8 +3,8 @@
 - **Milestone:** resume completed ASR speech spans after interruption; compare recovery
   with actual local Whisper while retaining prior jobs, captions and original files.
 - **Branch / PR / HEAD:** `app/long-resume`, based on owner-approved #10 merge `175b8ac`.
-  Resolve live Draft/HEAD in [open PRs](https://github.com/seoji2005/media-server/pulls).
-  Draft #11 needs separate merge approval. One writer; [product](product.md) and AGENTS.md govern.
+  Owner authorized continuation and merge on 2026-09-07; resolve live HEAD/merge state in
+  [PR #11](https://github.com/seoji2005/media-server/pull/11). One writer; [product](product.md) and AGENTS.md govern.
 - **What works:** import/compatible copies, shared audio, playback/resume, actual local
   ASR/Korean captions, recoverable jobs, literal/visual scene search, previews and explicit
   feedback. New ASR spans survive actual worker kill with identical resumed text/timing on
