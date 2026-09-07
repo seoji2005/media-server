@@ -86,6 +86,74 @@ class SubtitleTests(unittest.TestCase):
         with self.store.db() as db:
             self.assertEqual(db.execute('SELECT source_srt FROM subtitle_tracks WHERE id=?',(track,)).fetchone()[0],raw)
 
+    def test_transcript_captions_follow_selected_version_and_survive_restart(self):
+        jid = self.enqueue(); self.run_job(jid)
+        track = self.jobs.status(self.item['id'])['tracks'][0]
+        korean = self.jobs.track(self.item['id'], track['id'])
+        original = self.jobs.track(self.item['id'], track['id'], transcript=True)
+        self.assertTrue(track['has_transcript'])
+        self.assertEqual(original, webvtt(json.loads(self.jobs.row(jid)['transcript'])))
+        self.assertIn('00:00:00.100 --> 00:00:01.900\nhello.', original)
+        class Other(FixtureModel):
+            def transcribe(self, *args):
+                return [{'start':.2,'end':3.2,'text':'日本語 <voice> & English.'}]
+        with patch('media_clarity.models.local_models'):
+            newer = self.jobs.enqueue(self.item['id'], force=True)
+        execute(self.store, newer, Other)
+        supplied = self.jobs.import_srt(self.item['id'], SRT.encode())
+        self.assertFalse(next(t for t in self.jobs.status(self.item['id'])['tracks'] if t['id']==supplied)['has_transcript'])
+        self.jobs.close(); self.store.close(); self.store.start(); self.jobs = Jobs(self.store)
+        self.assertEqual(self.jobs.track(self.item['id'], track['id']), korean)
+        self.assertEqual(self.jobs.track(self.item['id'], track['id'], transcript=True), original)
+        with self.store.db() as db:
+            new_track = db.execute('SELECT id FROM subtitle_tracks WHERE job_id=?', (newer,)).fetchone()[0]
+        shown = self.jobs.track(self.item['id'], new_track, transcript=True)
+        self.assertIn('日本語 &lt;voice&gt; &amp; English.', shown)
+        self.assertNotIn('<voice>', shown)
+
+    def test_transcript_rejects_corruption_or_wrong_audio_input_without_breaking_korean(self):
+        jid = self.enqueue(); self.run_job(jid)
+        track = self.jobs.status(self.item['id'])['tracks'][0]['id']
+        korean = self.jobs.track(self.item['id'], track)
+        before = self.jobs.row(jid)
+        changes = [({'transcript_sha':'0'*64}, 'subtitle_changed'),
+                   ({'transcript':'{','transcript_sha':hashlib.sha256(b'{').hexdigest()}, 'subtitle_changed'),
+                   ({'transcript':'{}','transcript_sha':hashlib.sha256(b'{}').hexdigest()}, 'subtitle_changed'),
+                   ({'input_sha':'wrong-input'}, 'subtitle_not_found'),
+                   ({'audio_index':1}, 'subtitle_not_found'),
+                   ({'transcript':None}, 'subtitle_not_found')]
+        for change, code in changes:
+            with self.subTest(change=tuple(change)):
+                with self.store.db() as db:
+                    db.execute('UPDATE subtitle_jobs SET '+','.join(f'{key}=?' for key in change)+' WHERE id=?', (*change.values(),jid)); db.commit()
+                try:
+                    with self.assertRaisesRegex(MediaError, code):
+                        self.jobs.track(self.item['id'], track, transcript=True)
+                    self.assertEqual(self.jobs.track(self.item['id'], track), korean)
+                    if code == 'subtitle_not_found':
+                        self.assertFalse(self.jobs.status(self.item['id'])['tracks'][0]['has_transcript'])
+                finally:
+                    with self.store.db() as db:
+                        db.execute('UPDATE subtitle_jobs SET '+','.join(f'{key}=?' for key in change)+' WHERE id=?', (*(before[key] for key in change),jid)); db.commit()
+
+    def test_transcript_http_is_read_only_and_supplied_tracks_have_no_asr(self):
+        jid = self.enqueue(); self.run_job(jid)
+        track = self.jobs.status(self.item['id'])['tracks'][0]['id']
+        source_vtt = self.jobs.track(self.item['id'],track,transcript=True)
+        supplied = self.jobs.import_srt(self.item['id'],SRT.encode())
+        before = self.jobs.row(jid)
+        self.jobs.close(); self.store.close()
+        with TestClient(create_app(self.root), base_url='http://127.0.0.1:8765') as client:
+            url = f'/api/library/{self.item["id"]}/subtitles/'
+            result = client.get(url+track+'.vtt?transcript=true')
+            self.assertEqual(result.status_code,200)
+            self.assertEqual(result.text,source_vtt)
+            self.assertTrue(result.headers['content-type'].startswith('text/vtt'))
+            self.assertEqual(client.get(url+supplied+'.vtt?transcript=true').status_code,404)
+            self.assertEqual(client.get(url+'f'*32+'.vtt?transcript=true').status_code,404)
+        self.store.start(); self.jobs = Jobs(self.store)
+        self.assertEqual(self.jobs.row(jid),before)
+
     def test_missing_identity_and_erased_checkpoint_fail_closed(self):
         for mutation in ({'config_sha':None},{'transcript':None},{}):
             with self.subTest(mutation=mutation):

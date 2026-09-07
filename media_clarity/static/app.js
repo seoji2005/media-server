@@ -327,9 +327,11 @@ $("model-check").addEventListener("click",async()=>{
   finally{button.disabled=false;if(hadFocus&&$("settings-dialog").open&&document.activeElement===document.body)button.focus();}
 });
 function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
+function selectedSubtitle(){const [id,view]=(subtitleLoaded||"").split(":");return {track:subtitleTracks.find(t=>t.id===id),transcript:view==="transcript"};}
 function renderSubtitleNotes(){
-  const track=subtitleTracks.find(t=>t.id===subtitleLoaded),notes=[];
-  if(track?.review_count)notes.push(`가독성 확인이 필요한 표시 구간 ${track.review_count}개${track.fast_count?` · 읽기 속도가 빠른 구간 ${track.fast_count}개`:""}. 번역 내용을 생략하지 않고 표시했습니다.`);
+  const {track,transcript}=selectedSubtitle(),notes=[];
+  if(transcript)notes.push("음성 인식으로 만든 원문 자막입니다. 실제 대사와 다를 수 있습니다.");
+  if(!transcript&&track?.review_count)notes.push(`가독성 확인이 필요한 표시 구간 ${track.review_count}개${track.fast_count?` · 읽기 속도가 빠른 구간 ${track.fast_count}개`:""}. 번역 내용을 생략하지 않고 표시했습니다.`);
   const imported=track?.import_notes;
   if(imported){
     if(imported.empty)notes.push(`빈 자막 ${imported.empty}개 제외`);
@@ -344,11 +346,12 @@ function renderSubtitleNotes(){
   renderPreparationSummary();
 }
 function renderPreparationSummary(){
-  const j=subtitleJob,track=subtitleTracks.find(t=>t.id===subtitleLoaded);
+  const j=subtitleJob,{track,transcript}=selectedSubtitle();
   let label=subtitleTracks.some(t=>(t.audio_index||0)===(activeItem?.audio_index||0))?"자막 준비됨":"파일 열기 · 자동 생성";
   if(track?.import_notes&&Object.values(track.import_notes).some(Boolean))label="가져온 자막 보정 내역";
   if(track?.fallback_count)label=`원문 ${track.fallback_count}구간`;
   if(track?.review_count)label=`표시 확인 ${track.review_count}구간`;
+  if(transcript)label="원문 · 자동 전사";
   if(track&&(track.audio_index||0)!==(activeItem?.audio_index||0))label=`다른 오디오의 자막 · ${(track.audio_index||0)+1}`;
   if(j?.state==="paused")label="일시정지";
   if(j?.state==="queued")label="대기 중";
@@ -365,7 +368,9 @@ function loadSubtitle(id){
   renderSubtitleNotes();
   resetSubtitleSearch(false, id ? "loading" : "empty");
   if(!id)return;
-  const owner=activeItem,track=document.createElement("track");track.kind="subtitles";track.srclang="ko";track.label="한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${id}.vtt`;
+  const owner=activeItem,{track:chosen,transcript}=selectedSubtitle();
+  if(!chosen||(transcript&&!chosen.has_transcript))return;
+  const track=document.createElement("track");track.kind="subtitles";track.srclang=transcript?"und":"ko";track.label=transcript?"원문 · 자동 전사":"한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${chosen.id}.vtt${transcript?"?transcript=true":""}`;
   track.addEventListener("load",()=>{
     if(activeItem!==owner||subtitleLoaded!==id||track.parentNode!==video)return;
     subtitleSearch={owner, id, track:track.track, state:"ready", cues:null};
@@ -383,10 +388,14 @@ async function refreshSubtitles(owner){
     subtitleTracks=data.tracks;
     const select=$("subtitle-select"),was=select.value;
     select.replaceChildren(new Option("자막 끄기",""));
-    for(const [i,t] of data.tracks.entries())select.add(new Option(`${t.source==="supplied"?"가져온 자막":"자동 생성 자막"} · ${data.tracks.length-i}${(owner.audio_tracks||[]).length>1?` · 오디오 ${(t.audio_index||0)+1}`:""}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));
+    for(const [i,t] of data.tracks.entries()){
+      const version=` · ${data.tracks.length-i}${(owner.audio_tracks||[]).length>1?` · 오디오 ${(t.audio_index||0)+1}`:""}`;
+      select.add(new Option(`${t.source==="supplied"?"가져온 자막":"한국어 · 자동 번역"}${version}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));
+      if(t.has_transcript)select.add(new Option(`원문 · 자동 전사${version}`,`${t.id}:transcript`));
+    }
     const matching=data.tracks.filter(t=>(t.audio_index||0)===(owner.audio_index||0));
     const chosen=subtitleLoaded===null?(matching[0]?.id||""):was;
-    select.value=data.tracks.some(t=>t.id===chosen)?chosen:"";if(data.tracks.length&&(chosen||subtitleLoaded!==null))loadSubtitle(select.value);
+    select.value=[...select.options].some(o=>o.value===chosen)?chosen:"";if(data.tracks.length&&(chosen||subtitleLoaded!==null))loadSubtitle(select.value);
     subtitleJob=data.jobs.find(j=>["queued","running","paused"].includes(j.state))||data.jobs.find(j=>(j.audio_index||0)===(owner.audio_index||0))||null;
     const j=subtitleJob,busy=j&&["queued","running"].includes(j.state);
     const generate=$("subtitle-generate");
@@ -425,10 +434,10 @@ function resetSubtitleSearch(clearQuery=false,state="empty"){
 }
 function renderSubtitleSearch(){
   const results=$("subtitle-results"),status=$("subtitle-search-status");results.replaceChildren();
-  const notices={empty:"한국어 자막을 선택해 주세요.",loading:"자막을 불러오는 중입니다.",error:"자막을 불러오지 못했습니다. 자막을 다시 선택해 주세요."};
+  const notices={empty:"자막을 선택해 주세요.",loading:"자막을 불러오는 중입니다.",error:"자막을 불러오지 못했습니다. 자막을 다시 선택해 주세요."};
   if(subtitleSearch.state!=="ready"){status.textContent=notices[subtitleSearch.state];return;}
   if(subtitleSearch.owner!==activeItem||subtitleSearch.id!==subtitleLoaded)return;
-  if(subtitleSearch.track.mode!=="showing"){status.textContent="플레이어에서 한국어 자막을 켜 주세요.";return;}
+  if(subtitleSearch.track.mode!=="showing"){status.textContent="플레이어에서 선택한 자막을 켜 주세요.";return;}
   // Search only the selected, already-loaded text track. No query/history API.
   const query=$("subtitle-query").value.trim().normalize("NFKC").toLocaleLowerCase();
   if(!query){status.textContent="대사나 단어를 입력하면 해당 장면으로 이동할 수 있어요.";return;}

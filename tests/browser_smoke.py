@@ -14,6 +14,32 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def seed_generated_captions(data):
+    """Synthetic inference only; exercise normal job publication before restart."""
+    sys.path.insert(0, str(ROOT))
+    from unittest.mock import patch
+    from media_clarity.jobs import Jobs, execute
+    from media_clarity.storage import Store
+    class Fixture:
+        def __init__(self, root): pass
+        def identity(self): return 'browser-transcript-fixture-v1'
+        def transcribe(self, *args):
+            return [{'start':1., 'end':8., 'text':'Original <voice> & text.'}]
+        def translate(self, text): return '한국어 자동 번역 확인'
+        def close(self): pass
+    store = Store(data); store.start(); jobs = Jobs(store)
+    try:
+        item = store.list_items()[0]
+        with patch('media_clarity.models.local_models'):
+            jid = jobs.enqueue(item['id'], force=True)
+        execute(store, jid, Fixture)
+        assert jobs.row(jid)['state'] == 'succeeded'
+        track = next(t for t in jobs.status(item['id'])['tracks'] if t['has_transcript'])
+        assert '&lt;voice&gt;' in jobs.track(item['id'],track['id'],transcript=True)
+    finally:
+        jobs.close(); store.close()
+
+
 def serve(data, port_file):
     """Run the production CLI with a socket held by this test child from bind onward."""
     sys.path.insert(0, str(ROOT))
@@ -58,6 +84,8 @@ def run():
         digest = hashlib.sha256(source.read_bytes()).hexdigest()
         data = work / 'library'
         for phase in ('first', 'restart'):
+            if phase == 'restart':
+                seed_generated_captions(data)
             log_path = work / f'{phase}.log'
             port_file = work / f'{phase}.port'
             with log_path.open('wb') as log:

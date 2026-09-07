@@ -19,6 +19,15 @@ language verification are not implemented. Choose **자막 끄기** to hide capt
 Source SRT files and source videos are never written. Imported text is treated as
 Korean because the user selected it for the Korean track; the app does not certify it.
 
+Generated versions with a saved transcript offer **한국어 · 자동 번역** and
+**원문 · 자동 전사** in the same selector. Korean remains the initial choice; switching
+preserves playback position and uses the selected version's job, source hash and audio.
+The read-only transcript response verifies its hash and cue schema, escapes WebVTT,
+and retains stored ASR wording/timing without Korean layout or new model calls.
+Corrupt or mismatched transcripts are refused; existing Korean captions remain usable.
+ASR can be wrong too. Imported SRT and legacy versions without a transcript retain
+their existing behavior. Search follows whichever caption variant is selected.
+
 Open **자막에서 장면 찾기** and enter a word or phrase in the selected subtitle.
 Results show matching text and timestamps; choose one to seek and play. The existing
 completed-seek handler saves the watch position. Search is a literal, Unicode-normalized
