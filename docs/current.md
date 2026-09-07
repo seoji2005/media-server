@@ -1,9 +1,9 @@
 # Current work
 
-- **Milestone:** open a saved companion scene paused on its verified original timeline,
-  preserving watch history until explicit playback and all existing retranslation data.
-- **Branch / PR / HEAD:** `app/companion-moments`, from main `d9fb017` after
-  [PR #16](https://github.com/seoji2005/media-server/pull/16) merged. Resolve live work in
+- **Milestone:** pinned local Qwen comparison completed on all 80 saved inputs;
+  retain the output, blind assessment and runtime evidence with MADLAD still the default.
+- **Branch / PR / HEAD:** `eval/qwen-translation`, from main `50e8ad7` after
+  [PR #17](https://github.com/seoji2005/media-server/pull/17) merged. Resolve live work in
   [open PRs](https://github.com/seoji2005/media-server/pulls). One writer; [product](product.md) and AGENTS.md govern.
 - **What works:** import/compatible copies, shared audio, playback/resume, actual local
   ASR/Korean captions, recoverable jobs, literal/visual scene search, previews and explicit
@@ -31,7 +31,10 @@
   currently fails with socket EPERM; [Linux/Windows CPU CI](https://github.com/seoji2005/media-server/actions/workflows/verify.yml)
   is available under the owner's spending approval. Earlier long-film/larger-encoder
   requests ended in cancelled approval; do not bypass them.
-- **Next action:** compare a stronger translation candidate against the saved inputs;
+- **Next action:** assess a stronger Korean translation candidate in an isolated runtime;
+  [contextual Qwen3-4B](translation-comparison.md#contextual-qwen-comparison--2026-09-07)
+  completed all 80 inputs but is not adopted: clock-time corruption and changed actions
+  remain. Current production translation is still MADLAD, with its known limitations.
   [sentence splitting and decoding settings](translation-comparison.md#bounded-decoding-comparison--2026-09-07)
   did not establish a general improvement, so none was adopted. Saved ASR can now be
   reused when translator updates arrive. Preserve the frozen comparison rather than
