@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from media_clarity.app import create_app
 from media_clarity.jobs import Jobs, worker_guard
 from media_clarity.model_check import configuration, diagnose, run_probe
-from media_clarity.models import LocalModels, check_runtime, device_configuration
+from media_clarity.models import LocalModels, check_runtime, device_configuration, local_models, translation_identity
 from media_clarity.storage import MediaError
 
 
@@ -92,6 +92,38 @@ class ModelCheckTests(unittest.TestCase):
                 self.assertEqual(diagnose(self.root)['error'],'model_check_failed')
         with patch('media_clarity.model_check.run_probe',side_effect=MediaError('model_check_timeout')):
             self.assertEqual(diagnose(self.root)['error'],'model_check_timeout')
+
+    def test_translation_only_preflight_never_imports_asr_and_keeps_cuda_checks(self):
+        original=builtins.__import__
+        def importing(name,*args,**kwargs):
+            if name in ('ctranslate2','torchaudio','faster_whisper','silero_vad'):
+                raise AssertionError('ASR import during retranslation')
+            return original(name,*args,**kwargs)
+        with patch.dict(sys.modules,self.modules()),patch('builtins.__import__',side_effect=importing):
+            check_runtime('cpu',translation_only=True)
+            check_runtime('cuda',translation_only=True)
+        with patch.dict(sys.modules,self.modules(available=False)):
+            with self.assertRaisesRegex(MediaError,'model_cuda_unavailable'):
+                check_runtime('cuda',translation_only=True)
+
+    def test_translation_identity_needs_only_mt_files_and_ignores_asr_media_runtime(self):
+        mt=self.root/'models/translation';mt.mkdir(parents=True)
+        for name in ('config.json','tokenizer_config.json','spiece.model','model.safetensors'):
+            (mt/name).write_bytes(b'fixture')
+        with patch('media_clarity.models.importlib.util.find_spec',return_value=object()),patch('media_clarity.models.importlib.metadata.version',return_value='fixture') as versions,patch('media_clarity.models.run_media',side_effect=AssertionError('media runtime inspected')):
+            paths=local_models(self.root,check_packages=True,translation_only=True)
+            self.assertEqual(set(paths),{'translation'})
+            before=translation_identity(self.root)
+            asr=self.root/'models/asr';asr.mkdir();(asr/'model.bin').write_bytes(b'changed')
+            self.assertEqual(translation_identity(self.root),before)
+            with patch('media_clarity.models.PIPELINE','changed-ASR-only-profile'):
+                self.assertEqual(translation_identity(self.root),before)
+            with patch('media_clarity.models.TRANSLATION_PROFILE','changed-translation-profile'):
+                self.assertNotEqual(translation_identity(self.root),before)
+            self.assertNotIn('faster-whisper',[c.args[0] for c in versions.call_args_list])
+            (mt/'spiece.model').write_bytes(b'changed vocabulary')
+            self.assertNotEqual(translation_identity(self.root),before)
+        with self.assertRaisesRegex(MediaError,'local_models_missing'):local_models(self.root)
 
     def test_native_output_is_suppressed_and_parent_eof_stops_diagnostic(self):
         code='''import atexit,os,sys,time

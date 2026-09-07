@@ -38,6 +38,31 @@ Off and app track/item changes invalidate old results. Closing clears the query.
 
 ## Optional local models — CPU verified, target Windows pending
 
+### Translating a saved transcript again
+
+Select a generated subtitle version (Korean or its automatic transcript), then choose
+**저장된 원문으로 다시 번역**. This creates a new Korean version from that exact saved
+transcript and audio selection. It does not repeat audio decoding, VAD or ASR. Existing
+versions remain available during processing; select the new version when it is ready.
+The original transcription can still contain recognition errors, and running the same
+translator again does not promise better wording. Use **새 자막 만들기** when fresh speech
+recognition is needed instead.
+
+Retranslation needs only the local translation weights/runtime. The standard environment
+check still checks full ASR + translation setup. The new job freezes the selected source
+and translation configuration before queueing. Pause/resume retains completed translation
+units; changed configuration requires **번역 처음부터 다시** with the same saved source.
+The original job, transcript serialization, original media and previous subtitle versions
+remain preserved. Imported SRT and subtitles without a verified saved transcript do not
+offer this action.
+
+`POST /api/library/{item_id}/subtitles/{track_id}/retranslate` uses the existing session
+token/same-origin boundary and returns a job ID. The source version determines audio;
+there is no separate client-supplied audio override. The schema's nullable source reference
+does not change existing jobs' configuration identity or normal ASR resume behavior.
+
+### Model setup
+
 These adapters are a reversible baseline, not a model-selection verdict:
 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) with
 [large-v3](https://huggingface.co/Systran/faster-whisper-large-v3), followed by

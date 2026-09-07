@@ -1,0 +1,231 @@
+{
+  "date": "2026-09-07",
+  "base": "d3d1017d77fde76f995cb0debe3ec29912cbc0f0",
+  "reviewed_code": "6d27d9a2a34e42e7e5df52c08d352e618e22f5c9",
+  "actual_api": {
+    "source": "Synthetic 4-second H264/AAC + saved public/authored fixture text; seeded ASR is synthetic, subsequent MT is real.",
+    "device": "Linux CPU float32 MADLAD beam4 batch2 four threads",
+    "asr_weights_present": false,
+    "state": "succeeded",
+    "error": null,
+    "seconds": 16.289,
+    "new_cues": [
+      {
+        "start": 0.1,
+        "end": 1.9,
+        "text": "RAM이 충분해요. GPU 메모리가 가득 찼어요."
+      },
+      {
+        "start": 2.0,
+        "end": 3.5,
+        "text": "그 사람은 의사야!"
+      }
+    ],
+    "asr_spans": 0,
+    "exact_transcript_copy": true,
+    "old_job_unchanged": true,
+    "old_vtt_unchanged": true,
+    "source_vtt_unchanged": true,
+    "original_unchanged": true,
+    "server_log_bytes": 0,
+    "blocked_attempts": [],
+    "translation_model_only": true
+  },
+  "commands": {
+    "tests": "python -m unittest discover -s tests -q",
+    "dom": "node tests/ui/subtitles.cjs",
+    "actual": "OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 timeout 150 python probe_retranslation_api_final.py"
+  },
+  "verification": {
+    "python_tests": 156,
+    "python_seconds": 42.571,
+    "python_exit": 0,
+    "python_skip": "one Windows launcher test on Linux",
+    "focused_after_fix": "5 tests, 0.849 s, exit 0",
+    "dom_exit": 0,
+    "actual_exit": 0,
+    "review": "Fresh independent review found MT identity shared the ASR profile and browser test missed opening details. Fixed and rereviewed with no remaining findings. Independent v5 migration/rollback, source tamper, recovery and normal identity compatibility probes passed.",
+    "retained_failures": [
+      "First added test helper collided with the existing source Path fixture. Renamed helper.",
+      "Adversarial test attempted to alter immutable audio/input through the production update API. Changed test to direct DB mutation.",
+      "Initial code review found ASR profile contamination in MT-only identity and missing browser details opening; both fixed before publishing."
+    ]
+  },
+  "translation_candidates": {
+    "adopted": false,
+    "reason": "Split inputs and longer search restore the shooting prohibition in one case, but do not recover the ten-minute arrival correctly and leave idiom/register errors. No general-quality adoption from these retained cases.",
+    "sentence_split": {
+      "base": "d3d1017d77fde76f995cb0debe3ec29912cbc0f0",
+      "device": "Linux CPU float32 beam4 batch2 four threads",
+      "network_attempts": 0,
+      "rows": [
+        {
+          "id": "auth_08",
+          "parts": [
+            "五時十五分。",
+            "あと十分で着くよ。"
+          ],
+          "before": "5시 15분이야.",
+          "translated_parts": [
+            "5시 15분.",
+            "충분히 멀리 떨어져 있다."
+          ],
+          "after": "5시 15분. 충분히 멀리 떨어져 있다."
+        },
+        {
+          "id": "auth_09",
+          "parts": [
+            "RAMは足りてる。",
+            "GPUのメモリがいっぱいなんだ。"
+          ],
+          "before": "RAM이 충분해요. GPU 메모리가 가득 찼어요.",
+          "translated_parts": [
+            "RAM은 충분하다.",
+            "GPU의 메모리가 가득 찼어요."
+          ],
+          "after": "RAM은 충분하다. GPU의 메모리가 가득 찼어요."
+        },
+        {
+          "id": "auth_21",
+          "parts": [
+            "撃つな！",
+            "その人は医者だ！"
+          ],
+          "before": "그 사람은 의사야!",
+          "translated_parts": [
+            "사격 중지!",
+            "그 사람은 의사야!"
+          ],
+          "after": "사격 중지! 그 사람은 의사야!"
+        }
+      ],
+      "seconds": 22.539
+    },
+    "decoding_settings": {
+      "base": "d3d1017d77fde76f995cb0debe3ec29912cbc0f0",
+      "network_attempts": 0,
+      "rows": [
+        {
+          "candidate": "beam8",
+          "id": "auth_08",
+          "source": "五時十五分。あと十分で着くよ。",
+          "before": "5시 15분이야.",
+          "after": "5시 15분이야."
+        },
+        {
+          "candidate": "beam8",
+          "id": "auth_21",
+          "source": "撃つな！その人は医者だ！",
+          "before": "그 사람은 의사야!",
+          "after": "쏘지 마! 그 사람은 의사야!"
+        },
+        {
+          "candidate": "beam8",
+          "id": "auth_09",
+          "source": "RAMは足りてる。GPUのメモリがいっぱいなんだ。",
+          "before": "RAM이 충분해요. GPU 메모리가 가득 찼어요.",
+          "after": "RAM이 충분해요. GPU 메모리가 가득 찼어요."
+        },
+        {
+          "candidate": "beam8",
+          "id": "auth_02",
+          "source": "I let it slip.",
+          "before": "미끄러지게 놔뒀어요",
+          "after": "나는 그것을 미끄러지게했다."
+        },
+        {
+          "candidate": "beam8",
+          "id": "auth_03",
+          "source": "Mina said she would cover for Jae.",
+          "before": "미나가 제이를 덮어줄 거라고 했어요",
+          "after": "미나가 자이를 덮어주겠다고 했어요"
+        },
+        {
+          "candidate": "beam8",
+          "id": "auth_06",
+          "source": "恐れ入りますが、明日までお待ちいただけますか。",
+          "before": "안타깝게도, 내일까지 기다릴 수 있을까요?",
+          "after": "안타깝게도, 내일까지 기다릴 수 있을까요?"
+        },
+        {
+          "candidate": "beam8",
+          "id": "auth_11",
+          "source": "持とうか。",
+          "before": "가져가도 될까요?",
+          "after": "가져가도 될까요?"
+        },
+        {
+          "candidate": "beam8",
+          "id": "auth_20",
+          "source": "くそっ、ふざけんな！",
+          "before": "젠장, 농담이야!",
+          "after": "젠장, 농담이야!"
+        },
+        {
+          "candidate": "length1.3",
+          "id": "auth_08",
+          "source": "五時十五分。あと十分で着くよ。",
+          "before": "5시 15분이야.",
+          "after": "5시 15분이야. 충분히 빨리 갈 수 있을 거야."
+        },
+        {
+          "candidate": "length1.3",
+          "id": "auth_21",
+          "source": "撃つな！その人は医者だ！",
+          "before": "그 사람은 의사야!",
+          "after": "쏘지 마! 그 사람은 의사야!"
+        },
+        {
+          "candidate": "length1.3",
+          "id": "auth_09",
+          "source": "RAMは足りてる。GPUのメモリがいっぱいなんだ。",
+          "before": "RAM이 충분해요. GPU 메모리가 가득 찼어요.",
+          "after": "RAM이 충분해요. GPU 메모리가 가득 찼어요."
+        },
+        {
+          "candidate": "length1.3",
+          "id": "auth_02",
+          "source": "I let it slip.",
+          "before": "미끄러지게 놔뒀어요",
+          "after": "미끄러지게 놔뒀어요"
+        },
+        {
+          "candidate": "length1.3",
+          "id": "auth_03",
+          "source": "Mina said she would cover for Jae.",
+          "before": "미나가 제이를 덮어줄 거라고 했어요",
+          "after": "미나가 제이를 덮어줄 거라고 했어요"
+        },
+        {
+          "candidate": "length1.3",
+          "id": "auth_06",
+          "source": "恐れ入りますが、明日までお待ちいただけますか。",
+          "before": "안타깝게도, 내일까지 기다릴 수 있을까요?",
+          "after": "안타깝게도, 내일까지 기다릴 수 있겠습니까?"
+        },
+        {
+          "candidate": "length1.3",
+          "id": "auth_11",
+          "source": "持とうか。",
+          "before": "가져가도 될까요?",
+          "after": "가져가도 될까요?"
+        },
+        {
+          "candidate": "length1.3",
+          "id": "auth_20",
+          "source": "くそっ、ふざけんな！",
+          "before": "젠장, 농담이야!",
+          "after": "젠장, 농담이야!"
+        }
+      ],
+      "beam8_seconds": 51.296,
+      "length1.3_seconds": 40.156
+    }
+  },
+  "limits": [
+    "Saved ASR text was seeded from authored public comparison fixtures over synthetic 4-second media; this is actual MT/API/worker execution, not new ASR accuracy evidence.",
+    "External Python socket/ASR imports were blocked in server and worker and saw zero attempts; this is not a kernel network trace.",
+    "Linux CPU only; target Windows 11/RTX/CUDA performance remains unmeasured.",
+    "Retranslation keeps the current translator and its known meaning errors. It does not repair source ASR errors."
+  ]
+}

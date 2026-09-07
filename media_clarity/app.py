@@ -325,6 +325,10 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         # A new version; existing supplied/generated tracks remain available.
         return JSONResponse({"id":jobs.enqueue(item_id, force=True, audio_index=audio_index)}, status_code=202)
 
+    @app.post("/api/library/{item_id}/subtitles/{track_id}/retranslate")
+    def retranslate_subtitles(item_id: str, track_id: str):
+        return JSONResponse({"id":jobs.retranslate(item_id, track_id)}, status_code=202)
+
     @app.post("/api/subtitle-jobs/{job_id}/{action}")
     def subtitle_job_action(job_id: str, action: str):
         jobs.action(job_id, action)

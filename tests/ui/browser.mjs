@@ -71,6 +71,15 @@ try {
       t.mode === 'showing' && [...t.activeCues].some(c => c.getCueAsHTML().textContent === 'Original <voice> & text.')));
     assert.equal(await video.evaluate(v => v.currentTime), position);
     assert.equal(await video.evaluate(v => v.paused), true);
+    const retranslate = page.locator('#subtitle-retranslate');
+    await page.locator('#subtitle-preparation > summary').click();
+    assert.equal(await retranslate.isVisible(), true);
+    const response = page.waitForResponse(r => r.url().endsWith(`/subtitles/${sourceId.split(':')[0]}/retranslate`) && r.request().method() === 'POST');
+    await retranslate.click();
+    const blocked = await response;
+    assert.equal(blocked.status(), 503);
+    assert.equal((await blocked.json()).error, 'local_models_missing');
+    assert.equal(await selector.inputValue(), sourceId);
     await page.locator('#subtitle-search-panel > summary').click();
     await page.locator('#subtitle-query').fill('Original');
     await page.locator('#subtitle-results button').waitFor();
@@ -80,6 +89,7 @@ try {
       t.mode === 'showing' && [...t.activeCues].some(c => c.text.includes('한국어 자동 번역 확인'))));
     await page.waitForFunction(() => document.querySelectorAll('#subtitle-results button').length === 0);
     await selector.selectOption(trackId);
+    assert.equal(await retranslate.isVisible(), false);
     await page.waitForFunction(() => document.querySelector('#video track')?.readyState === 2);
   }
   await selector.selectOption('');
@@ -101,7 +111,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
-    nativeCaption: true, transcriptSwitchAndSearch: phase === 'restart', decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
+    nativeCaption: true, transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   await browser.close();
 }
