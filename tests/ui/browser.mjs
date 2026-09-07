@@ -25,6 +25,72 @@ await page.route('**/*', route => {
   return route.continue();
 });
 const video = page.locator('#video');
+async function checkMomentEntry() {
+  const session = await (await page.request.get(`${base}/api/session`)).json();
+  const headers = {'X-Media-Token': session.token};
+  const items = (await (await page.request.get(`${base}/api/library`)).json()).items;
+  const item = items[0], path = `${base}/api/library/${item.id}`;
+  const before = {position: item.position, watched_at: item.watched_at};
+  const preference = await (await page.request.get(`${path}/preference`)).json();
+  assert.equal((await page.request.put(`${path}/preference`, {headers,
+    data: {included: true, preference: preference.preference, revision: preference.revision}})).status(), 200);
+  const response = await page.request.get(`${path}/moment-reference`, {headers});
+  assert.equal(response.status(), 200);
+  const reference = await response.json();
+  const entry = {...reference, start_ms: 3000, end_ms: 4500};
+  const writes = [], preparations = [];
+  const observe = request => {
+    if (request.method() === 'PUT' && request.url().endsWith('/position')) writes.push(true);
+    if (request.method() === 'POST' && request.url().endsWith('/playback')) preparations.push(true);
+    assert(!request.url().includes('#moment='), 'fragment must never reach HTTP');
+  };
+  page.on('request', observe);
+  const fragment = value => '#moment=' + encodeURIComponent(JSON.stringify(value));
+  const entered = async start => {
+    await page.waitForFunction(t => {
+      const v = document.querySelector('#video');
+      return document.querySelector('#player-dialog').open && v.readyState >= 2 && !v.seeking && Math.abs(v.currentTime - t) < .2;
+    }, start);
+    assert.equal(await video.evaluate(v => v.paused), true);
+    assert.equal(new URL(page.url()).hash, '');
+  };
+  const unchanged = async () => {
+    const current = await (await page.request.get(path)).json();
+    assert.deepEqual({position: current.position, watched_at: current.watched_at}, before);
+    assert.equal(writes.length, 0);
+    assert.equal(preparations.length, 0);
+  };
+  // Initial navigation and subsequent fragment entry use the same stopped player.
+  await page.goto(base + '/' + fragment(entry));
+  await entered(3);
+  await video.evaluate(v => { v.currentTime = 4; });
+  await page.waitForFunction(() => !document.querySelector('#video').seeking);
+  await unchanged();
+  await page.locator('#player-close').click();
+  await page.waitForFunction(() => !document.querySelector('#player-dialog').open);
+  await unchanged();
+  // A valid foreign-library reference is refused, without opening or preparing.
+  const rejected = page.waitForResponse(r => r.url().endsWith('/moment-entry') && r.status() === 409);
+  await page.evaluate(hash => { location.hash = hash; }, fragment({...entry, library_id:'f'.repeat(32)}));
+  await rejected;
+  assert.equal(await page.locator('#player-dialog').evaluate(d => d.open), false);
+  await unchanged();
+  await page.evaluate(hash => { location.hash = hash; }, fragment(entry));
+  await entered(3);
+  // Playing explicitly releases position saving; opening/seek/close did not.
+  await video.evaluate(v => v.play());
+  await page.waitForFunction(() => document.querySelector('#video').currentTime > 3.3);
+  await video.evaluate(v => v.pause());
+  await page.locator('#player-close').click();
+  await page.waitForFunction(() => !document.querySelector('#player-dialog').open);
+  assert(writes.length > 0);
+  const played = await (await page.request.get(path)).json();
+  assert(played.position > 3.3 && played.position < 6);
+  assert.equal(preparations.length, 0);
+  page.off('request', observe);
+  // Keep the existing first→restart resume fixture at seven seconds.
+  assert.equal((await page.request.put(`${path}/position`, {headers, data:{position:7, audio_index:0}})).status(), 200);
+}
 try {
   await page.goto(base);
   if (phase === 'first') {
@@ -107,11 +173,12 @@ try {
   });
   await page.locator('#player-close').click();
   await page.waitForFunction(() => !document.querySelector('#player-dialog').open);
+  await checkMomentEntry();
   assert(ranges.includes(206), 'real browser Range response required');
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
-    nativeCaption: true, transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
+    nativeCaption: true, transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   await browser.close();
 }

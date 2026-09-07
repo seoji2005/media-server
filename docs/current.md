@@ -1,9 +1,9 @@
 # Current work
 
-- **Milestone:** retranslate a selected saved transcript into a new Korean version
-  without repeating audio decoding/ASR or changing earlier captions.
-- **Branch / PR / HEAD:** `app/retranslate-subtitles`, from main `d3d1017` after
-  [PR #14](https://github.com/seoji2005/media-server/pull/14) merged. Resolve live work in
+- **Milestone:** open a saved companion scene paused on its verified original timeline,
+  preserving watch history until explicit playback and all existing retranslation data.
+- **Branch / PR / HEAD:** `app/companion-moments`, from main `d9fb017` after
+  [PR #16](https://github.com/seoji2005/media-server/pull/16) merged. Resolve live work in
   [open PRs](https://github.com/seoji2005/media-server/pulls). One writer; [product](product.md) and AGENTS.md govern.
 - **What works:** import/compatible copies, shared audio, playback/resume, actual local
   ASR/Korean captions, recoverable jobs, literal/visual scene search, previews and explicit
@@ -19,6 +19,8 @@
   [Saved-transcript retranslation](subtitles.md#translating-a-saved-transcript-again)
   uses only MT files/runtime; [actual server/worker execution](evidence/retranslation.json)
   took 16.289 s without ASR weights, ASR imports or external Python socket attempts.
+  [Companion scene entry](companion-moments.md) integrates the separate PR #15 proposal
+  through schema v7; donor branch stays intact. Compass needs a landed-revision round trip.
   [Runtime/recovery](subtitles.md), [readability](subtitle-readability.md),
   [audio/UI](compatible-renditions.md), [scene search](scene-search.md).
   [Verification](../README.md#검증과-작업-방식) runs Python, all seven DOM suites and real browser checks.

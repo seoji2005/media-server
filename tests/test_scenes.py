@@ -54,7 +54,7 @@ class SceneTests(unittest.TestCase):
         self.assertEqual(results['candidates'][0]['time'],25)
         self.assertNotIn('PRIVATE_QUERY',json.dumps(results))
         with self.store.db() as db:
-            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],6)
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],7)
             db.execute("UPDATE scene_vectors SET vector=x'0001' WHERE ordinal=1");db.commit()
         self.assertEqual(scenes.status(self.store,self.item)['completed'],4)
         with self.assertRaisesRegex(MediaError,'scene_index_required'):scenes.execute(self.store,self.item,'text',Encoder)
