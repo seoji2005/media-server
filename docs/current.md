@@ -1,11 +1,14 @@
 # Current work
 
-- **Milestone:** [Gemini default and cloud API comparison](cloud-speech-and-translation.md):
+- **Milestone:** [Acoustic ASR pilot and free API access](asr-acoustic-comparison.md)
+  completed actual CPU Media Server/WhisperJAV v2/v3 and Gemini API inference on a
+  common 92-second synthetic WAV. Intended SRT is not listened-to gold; no real-media
+  quality winner or ASR default change. [Gemini default](cloud-speech-and-translation.md):
   Gemini 3.1 Flash-Lite is initially selected in the UI, with a labeled cloud action and
   source-faithful context. Local MADLAD stays selectable; ASR remains local. Historical
   Gemini jobs retain the exact original model/prompt during resume and restart.
-- **Branch / PR / HEAD:** `feat/gemini-default-translation`, based on main `7ee6f87` after
-  [PR #22](https://github.com/seoji2005/media-server/pull/22) merged. Resolve live work in
+- **Branch / PR / HEAD:** `research/asr-acoustic-comparison`, based on main `8e98ef2` after
+  [PR #23](https://github.com/seoji2005/media-server/pull/23) merged. Resolve live work in
   [open PRs](https://github.com/seoji2005/media-server/pulls). One writer; [product](product.md) and AGENTS.md govern.
 - **What works:** import/compatible copies, shared audio, playback/resume, actual local
   ASR/Korean captions, recoverable jobs, literal/visual scene search, previews and explicit
@@ -33,14 +36,18 @@
   currently fails with socket EPERM; [Linux/Windows CPU CI](https://github.com/seoji2005/media-server/actions/workflows/verify.yml)
   is available under the owner's spending approval. Earlier long-film/larger-encoder
   requests ended in cancelled approval; do not bypass them.
-- **Next action:** Validate the fresh ASR → Gemini path with real ASR weights on a
-  suitable machine; this host has no ASR weights and only about 1.3 GB free. Do not
-  download more weights without capacity. Synthetic inference/real child recovery
-  checks are not a real model sign-off. Mistral Small 4 is the next translation API
+- **Next action:** Obtain Groq/Mistral/Subtitle Nexus keys and check the account's free
+  allowance/model access before extending the same public audio comparison. This host
+  now has pinned large-v2/v3 weights and completed CPU inference; the earlier 1.3 GB
+  disk blocker is obsolete. Recheck capacity before any further model download.
+  Investigate short/quiet utterances absent from Media Server's saved VAD spans;
+  do not promote a preset from this repeated synthetic pilot alone. A full fresh
+  ASR → Gemini app/job path and target GPU validation remain open. Mistral Small 4 is the next translation API
   candidate if a key is supplied. Qwen's incorporated Alibaba terms restrict sexually
   explicit material, changing its priority for this owner's criteria. Groq large-v3,
-  Voxtral Mini Transcribe V2 and Scribe v2 are researched ASR candidates, with no audio
-  API calls or integration yet. [Costs, policy and limits](cloud-speech-and-translation.md).
+  Voxtral Mini Transcribe V2 and Scribe v2 are researched ASR candidates, with no calls
+  to those services or integration yet. Gemini's public audio pilot completed one ASR
+  call; no private audio was uploaded. [Costs, policy and limits](cloud-speech-and-translation.md).
   Gemini 3.8 and 3.1 Lite each completed 80
   attempts with 79 valid outputs; both blocked the same non-graphic trauma report.
   The new fidelity prompt's nine-case public spot check returned 9/9, including that
