@@ -1,5 +1,11 @@
 # Translation API comparison — 2026-09-07
 
+**September 8 update:** [Gemini is now the initial UI selection](cloud-speech-and-translation.md)
+under the owner's instruction, with a versioned fidelity prompt and labeled cloud action.
+The measurements below retain their original `saved-context-v1` prompt. The new policy
+review also moves Mistral ahead of Qwen for sensitive dialogue: Alibaba's incorporated
+membership terms restrict sexually explicit material. The September 7 record follows.
+
 **Selected: Gemini 3.1 Flash-Lite for new explicitly requested Gemini translations.**
 The measured quality is close to 3.8 Flash, with about 43% lower token cost and no
 established general speed difference. Local MADLAD stays available and remains the

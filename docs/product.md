@@ -49,8 +49,11 @@ Verify offline operation and absence of private payloads in logs/Git; no private
 egress by default. Development cloud samples must be permitted and non-private.
 Owner-approved Gemini translation is an explicit per-video choice: send recognized/saved
 dialogue and bounded neighboring text only, with egress/billing disclosure. No media,
-titles, paths, watch history or credentials enter prompts. Keep local translation the
-default and never automatically retry or switch providers. Fresh Gemini jobs recognize
+titles, paths, watch history or credentials enter prompts. Under the owner's September 8
+instruction, Gemini is the initial UI selection; starting it requires a labeled Gemini
+action with visible egress/billing disclosure. Merely opening a video sends nothing.
+Local MADLAD stays selectable; API requests omitting a provider remain local for compatibility.
+Never automatically retry or switch providers. Fresh Gemini jobs recognize
 speech locally and send only the validated transcript for translation; saved-transcript
 retranslation skips ASR. Media/audio never enter either cloud path.
 

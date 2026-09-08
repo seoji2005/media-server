@@ -1,10 +1,11 @@
 # Current work
 
-- **Milestone:** [fresh Gemini subtitles](subtitles.md#optional-gemini-retranslation):
-  explicit local-ASR → Gemini translation, without an unnecessary local MT pass.
-  Local remains default; prior translations and frozen provider/model recovery remain intact.
-- **Branch / PR / HEAD:** `feat/fresh-gemini-subtitles`, based on main `88ba204` after
-  [PR #21](https://github.com/seoji2005/media-server/pull/21) merged. Resolve live work in
+- **Milestone:** [Gemini default and cloud API comparison](cloud-speech-and-translation.md):
+  Gemini 3.1 Flash-Lite is initially selected in the UI, with a labeled cloud action and
+  source-faithful context. Local MADLAD stays selectable; ASR remains local. Historical
+  Gemini jobs retain the exact original model/prompt during resume and restart.
+- **Branch / PR / HEAD:** `feat/gemini-default-translation`, based on main `7ee6f87` after
+  [PR #22](https://github.com/seoji2005/media-server/pull/22) merged. Resolve live work in
   [open PRs](https://github.com/seoji2005/media-server/pulls). One writer; [product](product.md) and AGENTS.md govern.
 - **What works:** import/compatible copies, shared audio, playback/resume, actual local
   ASR/Korean captions, recoverable jobs, literal/visual scene search, previews and explicit
@@ -35,10 +36,16 @@
 - **Next action:** Validate the fresh ASR → Gemini path with real ASR weights on a
   suitable machine; this host has no ASR weights and only about 1.3 GB free. Do not
   download more weights without capacity. Synthetic inference/real child recovery
-  checks are not a real model sign-off. Qwen-MT-Flash is the next API candidate if an
-  Alibaba key is supplied; Mistral Small 4 is another documented candidate. Neither has
-  measured quality/refusal evidence here. Gemini 3.8 and 3.1 Lite each completed 80
+  checks are not a real model sign-off. Mistral Small 4 is the next translation API
+  candidate if a key is supplied. Qwen's incorporated Alibaba terms restrict sexually
+  explicit material, changing its priority for this owner's criteria. Groq large-v3,
+  Voxtral Mini Transcribe V2 and Scribe v2 are researched ASR candidates, with no audio
+  API calls or integration yet. [Costs, policy and limits](cloud-speech-and-translation.md).
+  Gemini 3.8 and 3.1 Lite each completed 80
   attempts with 79 valid outputs; both blocked the same non-graphic trauma report.
+  The new fidelity prompt's nine-case public spot check returned 9/9, including that
+  report, but has no contemporaneous control and still softened some wording. It is
+  not a new full quality or refusal benchmark.
   2.5 Lite returned 404 twice despite being listed, so it was stopped. The owner-provided
   Gemini authorization key is retained privately in this work environment, never Git.
   [Integration and limits](subtitles.md#optional-gemini-retranslation). Establish runtime
@@ -48,9 +55,9 @@
   Japanese inputs remained Japanese. The qualitative assessment favored MADLAD.
   [contextual Qwen3-4B](translation-comparison.md#contextual-qwen-comparison--2026-09-07)
   completed all 80 inputs but is not adopted: clock-time corruption and changed actions
-  remain. Default translation is MADLAD; saved-transcript retranslation also offers
-  explicit Gemini. Fresh speech recognition remains local; fresh translation now offers
-  the same explicit Gemini selection, while the initial choice remains local.
+  remain. The UI now defaults to Gemini for fresh and saved-transcript translation,
+  while local MADLAD stays available. Speech recognition remains local. Starting cloud
+  work still requires the labeled action; simply opening a video sends nothing.
   [sentence splitting and decoding settings](translation-comparison.md#bounded-decoding-comparison--2026-09-07)
   did not establish a general improvement, so none was adopted. Saved ASR can now be
   reused when translator updates arrive. Preserve the frozen comparison rather than
@@ -58,4 +65,5 @@
   Target Windows/RTX takes priority on access; natural long speech and useful enhancement
   remain open. Keep all October features included.
   The earlier [16/80 Gemini results](translation-comparison.md#post-payment-diagnosis)
-  were reused in the completed comparison; local stays default and private egress stays opt-in.
+  were reused in the completed comparison. Empty-provider API calls remain local for
+  compatibility; UI calls explicitly send the selected provider.

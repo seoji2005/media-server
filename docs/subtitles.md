@@ -63,18 +63,21 @@ does not change existing jobs' configuration identity or normal ASR resume behav
 
 ### Optional Gemini retranslation
 
-Open **자막 준비**, set **번역 엔진 → Google Gemini · 3.1 Flash-Lite**, then choose:
+Open **자막 준비**. **번역 엔진 → Google Gemini · 3.1 Flash-Lite** is initially selected
+under the owner's September 8 instruction. Local MADLAD remains selectable. Choose:
 
-- **한국어 자막 만들기 / 새 자막 만들기:** local Whisper/VAD recognizes the selected
+- **Gemini로 자막 만들기:** local Whisper/VAD recognizes the selected
   audio, then Gemini translates the validated transcript. ASR weights/runtime are
   required; MADLAD weights and its direct translation dependencies are not. ASR uses
   its existing CPU int8 / CUDA int8_float16 precision; translation's BF16 requirement
   does not apply to this ASR-only path. Target Windows/RTX execution remains unverified.
-- **저장된 원문으로 다시 번역:** reuse the selected generated version's saved transcript.
+- **Gemini로 다시 번역:** reuse the selected generated version's saved transcript.
   No local ASR or translation models are needed for this action.
 
-The selector alone never queues work or calls an API. Empty API bodies and opening
-another video default to local. Existing versions keep playing;
+The selector alone never queues work or calls an API. Opening another video selects
+Gemini; visible disclosure and the labeled action precede a cloud job. Missing keys
+produce an actionable error without sending text or choosing another engine. Empty API
+bodies remain local for backwards compatibility. Existing versions keep playing;
 completed cloud versions are labeled **한국어 · Gemini**.
 
 Set `GEMINI_API_KEY` in the environment of the process launching the app, then restart
@@ -133,7 +136,14 @@ hard pause/crash or failed checkpoint may leave a billed response unsaved; manua
 can resend that request and incur another charge. Completed batches are reused. No
 exactly-once billing, deterministic output or Korean quality improvement is promised.
 
-Existing 3.8 jobs retain their original configuration and model on resume/restart.
+New Gemini jobs use `faithful-context-v2`: translate existing dialogue faithfully,
+preserve sensitive vocabulary/intensity, and add no age, consent or fictional setting
+absent from the source. It does not claim every participant is an adult or every act
+consensual. No safety settings or automatic refusal retries are added. This context
+does not guarantee a provider will accept all material.
+Existing 3.8 and 3.1 Lite `saved-context-v1` jobs retain their original configuration,
+model **and exact prompt** on resume/restart; the new prompt has a different identity.
+See the [current comparison and prompt check](cloud-speech-and-translation.md).
 The [API comparison and selection](translation-api-selection.md) measured 80 inputs for
 3.8 and 3.1 Lite. Both returned 79/80 outputs and blocked the same non-graphic trauma
 report; neither has a proven low-refusal guarantee for private sensitive media.

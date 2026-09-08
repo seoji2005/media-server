@@ -105,8 +105,9 @@ try {
     await page.locator('#subtitle-preparation > summary').click();
     const provider = page.locator('#subtitle-translator');
     assert.equal(await provider.isVisible(), true);
-    assert.equal(await provider.inputValue(), 'local');
-    await provider.selectOption('gemini');
+    assert.equal(await provider.inputValue(), 'gemini');
+    assert.equal(await page.locator('#subtitle-cloud-note').isVisible(), true);
+    assert.equal(await page.locator('#subtitle-generate').textContent(), 'Gemini로 자막 만들기');
     assert.match(await page.locator('#subtitle-cloud-note').textContent(), /음성 인식은 이 기기/);
     const response = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/subtitle-jobs') && r.request().method() === 'POST');
     await page.locator('#subtitle-generate').click();
@@ -153,13 +154,15 @@ try {
     const retranslate = page.locator('#subtitle-retranslate');
     await page.locator('#subtitle-preparation > summary').click();
     assert.equal(await retranslate.isVisible(), true);
+    const provider = page.locator('#subtitle-translator');
+    assert.equal(await provider.inputValue(), 'gemini');
+    await provider.selectOption('local');
     const response = page.waitForResponse(r => r.url().endsWith(`/subtitles/${sourceId.split(':')[0]}/retranslate`) && r.request().method() === 'POST');
     await retranslate.click();
     const blocked = await response;
     assert.equal(blocked.status(), 503);
     assert.equal((await blocked.json()).error, 'local_models_missing');
     assert.equal(await selector.inputValue(), sourceId);
-    const provider = page.locator('#subtitle-translator');
     assert.equal(await provider.inputValue(), 'local');
     const before = await video.evaluate(v => ({src:v.currentSrc, track:v.querySelector('track').getAttribute('src'), time:v.currentTime}));
     await video.evaluate(v => v.play());
