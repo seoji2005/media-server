@@ -361,7 +361,7 @@ $("model-check").addEventListener("click",async()=>{
   catch(e){$("model-check-state").textContent=e.code==="processing_worker_active"?"자막 처리 중에는 진단할 수 없습니다. 작업을 마치거나 일시정지한 뒤 다시 확인해 주세요.":e.message;}
   finally{button.disabled=false;if(hadFocus&&$("settings-dialog").open&&document.activeElement===document.body)button.focus();}
 });
-function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];geminiConfigured=false;$("subtitle-translator").value="local";renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
+function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];geminiConfigured=false;$("subtitle-translator").value="gemini";renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
 function selectedSubtitle(){const [id,view]=(subtitleLoaded||"").split(":");return {track:subtitleTracks.find(t=>t.id===id),transcript:view==="transcript"};}
 function renderSubtitleNotes(){
   const {track,transcript}=selectedSubtitle(),notes=[];
@@ -385,6 +385,8 @@ function renderRetranslation(){
   $("subtitle-retranslate").hidden=!track?.has_transcript||track.source!=="generated"||!!(subtitleJob&&["queued","running","paused"].includes(subtitleJob.state));
   $("subtitle-translator-panel").hidden=!!(subtitleJob&&["queued","running","paused"].includes(subtitleJob.state));
   const cloud=$("subtitle-translator").value==="gemini";
+  $("subtitle-generate").textContent=cloud?"Gemini로 자막 만들기":$("subtitle-generate").dataset.regenerate==="true"?"새 자막 만들기":"한국어 자막 만들기";
+  $("subtitle-retranslate").textContent=cloud?"Gemini로 다시 번역":"저장된 원문으로 다시 번역";
   $("subtitle-cloud-note").hidden=!cloud;
   $("subtitle-cloud-note").textContent=cloud?`새 자막의 음성 인식은 이 기기에서 실행합니다. 인식·저장된 대사와 앞뒤 문맥 텍스트를 Google로 보내 한국어로 번역합니다. 영상·음성 파일은 보내지 않습니다. API 사용료가 발생합니다. ${geminiConfigured?"API 키가 설정되어 있습니다. 연결은 번역을 시작할 때 확인합니다.":"API 키 설정이 필요합니다. 설치 안내를 확인해 주세요."} 중단 후 재개하면 처리 중이던 요청이 다시 전송되어 과금될 수 있습니다. 재개·처음부터 다시는 기존 작업의 번역 엔진을 유지합니다.`:"";
 }

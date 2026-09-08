@@ -30,6 +30,22 @@ def reply(body, key, model=None):
 
 
 class GeminiTransportTests(unittest.TestCase):
+    def test_prompt_profiles_are_exact_and_reject_unknown_identity(self):
+        self.assertNotEqual(gemini.CONFIG, gemini.CONFIGS[gemini.MODEL])
+        for config, prompt in gemini.PROFILES.items():
+            with self.subTest(config=config):
+                saved = json.loads(config)
+                self.assertEqual(saved['prompt_sha256'], hashlib.sha256(prompt.encode()).hexdigest())
+                with patch.dict(os.environ, {'GEMINI_API_KEY':'synthetic-key'}):
+                    backend = gemini.Gemini(config)
+                self.assertEqual(backend.prompt, prompt)
+                self.assertEqual(backend.model, saved['model'])
+                backend.close()
+        changed = json.loads(gemini.CONFIG);changed['prompt_sha256'] = '0'*64
+        for config in (None, {}, json.dumps(changed), '{}'):
+            with self.assertRaisesRegex(MediaError, 'processing_config_changed'):
+                gemini.model_for(config)
+
     def test_authorization_key_format_without_header_injection(self):
         for key in ('synthetic-key','AQ.synthetic_auth-key.123'):
             with patch.dict(os.environ,{'GEMINI_API_KEY':key}):
@@ -132,6 +148,7 @@ class GeminiJobTests(unittest.TestCase):
         self.assertEqual(targets,[{'id':'0','text':'Before.','before':'','after':'한국어.'},
                                   {'id':'1','text':'After.','before':'한국어.','after':''}])
         self.assertEqual(set(calls[0]),{'systemInstruction','contents','generationConfig'})
+        self.assertEqual(calls[0]['systemInstruction']['parts'][0]['text'],gemini.PROMPT)
         self.assertEqual(row['transcript'],original['transcript'])
         self.assertEqual(row['translation_config'],gemini.CONFIG)
         status=self.jobs.status(self.item['id'])
@@ -190,21 +207,29 @@ with patch('media_clarity.gemini.request',side_effect=transport):
         self.assertEqual(successor['source_track_id'],track)
         self.assertEqual(successor['transcript'],self.jobs.row(old)['transcript'])
 
-    def test_legacy_38_job_resumes_and_restarts_with_its_original_model(self):
+    def test_legacy_31_job_resumes_and_restarts_with_original_prompt(self):
+        self.check_legacy_recovery('gemini-3.1-flash-lite')
+
+    def test_legacy_38_job_resumes_and_restarts_with_original_prompt(self):
+        self.check_legacy_recovery('gemini-3.8-flash')
+
+    def check_legacy_recovery(self, model):
         from media_clarity.jobs import saved_transcript
         _,track=self.seed_source()
-        legacy=gemini.CONFIGS['gemini-3.8-flash']
+        legacy=gemini.CONFIGS[model]
         self.assertEqual(gemini.model_for(gemini.CONFIG),'gemini-3.1-flash-lite')
         media=self.store._row(self.item['id'])
         with self.store.db() as db:
             seed=saved_transcript(db,media,track)
             jid=self.jobs._queue_translation(db,media,seed,legacy);db.commit()
         before=self.jobs.row(jid)
+        self.store.close();self.store.start();self.jobs=Jobs(self.store)
         self.jobs.action(jid,'pause');self.jobs.action(jid,'resume')
         with patch('media_clarity.gemini.request',side_effect=reply) as transport:
             execute(self.store,jid)
         self.assertEqual(self.jobs.row(jid)['state'],'succeeded')
-        self.assertEqual(transport.call_args.args[2],'gemini-3.8-flash')
+        self.assertEqual(transport.call_args.args[2],model)
+        self.assertEqual(transport.call_args.args[0]['systemInstruction']['parts'][0]['text'],gemini.LEGACY_PROMPT)
         self.assertEqual(self.jobs.row(jid)['config_sha'],before['config_sha'])
         # A paused historical job restarts with its saved model, not today's choice.
         with self.store.db() as db:
@@ -216,7 +241,8 @@ with patch('media_clarity.gemini.request',side_effect=transport):
         self.assertEqual(successor['config_sha'],before['config_sha'])
         with patch('media_clarity.gemini.request',side_effect=reply) as transport:
             execute(self.store,successor['id'])
-        self.assertEqual(transport.call_args.args[2],'gemini-3.8-flash')
+        self.assertEqual(transport.call_args.args[2],model)
+        self.assertEqual(transport.call_args.args[0]['systemInstruction']['parts'][0]['text'],gemini.LEGACY_PROMPT)
 
 
     def test_tampering_and_refusal_never_send_or_publish(self):

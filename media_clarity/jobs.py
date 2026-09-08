@@ -213,7 +213,7 @@ class Jobs:
                 ,(SELECT j.translation_config FROM subtitle_jobs j WHERE j.id=t.job_id) AS translation_config
                 FROM subtitle_tracks t WHERE t.item_id=? ORDER BY t.created_at DESC,t.id DESC''', (item_id,)).fetchall()
         def label(config):
-            return 'local' if config is None else 'gemini' if config in gemini.CONFIGS.values() else 'unknown'
+            return 'local' if config is None else 'gemini' if config in gemini.PROFILES else 'unknown'
         result = []
         for r in tracks:
             if r['input_sha'] != media['sha256']:

@@ -4,8 +4,10 @@
 **파일 선택 → 보관함 → 자막 선택 → 재생·탐색 → 시청 위치 저장·복원.**
 원본은 읽기만 하며 앱 보관 공간에 별도 사본을 만듭니다. 영상·제목·썸네일·
 시청 기록은 외부로 전송하지 않습니다. 외부 CDN·폰트·분석 도구도 사용하지 않습니다.
-**번역 엔진 → Google Gemini**를 직접 선택하면 인식·저장된 대사와 앞뒤 문맥 텍스트만 Google로
-보냅니다. 기본 번역은 이 기기의 MADLAD이며, [Gemini 키 설정과 사용](docs/subtitles.md#optional-gemini-retranslation)을 참고하세요.
+자막 준비의 기본 번역은 **Google Gemini · 3.1 Flash-Lite**입니다. **Gemini로 자막 만들기** 또는
+**Gemini로 다시 번역**을 누르면 인식·저장된 대사와 앞뒤 문맥 텍스트만 Google로 보내며 API 비용이 발생합니다.
+로컬 MADLAD도 선택할 수 있습니다. [Gemini 키 설정과 사용](docs/subtitles.md#optional-gemini-retranslation),
+[번역 비교와 클라우드 ASR 후보](docs/cloud-speech-and-translation.md)를 참고하세요.
 새 자막도 로컬 음성 인식 다음에 바로 Gemini로 번역할 수 있습니다. 이 경우 로컬 번역
 가중치는 필요 없지만 Whisper·VAD 실행 환경은 필요합니다. 저장된 원문을 다시 번역할 때는
 음성 인식도 반복하지 않습니다. 엔진 선택만으로 작업이나 API 호출이 시작되지는 않습니다.
