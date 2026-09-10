@@ -32,9 +32,9 @@ def inspect_runtime(root):
     if result['error']:
         return result
     try:
-        from .models import LocalModels
+        from .qwen import QwenSpeech
         # Constructor checks packages/device, but loads no ASR/translation weights.
-        backend = LocalModels(root)
+        backend = QwenSpeech(root)
         result['device'] = backend.device
         result['state'] = 'ready'
     except Exception as exc:

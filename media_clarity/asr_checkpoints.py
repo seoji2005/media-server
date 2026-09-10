@@ -15,7 +15,7 @@ def encoded(value):
 
 def validate_part(part, duration):
     try:
-        if type(part) is not dict or set(part) != {'clip', 'cues'}:
+        if type(part) is not dict or set(part) not in ({'clip', 'cues'}, {'clip', 'cues', 'evidence', 'error'}):
             raise ValueError()
         clip = part['clip']
         if (type(clip) is not list or len(clip) != 2 or
@@ -25,7 +25,17 @@ def validate_part(part, duration):
         cues = validate_cues(part['cues'], duration)
         if any(c['start'] < clip[0] - .05 or c['end'] > clip[1] + .05 for c in cues):
             raise ValueError()
-        return {'clip': clip, 'cues': cues}
+        result = {'clip': clip, 'cues': cues}
+        if 'evidence' in part:
+            from .qwen import evidence_result
+            end = part['evidence'].get('recognition_end', clip[1]) if type(part['evidence']) is dict else None
+            if type(end) not in (int,float) or not math.isfinite(end) or end > duration + .05:
+                raise ValueError()
+            expected, error = evidence_result(part['evidence'], clip)
+            if cues != expected or part['error'] != error:
+                raise ValueError()
+            result.update(evidence=part['evidence'], error=error)
+        return result
     except (ValueError, TypeError, KeyError, MediaError):
         raise MediaError('processing_checkpoint_invalid', 409) from None
 

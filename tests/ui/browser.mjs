@@ -114,7 +114,7 @@ try {
     const blocked = await response;
     assert.equal(blocked.status(), 503);
     assert.equal((await blocked.json()).error, 'gemini_key_missing');
-    await provider.selectOption('local');
+    assert.equal(await provider.locator('option').count(), 1);
     await page.locator('#subtitle-preparation > summary').click();
     await page.locator('#subtitle-input').setInputFiles(subtitle);
   } else {
@@ -156,14 +156,14 @@ try {
     assert.equal(await retranslate.isVisible(), true);
     const provider = page.locator('#subtitle-translator');
     assert.equal(await provider.inputValue(), 'gemini');
-    await provider.selectOption('local');
+    assert.equal(await provider.locator('option').count(), 1);
     const response = page.waitForResponse(r => r.url().endsWith(`/subtitles/${sourceId.split(':')[0]}/retranslate`) && r.request().method() === 'POST');
     await retranslate.click();
     const blocked = await response;
     assert.equal(blocked.status(), 503);
-    assert.equal((await blocked.json()).error, 'local_models_missing');
+    assert.equal((await blocked.json()).error, 'gemini_key_missing');
     assert.equal(await selector.inputValue(), sourceId);
-    assert.equal(await provider.inputValue(), 'local');
+    assert.equal(await provider.inputValue(), 'gemini');
     const before = await video.evaluate(v => ({src:v.currentSrc, track:v.querySelector('track').getAttribute('src'), time:v.currentTime}));
     await video.evaluate(v => v.play());
     await provider.selectOption('gemini');

@@ -10,10 +10,21 @@ from .storage import MediaError, Store, default_data_dir
 
 class SafeServerLog(logging.Filter):
     def filter(self, record):
+        # Windows may reset a socket between Proactor's fileno() and shutdown()
+        # while the browser closes a connection. Suppress only that native close
+        # race, not a reset raised inside an application/protocol callback.
+        if record.name == 'asyncio' and record.exc_info:
+            error, trace = record.exc_info[1:]
+            while trace is not None and trace.tb_next is not None:
+                trace = trace.tb_next
+            if (isinstance(error, ConnectionResetError) and trace is not None
+                    and trace.tb_frame.f_globals.get('__name__') == 'asyncio.proactor_events'
+                    and trace.tb_frame.f_code.co_name == '_call_connection_lost'):
+                return False
         # Uvicorn transport failures may carry private paths/URLs in exception text.
         if record.exc_info or record.levelno >= logging.ERROR:
             record.msg, record.args = "Local server operation failed; check the in-app diagnostic.", ()
-            record.exc_info = record.exc_text = None
+            record.exc_info = record.exc_text = record.stack_info = None
         return True
 
 
@@ -36,7 +47,7 @@ def main():
         if args.command == "serve":
             import uvicorn
             from .app import create_app
-            for name in ("uvicorn", "uvicorn.error", "uvicorn.asgi"):
+            for name in ("uvicorn", "uvicorn.error", "uvicorn.asgi", "asyncio"):
                 logging.getLogger(name).addFilter(SafeServerLog())
             app = create_app(args.data_dir)
             options = dict(host="127.0.0.1", port=args.port, access_log=False,

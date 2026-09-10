@@ -1,5 +1,10 @@
 # Korean subtitle preparation
 
+**Current setup:** [Qwen ASR + separate alignment + Gemini](qwen-subtitles.md).
+The September 9 instruction supersedes the older Whisper/MADLAD setup and initial
+provider defaults below. Keep those historical sections for old-job recovery/evidence.
+[Provided foreign captions and companion APIs](companion-library.md) can avoid ASR.
+
 This is an incremental implementation, **not a real-model quality sign-off**.
 Original watching does not depend on subtitle jobs. Video download, generation and
 NAS remain excluded. Public model-weight setup below is separate from video downloading.

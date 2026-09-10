@@ -74,7 +74,7 @@ with patch('media_clarity.gemini.request',side_effect=transport):
         self.assertEqual((row['state'],row['error'],row['asr_completed'],row['completed']),('failed','gemini_quota',2,8))
         self.assertIsNone(row['source_track_id']);self.assertEqual(row['translation_config'],gemini.CONFIG)
         calls = json.loads((self.root/'fresh-api-calls').read_text())
-        targets = json.loads(calls[0]['contents'][0]['parts'][0]['text'])
+        targets = fixtures.targets_in(calls[0])
         self.assertEqual(len(targets),8)
         self.assertTrue(all(set(t)=={'id','text','before','after'} for t in targets))
         self.assertEqual([t['id'] for t in targets],[str(i) for i in range(8)])
@@ -87,7 +87,12 @@ with patch('media_clarity.gemini.request',side_effect=transport):
             self.jobs.action(jid,'resume');execute(self.store,jid,FreshSpeech)
         self.assertEqual(self.jobs.row(jid)['state'],'succeeded')
         transport.assert_called_once()
-        pending = json.loads(transport.call_args.args[0]['contents'][0]['parts'][0]['text'])
+        resumed = transport.call_args.args[0]
+        self.assertEqual(resumed,calls[1])
+        self.assertEqual(json.loads(resumed['contents'][0]['parts'][0]['text'])['previous_translations'],[
+            {'source':'Line 6.','translation':'번역 Line 6.'},
+            {'source':'Line 7.','translation':'번역 Line 7.'}])
+        pending = fixtures.targets_in(resumed)
         self.assertEqual([t['text'] for t in pending],['Line 8.','Line 9.'])
         self.assertEqual(pending[0]['before'],'Line 7.')
         self.assertEqual((self.root/'fresh-asr-calls').read_bytes(),asr_calls)
@@ -144,9 +149,9 @@ with patch('media_clarity.gemini.request',side_effect=transport):
         self.assertEqual(self.jobs.row(successor['id'])['state'],'succeeded')
         self.assertTrue(all(c.args[2]=='gemini-3.8-flash' for c in transport.call_args_list))
 
-    def test_http_default_local_explicit_cloud_validation_and_conflicts(self):
+    def test_http_fixed_qwen_gemini_validation_and_conflicts(self):
         self.store.close()
-        with patch.object(Jobs,'start',lambda jobs:jobs.init()),patch('media_clarity.models.local_models') as setup,patch('media_clarity.gemini.request') as transport,TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
+        with patch.object(Jobs,'start',lambda jobs:jobs.init()),patch('media_clarity.qwen.local_models') as setup,patch('media_clarity.gemini.request') as transport,TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
             root = f"/api/library/{self.item['id']}/subtitle-jobs"
             headers = {'X-Media-Token':client.get('/api/session').json()['token']}
             for url in (root,root+'/regenerate'):
@@ -158,13 +163,11 @@ with patch('media_clarity.gemini.request',side_effect=transport):
                     result = client.post(url,json={'provider':'gemini'},headers=headers)
                     self.assertEqual((result.status_code,result.json()['error']),(503,'gemini_key_missing'))
             self.assertEqual(client.app.state.jobs.status(self.item['id'])['jobs'],[])
-            local = client.post(root,headers=headers).json()['id']
-            self.assertIsNone(client.app.state.jobs.row(local)['translation_config'])
-            self.assertEqual(client.post(root,json={'provider':'gemini'},headers=headers).status_code,409)
-            client.app.state.jobs.update(local,state='failed')
-            cloud = client.post(root,json={'provider':'gemini'},headers=headers).json()['id']
+            from media_clarity.qwen import PROFILE
+            cloud = client.post(root,headers=headers).json()['id']
             self.assertEqual(client.app.state.jobs.row(cloud)['translation_config'],gemini.CONFIG)
+            self.assertEqual(client.app.state.jobs.row(cloud)['speech_profile'],PROFILE)
             self.assertEqual(client.post(root,json={'provider':'gemini'},headers=headers).json()['id'],cloud)
-            self.assertEqual(client.post(root,headers=headers).status_code,409)
-            setup.assert_called_with(self.root,check_packages=True,asr_only=True)
+            self.assertEqual(client.post(root,json={'provider':'local'},headers=headers).status_code,422)
+            setup.assert_called_with(self.root,check_packages=True)
             transport.assert_not_called()

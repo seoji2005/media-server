@@ -1,0 +1,155 @@
+{
+  "input": "First 35 seconds of the already evaluated public IngCrowd dialogue01, encoded with AAC in a black-video MP4; not a held-out sample.",
+  "first_attempt": {
+    "state": "failed",
+    "error": "alignment_unresolved",
+    "seconds": 102.82894607199705,
+    "duration": 35.0,
+    "asr_completed": 2,
+    "translation_completed": 0,
+    "source_sha256": "a10542cfd29cdaccadea7182284a4367d4756f868c9cf5243460c2bdac0efeba",
+    "model_device": "CPU float32",
+    "real_asr_and_alignment": true,
+    "gemini_transport": "synthetic; not translation quality",
+    "batches": []
+  },
+  "after_fix": {
+    "state": "succeeded",
+    "error": null,
+    "seconds": 21.77362781300326,
+    "duration": 35.0,
+    "asr_completed": 2,
+    "translation_completed": 9,
+    "source_sha256": "a10542cfd29cdaccadea7182284a4367d4756f868c9cf5243460c2bdac0efeba",
+    "model_device": "CPU float32",
+    "real_asr_and_alignment": true,
+    "gemini_transport": "synthetic; not translation quality",
+    "batches": [
+      {
+        "count": 8,
+        "model": "gemini-3.1-flash-lite"
+      },
+      {
+        "count": 1,
+        "model": "gemini-3.1-flash-lite"
+      }
+    ]
+  },
+  "reuse": "first 30s actual output reused by exact decoded audio hash; final 5s actual models rerun",
+  "timing_review_windows": 2,
+  "finding": "The final official unit ended at 5.04 seconds for a 5-second window. Preserve raw values, intersect at most one 80ms grid tick with actual audio. First failure retained.",
+  "limitations": [
+    "Gemini transport was synthetic; no new paid API call or translation-quality claim.",
+    "First window ended inside a word; forced seam is flagged, not claimed seamless.",
+    "CPU float32, 4 threads; not Windows/RTX or long-video evidence."
+  ],
+  "raw_evidence_sha256": {
+    "parts.json": "52206fdbdb879f111983a906bd17f52f0b9b866e8e4ed376ff0aab41c08f8b54",
+    "parts-after-boundary-fix.json": "785a2446a7775b03571210da6f1d8434751919b17972a11475b451c1f6029faf"
+  },
+  "real_gemini_followup": {
+    "date": "2026-09-10",
+    "implementation_revision": "fe6b008a8db30e9783255c95901851b6ecac7b1d",
+    "entrypoint": "Jobs.retranslate(existing_generated_track, provider=gemini), then execute; real production HTTP client",
+    "source_units": 9,
+    "asr_inference_rerun": false,
+    "transcript_sha256": "9ec88c90f58af29fec3691edafe26f57c54463ed731c3b5cf91435e0bd6de8f9",
+    "state": "failed",
+    "job_error": "gemini_unavailable",
+    "requests_attempted": 1,
+    "first_batch_targets": 8,
+    "google_responses_received": 0,
+    "translated_units": 0,
+    "diagnosis": "Official endpoint DNS failed with EAI_AGAIN (temporary name resolution failure); a no-key HTTPS probe reproduced it.",
+    "network_permission_escalation": "Rejected by environment policy: sandbox approval and permission requests are disabled.",
+    "key_validity": "not tested; no authentication response received",
+    "previous_tracks_unchanged": true,
+    "source_transcript_unchanged": true,
+    "original_sample_hash_unchanged": true,
+    "no_failed_track_published": true,
+    "stage_complete": false,
+    "real_translation_display_verified": false,
+    "restart": "Resume saved-source translation in an authorized runtime with Gemini endpoint access; keep prior results and verify actual browser display.",
+    "later_diagnosis": "Direct-only transport omitted the already configured, working platform HTTPS route; prior permission refusal did not establish that this route was unavailable."
+  },
+  "after_system_https_opt_in": {
+    "date": "2026-09-10",
+    "model": "gemini-3.1-flash-lite",
+    "state": "succeeded",
+    "actual_execution_revision": "6c28cc172a4ea954377f00916ae13ce47b48cab1",
+    "subsequent_reviewed_revision": "0814a9543e02a8ac937b3ba1f035ec691e7f9b28",
+    "subsequent_change": "Opt-in flag renamed to MEDIA_GEMINI_USE_SYSTEM_HTTPS so it does not shadow native OS proxy discovery; default-route test isolated. No inference or output transformation changed.",
+    "transport": "real production Gemini HTTPS request; explicit system proxy opt-in",
+    "source_units": 9,
+    "translated_units": 9,
+    "display_cues": 11,
+    "seconds": 29.712,
+    "requests": [
+      {
+        "targets": 8,
+        "model": "gemini-3.1-flash-lite",
+        "outcome": "response_received",
+        "tokens": {
+          "promptTokenCount": 679,
+          "candidatesTokenCount": 148,
+          "totalTokenCount": 927,
+          "thoughtsTokenCount": 100
+        },
+        "seconds": 15.845
+      },
+      {
+        "targets": 1,
+        "model": "gemini-3.1-flash-lite",
+        "outcome": "response_received",
+        "tokens": {
+          "promptTokenCount": 320,
+          "candidatesTokenCount": 31,
+          "totalTokenCount": 473,
+          "thoughtsTokenCount": 122
+        },
+        "seconds": 13.856
+      }
+    ],
+    "fallback_count": 0,
+    "transcript_sha256": "9ec88c90f58af29fec3691edafe26f57c54463ed731c3b5cf91435e0bd6de8f9",
+    "track_sha256": "c06b912b6f191c536befebe9501432263390f9c126d81b56af58505e598989e5",
+    "previous_tracks_unchanged": true,
+    "source_transcript_unchanged": true,
+    "timing_preserved": true,
+    "original_sample_hash_unchanged": true,
+    "timing_review_count": 2,
+    "http_restart_verification": {
+      "checks": [
+        {
+          "phase": "first",
+          "http_status": 200,
+          "ko_and_ja_vtt_match_saved_bytes": true,
+          "old_and_new_tracks_available": true,
+          "translated_units": 9,
+          "timing_review_count": 2,
+          "fallback_count": 0,
+          "new_inference": false
+        },
+        {
+          "phase": "restart",
+          "http_status": 200,
+          "ko_and_ja_vtt_match_saved_bytes": true,
+          "old_and_new_tracks_available": true,
+          "translated_units": 9,
+          "timing_review_count": 2,
+          "fallback_count": 0,
+          "new_inference": false
+        }
+      ],
+      "original_unchanged": true,
+      "browser": "unverified: ordinary Chrome launch blocked by socket EPERM before page creation"
+    },
+    "quality_limitations": [
+      "Short reused public sample, not held-out or long-video evidence.",
+      "Return-home phrase repeated across the hard 30-second ASR seam.",
+      "Native browser display remains unverified: normal Chrome launch failed with socket EPERM."
+    ],
+    "paid_translation_and_persistence_complete": true,
+    "full_display_stage_complete": false
+  }
+}

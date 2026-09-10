@@ -176,7 +176,7 @@ def noisy(root):
         (root/'entered').touch();time.sleep(30)
     if sys.argv[2]=="teardown":atexit.register(time.sleep,30)
     raise RuntimeError("PRIVATE ERROR")
-with patch("media_clarity.models.LocalModels",side_effect=noisy):m.main()
+with patch("media_clarity.qwen.QwenSpeech",side_effect=noisy):m.main()
 '''
         # Keep the parent pipe open through normal completion, matching production.
         for mode in ('finish','wait','teardown'):

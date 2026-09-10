@@ -1,79 +1,99 @@
 # Current work
 
-- **Milestone:** [Cloud ASR trials](cloud-asr-trials.md) added actual Groq v3/Turbo,
-  Voxtral, Deepgram Nova-3 and Gemini 3.8 inference to the [acoustic pilot](asr-acoustic-comparison.md).
-  Nexus authenticated but upload initialization failed for insufficient balance.
-  Intended SRT is not listened-to gold; no real-media
-  quality winner or ASR default change. [Gemini default](cloud-speech-and-translation.md):
-  Gemini 3.1 Flash-Lite is initially selected in the UI, with a labeled cloud action and
-  source-faithful context. Local MADLAD stays selectable; ASR remains local. Historical
-  Gemini jobs retain the exact original model/prompt during resume and restart.
-- **Branch / PR / HEAD:** `research/cloud-asr-trials`, based on main `790e11a` after
-  [PR #24](https://github.com/seoji2005/media-server/pull/24) merged. Resolve live work in
-  [open PRs](https://github.com/seoji2005/media-server/pulls). One writer; [product](product.md) and AGENTS.md govern.
-- **What works:** import/compatible copies, shared audio, playback/resume, actual local
-  ASR/Korean captions, recoverable jobs, literal/visual scene search, previews and explicit
-  feedback. ASR spans survive [actual worker kill](quality-check.md#speech-span-checkpoints--2026-09-07).
-  [Six speech/dialogue comparisons](speech-quality.md#span-boundary-comparison--2026-09-07)
-  retained normalized words; two fresh-process resumes matched text/timing exactly.
-  The [Windows launcher](../README.md#설치와-실행) opens the local page only after this
-  server binds; browser failure leaves it usable. [Checks and limits](quality-check.md#windows-viewing-launcher--2026-09-07).
-  [Original caption switching](subtitles.md#watching-with-existing-subtitles) reuses saved
-  ASR without inference. It helps inspect translations; it does not fix their meaning.
-  [Native tokenization](translation-comparison.md#native-tokenizer-repair--2026-09-07)
-  restores rare characters that the fast tokenizer dropped or exposed as byte tokens.
-  [Saved-transcript retranslation](subtitles.md#translating-a-saved-transcript-again)
-  uses only MT files/runtime; [actual server/worker execution](evidence/retranslation.json)
-  took 16.289 s without ASR weights, ASR imports or external Python socket attempts.
-  [Companion scene entry](companion-moments.md) integrates the separate PR #15 proposal
-  through schema v7; donor branch stays intact. Compass needs a landed-revision round trip.
-  [Runtime/recovery](subtitles.md), [readability](subtitle-readability.md),
-  [audio/UI](compatible-renditions.md), [scene search](scene-search.md).
-  [Verification](../README.md#검증과-작업-방식) runs Python, all seven DOM suites and real browser checks.
-- **Current blockers:** no Windows 11/RTX access or natural 60+ minute speech validation.
-  ASR still decodes/VADs the whole audio on resume; uninterrupted speech has no replay cap.
-  [Enhancement](enhancement-spike.md#moving-filter-baseline--2026-09-07) has no adopted preset.
-  Natural Korean and action/absent-scene retrieval quality remain weak. Local Chrome
-  currently fails with socket EPERM; [Linux/Windows CPU CI](https://github.com/seoji2005/media-server/actions/workflows/verify.yml)
-  is available under the owner's spending approval. Earlier long-film/larger-encoder
-  requests ended in cancelled approval; do not bypass them.
-- **Next action:** Independently listen/annotate and test natural held-out speech before
-  adopting an ASR change. Gemini 3.8 preserved more overlap text in this pilot; Groq
-  produced invented closing messages. Nexus needs funds and usable download entitlement
-  (both Sakura quotes are 10 tokens; current balance/daily downloads are zero).
-  All five provider keys are retained privately; do not repeat completed trials. This host
-  now has pinned large-v2/v3 weights and completed CPU inference; the earlier 1.3 GB
-  disk blocker is obsolete. Recheck capacity before any further model download.
-  Investigate short/quiet utterances absent from Media Server's saved VAD spans;
-  do not promote a preset from this repeated synthetic pilot alone. A full fresh
-  ASR → Gemini app/job path and target GPU validation remain open. Mistral Small 4 is the
-  next translation API comparison with the supplied key. Qwen's incorporated Alibaba
-  terms restrict sexually explicit material, changing its priority for this owner's criteria.
-  Scribe v2 remains researched but uncalled; no new ASR provider is integrated and no
-  private audio was uploaded. [Costs, policy and limits](cloud-speech-and-translation.md).
-  Gemini 3.8 and 3.1 Lite each completed 80
-  attempts with 79 valid outputs; both blocked the same non-graphic trauma report.
-  The new fidelity prompt's nine-case public spot check returned 9/9, including that
-  report, but has no contemporaneous control and still softened some wording. It is
-  not a new full quality or refusal benchmark.
-  2.5 Lite returned 404 twice despite being listed, so it was stopped. The owner-provided
-  Gemini authorization key is retained privately in this work environment, never Git.
-  [Integration and limits](subtitles.md#optional-gemini-retranslation). Establish runtime
-  capacity before downloading any further local weights.
-  [Qwen3.5 Q6_K](translation-comparison.md#qwen35-q6_k-comparison--2026-09-07)
-  completed 80 cases but is not adopted: 64 matched the response format and several
-  Japanese inputs remained Japanese. The qualitative assessment favored MADLAD.
-  [contextual Qwen3-4B](translation-comparison.md#contextual-qwen-comparison--2026-09-07)
-  completed all 80 inputs but is not adopted: clock-time corruption and changed actions
-  remain. The UI now defaults to Gemini for fresh and saved-transcript translation,
-  while local MADLAD stays available. Speech recognition remains local. Starting cloud
-  work still requires the labeled action; simply opening a video sends nothing.
-  [sentence splitting and decoding settings](translation-comparison.md#bounded-decoding-comparison--2026-09-07)
-  did not establish a general improvement, so none was adopted. Saved ASR can now be
-  reused when translator updates arrive. Preserve the frozen comparison rather than
-  treating it as a new holdout. Idioms, register and omissions remain unresolved.
-  Target Windows/RTX takes priority on access; natural long speech and useful enhancement
-  remain open. Keep all October features included.
-  The earlier [16/80 Gemini results](translation-comparison.md#post-payment-diagnosis)
-  were reused in the completed comparison. Empty-provider API calls remain local for
-  compatibility; UI calls explicitly send the selected provider.
+- **Milestone:** owner-directed subtitle integration and minimal companion APIs.
+  New application/API jobs use **Qwen3-ASR-1.7B + Qwen3-ForcedAligner-0.6B +
+  Gemini 3.1 Flash-Lite**. [Setup and recovery](qwen-subtitles.md).
+- **Branch / base:** `feat/qwen-subtitles-integration`, integration base
+  `b2bb7b868ac2381d306a1eae4741bd47ad854014`.
+  [PR #26](https://github.com/seoji2005/media-server/pull/26) carries the milestone;
+  consult its live state, HEAD and checks before writing. One writer;
+  [product](product.md) and AGENTS.md govern.
+- **Owner authorization, September 10:** the latest instruction requests several
+  stages in one turn, followed by review and merge if checks pass. It supersedes
+  the earlier one-stage-per-turn limit and pending final-merge approval.
+
+## Implemented
+
+- Bounded all-audio local recognition, separate alignment and durable raw/official
+  evidence. Unresolved text remains available without publishing partial captions.
+  Schema v9 preserves historical jobs and subtitle versions. Provided foreign
+  captions can bypass ASR. Originals and private corrections remain untouched.
+- Qwen v2 defers a forced 30-second window's trailing audio at a verified internal
+  phrase boundary after at least 20 seconds. Recognition overlaps by at most ten
+  seconds; committed spans stay contiguous. Resume verifies the full recognized
+  audio hash and evidence, reuses committed work and continues from its saved end.
+  No text deduplication removes intentional repetitions. Historical v1 jobs retain
+  their original window/evidence rules; whole-audio decode still occurs on resume.
+- Gemini requires exact target IDs/counts. New `faithful-context-v5` retains up to
+  two verified preceding source/Korean pairs, bounded to 400 characters per field,
+  with identical context on resume. Its prompt preserves named cultural references
+  instead of substituting Korean analogues. Historical v1–v4 prompts, request shapes,
+  identities and checkpoints remain unchanged.
+- Explicit `MEDIA_GEMINI_USE_SYSTEM_HTTPS=1` supports the platform's configured
+  HTTPS route. Direct remains the default. Official destination, verified TLS,
+  no redirects/retries and sanitized failures remain. See setup for the trust choice.
+- Safe server logging covers asyncio too. Only the native Windows proactor socket
+  shutdown reset is suppressed; unrelated callback failures stay visible with
+  sanitized tracebacks and stack information.
+- [Companion APIs](companion-library.md): original-identity checked, idempotent
+  provided SRT/VTT import, Korean language tags and safe ruby parsing; opt-in
+  included-only keyset library pages and bounded lookup. Existing playback, caption
+  versions, saved-source retranslation, checkpoints, search and preferences remain.
+
+## Execution and review evidence
+
+- Actual Linux CPU float32 inference used the pinned Qwen models on the same public
+  35-second Japanese sample. At local `1105e51fa72d1066b74353e1b7d890c0fde7a3ff`,
+  the first 0–30-second recognition committed 0–27.36 seconds. A deliberate
+  interruption saved that evidence without translation or a partial track. A new
+  process verified/reused it and ran actual ASR/alignment only for 27.36–35 seconds.
+  First stage: 67.190 seconds; resume including one real Gemini request: 46.493 seconds.
+  Eight source units replace the old nine; the hard `帰っ / 帰って` seam becomes one
+  return-home sentence. This is one short sample, not general transcription acceptance.
+- That v4 translation introduced a separate error: Japanese Obon became “우리 추석”.
+  The failed output is preserved. On the same eight saved source units, v5 at local
+  `1ec0416e6549ed92091cbd0693e4fd2bf0fc226c` made one genuine Gemini request,
+  completing 8/8 targets in 13.299 seconds without new speech inference. It retained
+  “오봉”, consistent casual register and the single return-home sentence. Zero source
+  fallbacks; two timing-review indications remain. All five old/new tracks survive.
+- Production HTTP routes returned byte-identical final Korean/source VTT before
+  and after a server process restart, without inference. Old/new tracks, originals,
+  prior jobs and speech evidence remain unchanged. Raw attempts, source/alignment
+  evidence and comparison outputs are preserved in the owner's validation bundle.
+- Fresh independent review approved the full PR through local `1105e51` (62 focused
+  tests plus a 105-second simulated checkpoint/resume exercise), then the logging
+  and v5 follow-up through `1ec0416` (22 tests, including interrupted v4 recovery and
+  historical request compatibility). The author also passed 49 focused follow-up
+  tests, with one Windows-only skip on Linux. Review used no live model/Windows GPU.
+- [CI 34445850181](https://github.com/seoji2005/media-server/actions/runs/34445850181)
+  at remote `ddfad6a13194216d1457efd496a49e5099dc12b4` passed 221 Python tests and
+  seven DOM suites on each OS. Ubuntu browser playback/restart passed; Windows
+  failed the quiet-output gate with an asyncio connection-reset traceback. This
+  failure prompted the logging fix above, not a same-code rerun. The PR's final
+  checks record validation of the corrected tree; require success before merge.
+  CI browser media/inference are synthetic, separate from actual model quality.
+- The next [CI 34447348443](https://github.com/seoji2005/media-server/actions/runs/34447348443)
+  passed all 224 Python tests (one skip), seven DOM suites and browser/restart on
+  Ubuntu. Windows failed an existing metadata-only import fixture: its immediate
+  touch/restore could share the creation timestamp. The fixture now establishes
+  an observable native change time within one second while asserting unchanged
+  identity, size and restored mtime, then requires the same import rejection.
+  No production integrity check was relaxed; an unavailable change still fails
+  the fixture. Final PR checks must pass on the subsequent corrected tree.
+
+## Remaining product work
+
+- Validate long-video and multilingual seams, timing and translation quality; check
+  actual saved-caption display and subjective readability. The supplied cloud
+  browser could connect but local navigation returned `ERR_BLOCKED_BY_CLIENT`;
+  standalone Chrome previously failed with socket `EPERM`. No actual-caption
+  screenshot/playback was obtained here. Reuse saved outputs for display testing.
+- Verify Windows 11 / RTX 4070 SUPER 12 GB model installation, VRAM use, inference
+  and recovery. Linux CPU results and Windows synthetic CI do not cover this gate.
+- Evaluate and adopt a conservative enhancement preset through actual visual review.
+- Fetch/Compass must adopt their contracts and verify their browser flows. Pocket's
+  repository/PR returned 404; pack/events await its verified contract. iPhone/LAN
+  synchronization is not implemented by the local companion APIs.
+- These remaining product gates are separate from the scoped integration merge.
+  Preserve failed and successful evidence; do not repeat paid inference merely to
+  recheck playback or retune prompts against this one sample.
