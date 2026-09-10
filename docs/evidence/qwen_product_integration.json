@@ -46,5 +46,29 @@
   "raw_evidence_sha256": {
     "parts.json": "52206fdbdb879f111983a906bd17f52f0b9b866e8e4ed376ff0aab41c08f8b54",
     "parts-after-boundary-fix.json": "785a2446a7775b03571210da6f1d8434751919b17972a11475b451c1f6029faf"
+  },
+  "real_gemini_followup": {
+    "date": "2026-09-10",
+    "implementation_revision": "fe6b008a8db30e9783255c95901851b6ecac7b1d",
+    "entrypoint": "Jobs.retranslate(existing_generated_track, provider=gemini), then execute; real production HTTP client",
+    "source_units": 9,
+    "asr_inference_rerun": false,
+    "transcript_sha256": "9ec88c90f58af29fec3691edafe26f57c54463ed731c3b5cf91435e0bd6de8f9",
+    "state": "failed",
+    "job_error": "gemini_unavailable",
+    "requests_attempted": 1,
+    "first_batch_targets": 8,
+    "google_responses_received": 0,
+    "translated_units": 0,
+    "diagnosis": "Official endpoint DNS failed with EAI_AGAIN (temporary name resolution failure); a no-key HTTPS probe reproduced it.",
+    "network_permission_escalation": "Rejected by environment policy: sandbox approval and permission requests are disabled.",
+    "key_validity": "not tested; no authentication response received",
+    "previous_tracks_unchanged": true,
+    "source_transcript_unchanged": true,
+    "original_sample_hash_unchanged": true,
+    "no_failed_track_published": true,
+    "stage_complete": false,
+    "real_translation_display_verified": false,
+    "restart": "Resume saved-source translation in an authorized runtime with Gemini endpoint access; keep prior results and verify actual browser display."
   }
 }
