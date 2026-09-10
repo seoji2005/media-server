@@ -42,7 +42,31 @@ jobs:
           sudo apt-get install -y ffmpeg fonts-noto-cjk
       - name: Install FFmpeg on Windows
         if: runner.os == 'Windows'
-        run: choco install ffmpeg --no-progress -y
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Same Gyan essentials build distributed by choco ffmpeg. Pin both bytes
+          # and version; a failed package feed must not look like installation.
+          # https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.1-essentials_build.zip.sha256
+          $archivePath = Join-Path $env:RUNNER_TEMP 'ffmpeg-9.0.1.zip'
+          $extractPath = Join-Path $env:RUNNER_TEMP 'media-ffmpeg'
+          Invoke-WebRequest -Uri 'https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.1-essentials_build.zip' -OutFile $archivePath -TimeoutSec 120
+          $expectedSha = 'fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9'
+          if ((Get-FileHash $archivePath -Algorithm SHA256).Hash -ne $expectedSha) {
+            throw 'FFmpeg archive checksum mismatch'
+          }
+          Expand-Archive -LiteralPath $archivePath -DestinationPath $extractPath
+          $binaryDirectory = Join-Path $extractPath 'ffmpeg-9.0.1-essentials_build/bin'
+          foreach ($toolName in @('ffmpeg', 'ffprobe')) {
+            $toolPath = Join-Path $binaryDirectory "$toolName.exe"
+            if (!(Test-Path -LiteralPath $toolPath -PathType Leaf)) { throw 'FFmpeg tools missing' }
+            $toolVersion = & $toolPath -version
+            if ($LASTEXITCODE -ne 0 -or !$toolVersion[0].StartsWith("$toolName version 9.0.1")) {
+              throw 'FFmpeg tool version check failed'
+            }
+            Write-Output $toolVersion[0]
+          }
+          $binaryDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - run: python -m pip install -r requirements-dev.txt
       - run: npm ci --prefix tests/ui --no-audit --no-fund
       - run: python scripts/harness.py run test

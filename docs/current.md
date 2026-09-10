@@ -28,6 +28,11 @@ and Range 206, with zero model/translation calls and empty logs. This reused the
 prior public 35-second outputs; it is not new inference or browser display. Keep
 final fixed HEAD and CI/merge facts in the PR, not a growing ledger here.
 
+Windows CI's Chocolatey feed failed with 504 then 503 and reported zero packages
+without failing its install step. CI now downloads the same Gyan 9.0.1 essentials
+release directly, pins its published SHA-256, and checks both tool versions before
+adding them to PATH. Final Windows execution still must pass; no test is skipped.
+
 ## Reconciled next work
 
 - PR #28 already passed final Ubuntu/Windows CI and merged. Its caption choice,
