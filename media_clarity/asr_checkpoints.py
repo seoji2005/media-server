@@ -28,6 +28,9 @@ def validate_part(part, duration):
         result = {'clip': clip, 'cues': cues}
         if 'evidence' in part:
             from .qwen import evidence_result
+            end = part['evidence'].get('recognition_end', clip[1]) if type(part['evidence']) is dict else None
+            if type(end) not in (int,float) or not math.isfinite(end) or end > duration + .05:
+                raise ValueError()
             expected, error = evidence_result(part['evidence'], clip)
             if cues != expected or part['error'] != error:
                 raise ValueError()

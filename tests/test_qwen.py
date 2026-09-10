@@ -19,11 +19,84 @@ def unit(text, start, end, raw_start=None, raw_end=None):
 
 
 def evidence(text, units, language='Japanese'):
-    return {'profile':qwen.PROFILE, 'language':language, 'text':text,
+    return {'profile':qwen.LEGACY_PROFILE, 'language':language, 'text':text,
             'audio_sha256':'a'*64, 'units':units, 'boundary':'end'}
 
 
 class QwenBoundaryTests(unittest.TestCase):
+    def handoff_fixture(self, profile=qwen.PROFILE):
+        import numpy as np
+        speech=object.__new__(qwen.QwenSpeech);speech.asr_profile=profile
+        audio=np.ones(35*16000,dtype=np.float32)*.1
+        first=evidence('前です。次へ帰っ',[unit('前',21,22),unit('です',22,23),
+            unit('次',23.16,24.3),unit('へ',24.3,25.1),unit('帰っ',29.8,30)])
+        following=evidence('次へ帰って、また帰って。',[unit('次',.08,.5),unit('へ',.5,.8),
+            unit('帰って',1,2),unit('また',2.2,2.5),unit('帰って',2.5,3)])
+        calls=[]
+        def recognize(samples):
+            calls.append(len(samples))
+            rec=first if len(samples)==30*16000 else following
+            return rec['text'],rec['language']
+        def align(samples,text,language):
+            return copy.deepcopy((first if text==first['text'] else following)['units'])
+        return speech,audio,recognize,align,calls
+
+    def test_handoff_reprocesses_suffix_and_keeps_raw_text_and_real_repetition(self):
+        speech,audio,recognize,align,calls=self.handoff_fixture()
+        with patch('media_clarity.models.LocalModels.decode_audio',return_value=audio), \
+                patch.object(speech,'recognize',side_effect=recognize),patch.object(speech,'align',side_effect=align):
+            parts=list(speech.transcribe_parts(None,35,0,[]))
+        self.assertEqual([p['clip'] for p in parts],[[0,23.08],[23.08,35]])
+        self.assertEqual(parts[0]['evidence']['recognition_end'],30)
+        self.assertEqual(parts[0]['evidence']['text'],'前です。次へ帰っ')
+        self.assertEqual([c['text'] for p in parts for c in p['cues']],['前です。','次へ帰って、','また帰って。'])
+        self.assertEqual(calls,[480000,190720])
+        for part in parts:self.assertEqual(asr_checkpoints.validate_part(part,35),part)
+
+    def test_handoff_resume_checks_full_recognition_audio_and_reuses_committed_prefix(self):
+        speech,audio,recognize,align,calls=self.handoff_fixture()
+        with patch('media_clarity.models.LocalModels.decode_audio',return_value=audio), \
+                patch.object(speech,'recognize',side_effect=recognize),patch.object(speech,'align',side_effect=align):
+            generator=speech.transcribe_parts(None,35,0,[])
+            saved=next(generator);generator.close();calls.clear()
+            remaining=list(speech.transcribe_parts(None,35,0,[saved]))
+            self.assertEqual(calls,[190720]);self.assertEqual(remaining[0]['clip'],[23.08,35])
+            calls.clear();audio[29*16000]=.5  # Outside committed prefix, inside its recognition evidence.
+            with self.assertRaisesRegex(MediaError,'processing_checkpoint_invalid'):
+                list(speech.transcribe_parts(None,35,0,[saved]))
+            self.assertEqual(calls,[])
+
+    def test_handoff_rejects_changed_extent_or_derived_cues(self):
+        speech,audio,recognize,align,_=self.handoff_fixture()
+        with patch('media_clarity.models.LocalModels.decode_audio',return_value=audio), \
+                patch.object(speech,'recognize',side_effect=recognize),patch.object(speech,'align',side_effect=align):
+            generator=speech.transcribe_parts(None,35,0,[])
+            part=next(generator);generator.close()
+        for mutate in (lambda p:p['clip'].__setitem__(1,24),
+                       lambda p:p['evidence'].__setitem__('recognition_end',36),
+                       lambda p:p['cues'][0].__setitem__('text','changed')):
+            bad=copy.deepcopy(part);mutate(bad)
+            with self.assertRaisesRegex(MediaError,'processing_checkpoint_invalid'):
+                asr_checkpoints.validate_part(bad,35)
+
+    def test_legacy_windows_are_not_reinterpreted_as_handoffs(self):
+        speech,audio,recognize,align,calls=self.handoff_fixture(qwen.LEGACY_PROFILE)
+        with patch('media_clarity.models.LocalModels.decode_audio',return_value=audio), \
+                patch.object(speech,'recognize',side_effect=recognize),patch.object(speech,'align',side_effect=align):
+            parts=list(speech.transcribe_parts(None,35,0,[]))
+            calls.clear();self.assertEqual(list(speech.transcribe_parts(None,35,0,parts)),[])
+        self.assertEqual([p['clip'] for p in parts],[[0,30],[30,35]])
+        self.assertNotIn('recognition_end',parts[0]['evidence']);self.assertEqual(calls,[])
+        self.assertEqual(parts[0]['cues'][-1]['text'],'次へ帰っ')
+
+    def test_handoff_requires_late_nonoverlapping_internal_phrase_and_forced_cut(self):
+        cues=[{'start':19,'end':21,'text':'Finished.'},{'start':21.2,'end':29.9,'text':'unfinished'}]
+        for boundary in ('quiet','end'):
+            self.assertEqual(qwen.phrase_handoff(cues,[0,30],boundary),(30,cues))
+        for change in ({'end':19.9},{'text':'unfinished'},{'end':21.3}):
+            altered=copy.deepcopy(cues);altered[0].update(change)
+            self.assertEqual(qwen.phrase_handoff(altered,[0,30],'forced'),(30,altered))
+
     def test_bounded_windows_cover_silence_and_continuous_audio_without_overlap(self):
         import numpy as np
         for quiet in (False, True):
@@ -131,9 +204,32 @@ class QwenJobTests(unittest.TestCase):
     setUp=fixtures.GeminiJobTests.setUp
     tearDown=fixtures.GeminiJobTests.tearDown
 
-    def queue(self):
+    def queue(self,profile=qwen.PROFILE):
         with patch('media_clarity.qwen.local_models'):
-            return self.jobs.enqueue(self.item['id'],force=True,provider='gemini',speech_profile=qwen.PROFILE)
+            return self.jobs.enqueue(self.item['id'],force=True,provider='gemini',speech_profile=profile)
+
+    def test_legacy_qwen_job_restores_its_backend_profile_and_text_spacing(self):
+        class Speech:
+            audio_timing='source-timestamps-v1'
+            def __init__(self,root,profile):
+                self.asr_profile=profile
+                if profile != qwen.LEGACY_PROFILE:raise AssertionError('legacy profile changed')
+            def identity(self):return 'synthetic-legacy-qwen'
+            def close(self):pass
+            def transcribe_parts(self,path,duration,index,saved):
+                rec=evidence('前です。続きです。',[unit('前',.1,.3),unit('です',.3,.5),
+                    unit('続き',.5,.7),unit('です',.7,1)])
+                yield {'clip':[0,4],'cues':qwen.validate_evidence(rec,[0,4]),'evidence':rec,'error':None}
+        jid=self.queue(qwen.LEGACY_PROFILE);self.jobs.action(jid,'pause')
+        with patch('media_clarity.qwen.local_models'),patch('media_clarity.qwen.QwenSpeech',Speech), \
+                patch('media_clarity.gemini.request',side_effect=fixtures.reply):
+            self.jobs.action(jid,'resume');execute(self.store,jid)
+        self.assertEqual(self.jobs.row(jid)['state'],'succeeded')
+        track=self.jobs.status(self.item['id'])['tracks'][0]['id']
+        new=self.jobs.retranslate(self.item['id'],track,'gemini')
+        self.assertEqual(self.jobs.row(new)['speech_profile'],qwen.LEGACY_PROFILE)
+        self.assertEqual(source_units(json.loads(self.jobs.row(new)['transcript']),qwen.LEGACY_PROFILE),
+                         json.loads(self.jobs.row(new)['transcript']))
 
     def test_qwen_partial_resume_and_legacy_profile_survive_restart(self):
         class Speech:
@@ -150,6 +246,7 @@ class QwenJobTests(unittest.TestCase):
                     if i==1 and self.fail:raise MediaError('processing_interrupted',409)
                     rec=evidence('おめでとう。',[unit('お',.1,.2),unit('めでとう',1,1.5)])
                     clip=[i*2,i*2+2]
+                    rec.update(profile=qwen.PROFILE,recognition_end=clip[1])
                     yield {'clip':clip,'cues':qwen.validate_evidence(rec,clip),'evidence':rec,'error':None}
         jid=self.queue()
         with patch('media_clarity.qwen.QwenSpeech',Speech),patch('media_clarity.gemini.request') as call:
@@ -175,6 +272,7 @@ class QwenJobTests(unittest.TestCase):
             def close(self):pass
             def transcribe_parts(self,path,duration,index,saved):
                 rec=evidence('うん。え',[unit('うん',1,1),unit('え',1,1)])
+                rec.update(profile=qwen.PROFILE,recognition_end=3)
                 yield {'clip':[0,3],'cues':[],'evidence':rec,'error':'alignment_unresolved'}
         jid=self.queue()
         with patch('media_clarity.qwen.QwenSpeech',Speech),patch('media_clarity.gemini.request') as call:
@@ -182,4 +280,21 @@ class QwenJobTests(unittest.TestCase):
         call.assert_not_called()
         row=self.jobs.row(jid);self.assertEqual((row['state'],row['error']),('failed','alignment_unresolved'))
         self.assertEqual(asr_checkpoints.load(self.store,row,4)[0]['evidence']['text'],'うん。え')
+        self.assertEqual(self.jobs.status(self.item['id'])['tracks'],[])
+
+    def test_new_job_rejects_a_mislabelled_legacy_span_before_cloud_egress(self):
+        class Speech:
+            asr_profile=qwen.PROFILE
+            def __init__(self,root):pass
+            def identity(self):return 'synthetic-mixed-profiles'
+            def close(self):pass
+            def transcribe_parts(self,path,duration,index,saved):
+                rec=evidence('はい。',[unit('はい',.1,.5)])
+                yield {'clip':[0,4],'cues':qwen.validate_evidence(rec,[0,4]),'evidence':rec,'error':None}
+        jid=self.queue()
+        with patch('media_clarity.qwen.QwenSpeech',Speech),patch('media_clarity.gemini.request') as call:
+            execute(self.store,jid)
+        call.assert_not_called()
+        self.assertEqual(self.jobs.row(jid)['error'],'processing_checkpoint_invalid')
+        self.assertEqual(self.jobs.row(jid)['asr_completed'],0)
         self.assertEqual(self.jobs.status(self.item['id'])['tracks'],[])

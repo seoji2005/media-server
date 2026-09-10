@@ -26,7 +26,7 @@ PROVIDED_PROFILE = 'provided-cues-v1'
 
 def speech_preflight(root, profile, cloud):
     from .models import local_models
-    if profile == qwen.PROFILE and cloud:
+    if profile in qwen.PROFILES and cloud:
         return qwen.local_models(root, check_packages=True)
     if profile is not None:
         raise MediaError('processing_config_changed', 409)
@@ -36,13 +36,13 @@ def speech_preflight(root, profile, cloud):
 def source_units(transcript, profile):
     # Qwen phrases retain exact original spacing; never rejoin Japanese subwords
     # with artificial spaces or erase the new alignment's phrase boundaries.
-    return [dict(c) for c in transcript] if profile in (qwen.PROFILE, PROVIDED_PROFILE) else translation_units(transcript)
+    return [dict(c) for c in transcript] if profile in (*qwen.PROFILES, PROVIDED_PROFILE) else translation_units(transcript)
 
 
 def retranslation_identity(model_sha, row):
     values = ['saved-transcript-v1',model_sha,row['source_track_id'],
               row['input_sha'],row['audio_index'],row['transcript_sha']]
-    if row.get('speech_profile') in (qwen.PROFILE, PROVIDED_PROFILE):
+    if row.get('speech_profile') in (*qwen.PROFILES, PROVIDED_PROFILE):
         values.append(row['speech_profile'])
     return hashlib.sha256(document(values).encode()).hexdigest()
 
@@ -471,12 +471,12 @@ class Jobs:
                 with self.store.db() as db:
                     original = db.execute('SELECT presentation_summary FROM subtitle_tracks WHERE id=?', (job['source_track_id'],)).fetchone()
                 presentation['timing_review_count'] = json.loads(original[0] or '{}').get('timing_review_count',0)
-            elif job['speech_profile'] == qwen.PROFILE:
+            elif job['speech_profile'] in qwen.PROFILES:
                 parts = asr_checkpoints.load(self.store, job, media['duration'])
                 presentation['timing_review_count'] = sum(
                     p['evidence']['boundary'] == 'forced' or any(
                         u['start'] == u['end'] or u['start'] != u['raw_start'] or u['end'] != u['raw_end']
-                        or u['end'] > p['clip'][1]-p['clip'][0]
+                        or u['end'] > p['evidence'].get('recognition_end',p['clip'][1])-p['clip'][0]
                         for u in p['evidence']['units']) for p in parts)
         presentation_json = document(presentation) if presentation is not None else None
         summary_json = None
@@ -616,12 +616,13 @@ def _execute(store, job_id, backend_factory):
         cloud = gemini.provider(row['translation_config']) == 'gemini'
         backend = gemini.Gemini(row['translation_config']) if cloud else (
             backend_factory(store.root) if backend_factory else LocalModels(store.root, translation_only=bool(row['source_track_id'])))
-        if (row['speech_profile'] not in (None, qwen.PROFILE, PROVIDED_PROFILE)
+        if (row['speech_profile'] not in (None, *qwen.PROFILES, PROVIDED_PROFILE)
                 or (row['speech_profile'] == PROVIDED_PROFILE and not row['source_track_id'])
                 or (row['speech_profile'] and not cloud)):
             raise MediaError('processing_config_changed', 409)
         speech = (backend_factory(store.root) if backend_factory else
                   qwen.QwenSpeech(store.root) if row['speech_profile'] == qwen.PROFILE else
+                  qwen.QwenSpeech(store.root, profile=qwen.LEGACY_PROFILE) if row['speech_profile'] == qwen.LEGACY_PROFILE else
                   LocalModels(store.root, asr_only=True)) if cloud and not row['source_track_id'] else backend
         def input_identity():
             value = backend.identity()
@@ -642,6 +643,8 @@ def _execute(store, job_id, backend_factory):
         identity = input_identity()
         saved_asr = asr_checkpoints.load(store, row, media['duration'])
         for part in saved_asr:
+            if row['speech_profile'] in qwen.PROFILES and part.get('evidence', {}).get('profile') != row['speech_profile']:
+                raise MediaError('processing_checkpoint_invalid', 409)
             if part.get('error'):
                 raise MediaError(part['error'], 422)
         if row['source_track_id'] and saved_asr:
@@ -668,6 +671,8 @@ def _execute(store, job_id, backend_factory):
                     try:
                         for ordinal, part in enumerate(parts, len(saved_asr)):
                             part = asr_checkpoints.validate_part(part, media['duration'])
+                            if row['speech_profile'] in qwen.PROFILES and part.get('evidence', {}).get('profile') != row['speech_profile']:
+                                raise MediaError('processing_checkpoint_invalid', 409)
                             size += len(document(part).encode())
                             if len(transcript) + len(part['cues']) > asr_checkpoints.MAX_CUES or size > MAX_SUBTITLE_BYTES * 4:
                                 raise MediaError('subtitles_too_large', 422)

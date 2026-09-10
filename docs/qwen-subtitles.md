@@ -58,9 +58,23 @@ runtime can still run. Speech language is automatically detected. The aligner su
 ## Text, timing and recovery
 
 - Decode the selected original audio with existing restricted FFmpeg behavior.
-  Cover every sample once in windows of at most 30 seconds. Prefer 300 ms of low
+  Cover every sample with committed, contiguous spans. Recognize at most 30 seconds
+  per call. Prefer 300 ms of low
   energy in seconds 20–30 for a cut. Never discard quiet audio through VAD.
   A forced cut remains flagged; this heuristic does not prove perfect word seams.
+- New Qwen v2 jobs can move a forced cut back to an internal punctuation boundary
+  verified by the aligner, after at least 20 seconds of progress. The trailing
+  audio is recognized again in the next window, with at most ten seconds of
+  overlap in recognition work. Only the earlier complete phrases are committed;
+  no repeated-word deletion or guessed source-text repair is applied. If there
+  is no suitable late boundary, preserve the forced cut and its review indication.
+  Quiet cuts and the final window keep their existing envelope.
+- Each v2 checkpoint retains the whole recognition text, raw/official word times,
+  full recognition-audio hash and recognition end, alongside the shorter committed
+  span. Resume verifies the full recognized audio, including the deferred suffix,
+  and restarts from the committed end. The committed cue subset is reconstructed
+  from the evidence during validation. An interrupted suffix cannot disappear
+  silently from a ready track: translation starts only after the speech stage ends.
 - Recognize without context prompts, then separately align the recognized text.
   Persist complete windows with input-audio hash, exact source text/language, raw
   timestamps, official corrected timestamps and derived source phrases.
@@ -98,6 +112,9 @@ runtime can still be necessary: the old optional `requirements-models.txt` pins
 Transformers 4.57.1 and must not be installed on top of the new Qwen environment.
 Old subtitle tracks remain watchable without either model runtime. Retranslation
 needs only Gemini, and keeps the original source units and audio selection.
+Historical Qwen v1 jobs also retain their original fixed-window identity, evidence
+format and phrase grouping; resuming/restarting them does not apply v2 handoffs.
+Create a new subtitle job to use the new segmentation policy.
 
 Provided foreign captions accepted through the companion endpoint can also be
 translated directly with Gemini. Their original text/times/bytes remain preserved;

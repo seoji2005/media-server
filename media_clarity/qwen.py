@@ -15,7 +15,9 @@ import unicodedata
 from .storage import MediaError, file_signature, no_symlink, run_media
 from .subtitles import MAX_CUES, validate_cues
 
-PROFILE = 'qwen3-asr-1.7b-fa-0.6b-v1:all-audio-30s-quiet-cut:auto-language:phrase-boundaries'
+LEGACY_PROFILE = 'qwen3-asr-1.7b-fa-0.6b-v1:all-audio-30s-quiet-cut:auto-language:phrase-boundaries'
+PROFILE = 'qwen3-asr-1.7b-fa-0.6b-v2:all-audio-30s-quiet-cut:auto-language:aligned-phrase-handoff-20s'
+PROFILES = (LEGACY_PROFILE, PROFILE)
 ASR_REPO = 'Qwen/Qwen3-ASR-1.7B-hf'
 ASR_REVISION = 'bcd2b5b7f32b480ab5790554cfa8347f246a14f3'
 ALIGNER_REPO = 'Qwen/Qwen3-ForcedAligner-0.6B-hf'
@@ -173,11 +175,11 @@ def aligned_cues(text, units, clip, language):
     return validate_cues(cues, clip[1])
 
 
-def validate_evidence(evidence, clip):
+def _aligned_evidence(evidence, clip):
     """Rebuild displayable source cues from the saved raw transcription/alignment."""
     if (type(evidence) is not dict or set(evidence) !=
             {'profile', 'language', 'text', 'audio_sha256', 'units', 'boundary'}
-            or evidence['profile'] != PROFILE
+            or evidence['profile'] != LEGACY_PROFILE
             or not isinstance(evidence['audio_sha256'], str)
             or not re.fullmatch('[0-9a-f]{64}', evidence['audio_sha256'])
             or evidence['boundary'] not in ('end', 'quiet', 'forced')
@@ -205,6 +207,46 @@ def validate_evidence(evidence, clip):
             raise MediaError('alignment_unresolved', 422)
         previous = unit['start']
     return aligned_cues(text, units, clip, evidence['language'])
+
+
+def phrase_handoff(cues, clip, boundary):
+    """Defer the unfinished suffix after an aligned phrase, never delete words.
+
+    At least 20 seconds advance, at most 10 seconds are reconsidered. Only an
+    internal punctuation boundary with non-overlapping phrase times is eligible.
+    A quiet cut, final window or uncertain alignment keeps the existing envelope.
+    """
+    if boundary == 'forced':
+        for i in range(len(cues)-2, -1, -1):
+            left, right = cues[i:i+2]
+            if (PHRASE_END.search(left['text']) and clip[0]+20 <= left['end']
+                    <= right['start'] < clip[1]-.08):
+                end = round((left['end']+right['start'])/2*SAMPLE_RATE)/SAMPLE_RATE
+                return end, cues[:i+1]
+    return clip[1], cues
+
+
+def validate_evidence(evidence, clip):
+    if type(evidence) is not dict or evidence.get('profile') != PROFILE:
+        return _aligned_evidence(evidence, clip)
+    if set(evidence) != {'profile','language','text','audio_sha256','units','boundary','recognition_end'}:
+        raise MediaError('processing_checkpoint_invalid', 409)
+    end = evidence['recognition_end']
+    if (type(end) not in (int,float) or not math.isfinite(end)
+            or not clip[0] < clip[1] <= end or end-clip[0] > 30+.5/SAMPLE_RATE):
+        raise MediaError('processing_checkpoint_invalid', 409)
+    raw = {k:v for k,v in evidence.items() if k != 'recognition_end'}
+    raw['profile'] = LEGACY_PROFILE
+    try:
+        cues = _aligned_evidence(raw, [clip[0],end])
+    except MediaError:
+        if clip[1] != end:
+            raise MediaError('processing_checkpoint_invalid', 409) from None
+        raise
+    committed_end, cues = phrase_handoff(cues, [clip[0],end], evidence['boundary'])
+    if clip[1] != committed_end:
+        raise MediaError('processing_checkpoint_invalid', 409)
+    return cues
 
 
 def windows(audio):
@@ -241,7 +283,10 @@ class QwenSpeech:
     asr_profile = PROFILE
     audio_timing = 'source-timestamps-v1'
 
-    def __init__(self, root):
+    def __init__(self, root, profile=PROFILE):
+        if profile not in PROFILES:
+            raise MediaError('processing_config_changed', 409)
+        self.asr_profile = profile
         from .models import device_configuration
         private_runtime()
         self.paths = local_models(root, check_packages=True)
@@ -255,7 +300,7 @@ class QwenSpeech:
             raise MediaError('model_runtime_incompatible', 503) from None
 
     def identity(self):
-        digest = hashlib.sha256((PROFILE + ':' + self.device + ':float32-cpu-float16-cuda').encode())
+        digest = hashlib.sha256((self.asr_profile + ':' + self.device + ':float32-cpu-float16-cuda').encode())
         digest.update(run_media(['ffmpeg', '-version'], 10, 16384))
         for package in PACKAGES:
             try:
@@ -335,25 +380,39 @@ class QwenSpeech:
         if len(audio) > math.ceil(duration * SAMPLE_RATE):
             # Container rounding may expose a few padded samples after the media end.
             audio = audio[:math.floor(duration * SAMPLE_RATE)]
-        plan = list(windows(audio))
-        if len(saved) > len(plan):
-            raise MediaError('processing_checkpoint_invalid', 409)
-        for index, (first, last, boundary) in enumerate(plan):
+        first, index = 0, 0
+        while first < len(audio):
+            _, relative_end, boundary = next(windows(audio[first:]))
+            last = first + relative_end
             clip = [first/SAMPLE_RATE, last/SAMPLE_RATE]
             samples = audio[first:last].copy()
             digest = hashlib.sha256(samples.tobytes()).hexdigest()
             if index < len(saved):
                 part = saved[index]
-                if (part['clip'] != clip or part.get('evidence', {}).get('audio_sha256') != digest
-                        or part['evidence']['boundary'] != boundary):
+                evidence = part.get('evidence', {})
+                recognition_end = evidence.get('recognition_end', part['clip'][1])
+                if (part['clip'][0] != clip[0] or recognition_end != clip[1]
+                        or evidence.get('profile') != self.asr_profile
+                        or evidence.get('audio_sha256') != digest or evidence['boundary'] != boundary):
                     raise MediaError('processing_checkpoint_invalid', 409)
+                cues, error = evidence_result(evidence, part['clip'])
+                if cues != part['cues'] or error != part['error']:
+                    raise MediaError('processing_checkpoint_invalid', 409)
+                first = round(part['clip'][1]*SAMPLE_RATE); index += 1
                 continue
             text, language = self.recognize(samples)
             units = self.align(samples, text, language) if text.strip() and language in LANGUAGES else []
-            evidence = {'profile':PROFILE, 'language':language, 'text':text, 'audio_sha256':digest,
+            evidence = {'profile':LEGACY_PROFILE, 'language':language, 'text':text, 'audio_sha256':digest,
                         'units':units, 'boundary':boundary}
             cues, error = evidence_result(evidence, clip)
+            if self.asr_profile == PROFILE:
+                evidence.update(profile=PROFILE, recognition_end=clip[1])
+                if not error:
+                    clip[1], cues = phrase_handoff(cues, clip, boundary)
             yield {'clip':clip, 'cues':cues, 'evidence':evidence, 'error':error}
+            first = round(clip[1]*SAMPLE_RATE); index += 1
+        if index < len(saved):
+            raise MediaError('processing_checkpoint_invalid', 409)
 
     def close(self):
         gc.collect()
