@@ -6,8 +6,9 @@
 - **Branch / base:** `feat/qwen-subtitles-integration`, main
   `b2bb7b868ac2381d306a1eae4741bd47ad854014` (PR #25 merged).
   [Draft PR #26](https://github.com/seoji2005/media-server/pull/26) was published
-  after the owner's September 10 approval. Its published implementation commit is
-  `fe6b008a8db30e9783255c95901851b6ecac7b1d`, whose tree matches local `4cd6d80`.
+  after the owner's September 10 approval. The implementation including the HTTPS
+  opt-in is checkpointed at `769fe5af78a4dde3e763189a3bbbd8de07a6a33e`, whose tree
+  matches local `c064a3d9152ec39308be9f9387192e8846340152`.
   Resolve live [PRs](https://github.com/seoji2005/media-server/pulls) before writing.
   One writer; [product](product.md) and AGENTS.md govern.
 - **Changed:** all-audio bounded local recognition followed by separate alignment;
@@ -42,20 +43,29 @@
   destination, verified TLS, no redirects/retries and sanitized errors remain.
   [Setup](qwen-subtitles.md) explains the trust decision. The failed direct attempt
   is preserved in the evidence; the successful route did not bypass network policy.
-- **Checks:** [CI run 34421676924](https://github.com/seoji2005/media-server/actions/runs/34421676924)
-  passed on published implementation `fe6b008a8db30e9783255c95901851b6ecac7b1d`:
-  209 Python tests on each OS (one Windows-only skip on Ubuntu), all seven DOM
+- **Checks:** [CI run 34438171606](https://github.com/seoji2005/media-server/actions/runs/34438171606)
+  finished successfully on `769fe5af78a4dde3e763189a3bbbd8de07a6a33e`:
+  211 Python tests on each OS (one Windows-only skip on Ubuntu), all seven DOM
   suites, and actual H.264/AAC browser playback plus server restart on Ubuntu and
-  Windows. Browser media/inference were synthetic, not real Gemini/GPU evidence.
-  These results predate the system HTTPS change. Independent
+  Windows. The first browser attempt exceeded 75 seconds on Ubuntu and hit a
+  15-second navigation timeout on Windows; each platform passed its one same-code
+  rerun. Browser media/inference were synthetic, not actual Gemini/GPU evidence.
+  Independent
   code review approved `3c9bd40dff2e8c67ff82584e313826f68423406a`; the found symbol,
   language-tag and ruby source-loss defects are resolved. The HTTPS change passed
   21 focused tests with opt-in enabled. Independent limited review approved
   `0814a9543e02a8ac937b3ba1f035ec691e7f9b28` after fixing the flag's interference
   with Windows/macOS proxy discovery and isolating the default-route test. Actual
-  native OS proxy discovery remains untested. Chrome 153 was installed portably,
-  but normal launch failed with socket `EPERM` before page creation; actual new
-  translated-caption display is still unverified in this Work runtime.
+  native OS proxy discovery remains untested. Chrome 153's normal launch failed
+  with socket `EPERM` before page creation. In the follow-up, the supplied cloud
+  browser connected successfully, but opening the local app returned
+  `net::ERR_BLOCKED_BY_CLIENT`. No app page, playback or screenshot was obtained.
+  Actual saved Korean-caption display remains unverified in this Work runtime.
+- **Saved-output review:** text comparison confirms the return-home meaning repeats
+  across the 30-second source seam; the final Korean unit also switches from casual
+  speech to a polite ending. These are unresolved quality findings, not a UI defect
+  diagnosis. Original source/translation outputs were not edited and no additional
+  inference ran. A short cue's viewing comfort still needs playback/human review.
 - **Existing functionality retained:** import/compatible copies; selected audio;
   playback/seek/restart; old supplied/generated caption versions; saved-source
   retranslation; speech/translation checkpoints; literal/visual scene search,
@@ -67,9 +77,11 @@
   Whole-audio decode remains on speech resume; only model work is bounded/reused.
   Pocket's repository/PR returned 404, so pack/events integration awaits its verified
   contract. iPhone/LAN synchronization is not implemented by these local APIs.
-- **Next:** the real translation and saved-output/server-restart part of this stage
-  is complete. Reuse the saved Korean/source versions for actual browser display
-  verification in a runtime that permits normal browser sockets; do not repeat
-  ASR or paid translation. Respect the owner's one-stage-per-turn instruction.
+- **Next:** this display-verification stage is blocked at local app access, not API
+  authentication. Reuse the saved Korean/source versions for browser verification
+  in a runtime that can reach the local app; do not repeat ASR or paid translation
+  for playback. The next code slice should address boundary context and Korean
+  register continuity while preserving source evidence and prior subtitle versions.
+  Respect the owner's one-stage-per-turn instruction.
   Final merge remains an owner decision; long-video/RTX and enhancement gates stay
   separate. Preserve both failed and successful evidence.
