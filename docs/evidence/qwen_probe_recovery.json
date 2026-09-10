@@ -1,0 +1,57 @@
+{
+  "date": "2026-09-10",
+  "scope": "Offline probe persistence only; model calls stubbed, no actual inference/translation/browser acceptance.",
+  "base": "d584c7f19dc043507084090e4f1e6cf5f183c30d",
+  "base_tree_equals_main": "48ea59076ccaae66f732433e74ffff9c08a46ed8",
+  "reviewed_head": "0917d8fe253c6625ed8ef004effb4abcbcdc1b1f",
+  "reviewed_tree": "d35a3c102ef198919d953aff605467b0697a27fd",
+  "remote_implementation": "0f17022a7950c42e7a2a494b82885f30a7c417f4",
+  "author_checks": [
+    {
+      "command": "python -m unittest tests.test_qwen_probe tests.test_qwen_timings tests.test_qwen_audio tests.test_qwen -q",
+      "exit": 1,
+      "result": "24 cases passed; test_qwen could not import because fastapi was removed with the old environment. Not a passing combined suite."
+    },
+    {
+      "command": "python -m unittest tests.test_qwen_probe tests.test_qwen_timings tests.test_qwen_audio -q",
+      "revision": "c9aad30829709ac4343a2395b0e9b6201897e251",
+      "exit": 0,
+      "tests": 24
+    },
+    {
+      "command": "python -m unittest tests.test_qwen_probe tests.test_qwen_timings tests.test_qwen_audio -q",
+      "revision": "28deec02f341ca8d1f563ac06c771ef92e81cd21",
+      "exit": 1,
+      "tests": 26,
+      "failures": 1,
+      "result": "New structural validation correctly rejected an old fixture whose error label disagreed with its evidence. Corrected only the fixture to genuine zero-duration unresolved alignment."
+    },
+    {
+      "command": "python -m unittest tests.test_qwen_probe -q",
+      "revision": "0917d8fe253c6625ed8ef004effb4abcbcdc1b1f",
+      "exit": 0,
+      "tests": 13
+    }
+  ],
+  "independent_review": {
+    "initial_finding": "P2: malformed saved structures with a recomputed hash could raise KeyError/TypeError/AttributeError and be republished resumable.",
+    "fix": "Reuse product validate_part before accepting saved parts; reject clip/cues-only legacy parts in this Qwen probe.",
+    "verdict": "Approved at reviewed_head; no further actionable findings.",
+    "checks": [
+      "All 13 final probe tests passed independently.",
+      "Original malformed-part reproduction now retains zero parts, marks recovery unavailable, and rejects reuse of its failed output.",
+      "Actual child process kill before atomic replacement keeps previous checkpoint readable without final exports.",
+      "Independent kill after second replacement retained two production-validated spans; new process made one remaining recognize call.",
+      "Real _transcribe_audio over synthetic PCM retained two validated spans after later model failure; retry processed one remaining span and matched fresh parts. Model calls were stubbed."
+    ]
+  },
+  "actual_trial": {
+    "started": false,
+    "requested_seconds": 605.35,
+    "runtime_restore_result": "network approval was cancelled before a decision was returned",
+    "local_cached_model_weight_files": 0,
+    "alternative_network_or_ci_inference_used": false,
+    "prior_progress_is_not_completion": true
+  },
+  "limits": "Process-kill atomicity is not power-loss/disk durability or protection from complete workspace deletion. Raw checkpoint requires separate durable preservation. No raw dialogue, paths or model weights are committed."
+}
