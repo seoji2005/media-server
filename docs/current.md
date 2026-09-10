@@ -1,92 +1,91 @@
 # Current work
 
-- **Milestone:** measure Qwen loading, preparation, inference, decoding and cleanup
-  on the unchanged production speech path before choosing a reuse strategy.
-- **Branch / content base:** `feat/qwen-stage-cost`, main PR #29 merge
-  `10815499df8d5d9046ac15ee95e44c857837a687`. The recovered local base has the
-  identical tree `897daee05b473e6394badb410e9038f2b2e45358`.
-- **Authorization:** continue the owner's multi-stage implementation, independent
-  review and merge after successful checks. This is not final release approval.
+- **Milestone:** preserve completed Qwen probe spans before another expensive
+  continuous-speech trial. Branch `feat/qwen-durable-checkpoints`.
+- **Live base:** PR #30 merged at `48ea59076ccaae66f732433e74ffff9c08a46ed8`.
+  Recovered local base `d584c7f` has the identical tree
+  `bfd57c31008c94bd9cd1abd512e54338b03327fa`; publication preserves remote ancestry.
+- **Authorization:** owner's continued multi-stage implementation, independent
+  review and merge after successful checks; not final release approval.
 
 ## Current change
 
-Qwen exposes optional bounded phase aggregates, disabled during normal app work.
-An offline [speech probe](qwen-subtitles.md#measure-local-speech-cost) calls the actual
-`transcribe_parts` path and writes a fresh, explicitly selected output directory.
-No model residency, call order, checkpoint schema, profile, identity, translation,
-DB or player change. Saved spans still skip model calls. Input/model identity must
-remain unchanged; failed/unfinished samples are never reported as complete.
+The offline [speech probe](qwen-subtitles.md#measure-local-speech-cost) now publishes
+one atomic `checkpoint.json` after each new span. It binds raw parts to the input,
+runtime, profile and content hash. A process killed during replacement recovers
+the previous or new complete snapshot without relying on final exports. Old probe
+directories remain readable with their original strict two-file verification.
+Checkpoint verification/write time is separated from speech time.
 
-Local fixture checks cover enabled/disabled identical results and runtime identity,
-saved-prefix/full resume, CUDA synchronization boundaries, failure cleanup and
-redacted/exclusive probe outputs. Fresh independent review found and resolved a
-CUDA-observer cleanup failure and recovery provenance bypass, including rejected
-and in-run changed evidence. Final bounded rereview approved the fixes.
+Fresh independent review found that structurally malformed, hash-matching evidence
+could be republished as resumable after rejection. The probe now applies the
+existing product checkpoint validator before accepting saved parts. Rereview of
+local `0917d8fe253c6625ed8ef004effb4abcbcdc1b1f`, tree
+`d35a3c102ef198919d953aff605467b0697a27fd`, approved the fix. Remote implementation
+`0f17022a7950c42e7a2a494b82885f30a7c417f4` has that exact tree.
+[Executed evidence](evidence/qwen_probe_recovery.json) records process-kill tests,
+rejected-evidence retry, valid-prefix retention and remaining model-call counts.
+These are offline fixture checks with stubbed model calls, not new ASR quality.
+Existing Windows/Ubuntu CI is the final integration gate; reconcile live PR checks.
 
-The fixed CPU runtime and pinned model files were explicitly installed/downloaded.
-[Actual 35-second cost and restart evidence](evidence/qwen_speech_cost.json): fresh
-speech runs took 83.515 and 88.591 seconds with identical canonical parts hashes.
-The first included 9.237 seconds of model loading, so it was not the dominant cost
-in this short CPU case. Full saved recovery made zero model calls (0.122 seconds
-speech stage; setup/imports separate). No Gemini/network attempts or old-track writes.
-A 605.350-second continuous public dialogue was started through this speech path.
-Workspace maintenance removed the local runtime/session and raw outputs after the
-last observed 13 valid spans through 364.500 seconds. This is **incomplete**, with
-no final aggregate, full recovery or long-input quality acceptance. The published
-code and 35-second summaries were recovered byte-for-byte from GitHub. Expensive
-future trials need durable raw checkpoints before another environment transition;
-old progress messages cannot reconstruct or authorize reuse of missing parts. The
-input is previously studied public audio, not a new holdout.
+Normal application jobs, model residency/call order, speech profile, DB and player
+are unchanged. A local atomic checkpoint cannot survive removal of the whole
+workspace by itself. Preserve the single raw checkpoint durably during expensive
+trials, before an environment transition; never relabel its runtime identity.
 
-## Reconciled integration
+## Actual speech evidence and execution limit
 
-- PR #29 merged after fresh independent review and final Windows/Ubuntu
+PR #30 passed independent review and final Windows/Ubuntu
+[CI 34483515777](https://github.com/seoji2005/media-server/actions/runs/34483515777):
+255 Python tests per OS (one Windows-only skip on Ubuntu), eight DOM suites and
+actual synthetic Chrome startup/restart/preparation. It added optional timing only.
+[Actual 35-second CPU results](evidence/qwen_speech_cost.json) retain two fresh
+speech runs (83.515 and 88.591 seconds), identical parts hashes and full saved
+recovery with zero model calls. Loading was about 11% in that short CPU case;
+it did not justify changing model residency or claiming target-device speed.
+
+The prior 605.350-second public dialogue attempt remains **incomplete**. Workspace
+maintenance removed the runtime/raw outputs after the last observed 13 spans
+through 364.500 seconds. There is no final cost, full recovery or long-input quality
+acceptance. Those progress messages cannot recreate missing parts.
+
+This milestone attempted to restore the official pinned CPU runtime. Execution
+returned `network approval was cancelled before a decision was returned`; no model
+weights remain in the local cache. The 605-second run was not restarted. No alternate
+network route, browser or CI inference was used. Continue that trial only when the
+required runtime/models and permitted execution are available. The recording was
+previously studied public audio, not a new holdout. Translation remains separate.
+
+## Reconciled product integration
+
+- PR #28 caption choice/Off/sync settings and provided-caption receiving are merged.
+  New jobs remain **Qwen3-ASR-1.7B + Qwen3-ForcedAligner-0.6B + Gemini 3.1 Flash-Lite**.
+  Saved-source and foreign provided-caption translation avoid needless ASR.
+- PR #29 exact-item entry merged after independent review and
   [CI 34470638573](https://github.com/seoji2005/media-server/actions/runs/34470638573).
-  Each OS passed 242 Python tests (one Windows-only skip on Ubuntu), eight DOM
-  suites and actual synthetic Chrome startup/restart/preparation. Final Windows
-  desktop/mobile screenshots were inspected. The Windows feed failure was fixed
-  with the same FFmpeg release, a versioned URL and verified SHA-256.
-- Identity-bound `#item` opens the delivered video paused with saved caption choice,
-  Off/offset, audio and watch position; preparation requires an explicit action.
-  [Saved public-sample HTTP evidence](evidence/item_entry_saved_playback.json)
-  preserves five tracks, canonical bytes and all DB rows without inference.
-  The independently owned Fetch adapter still must adopt this contract.
-- PR #28 caption settings and Fetch provided-caption delivery are already integrated;
-  do not recreate them or edit the independently owned Fetch branch.
-- Qwen reloads both models per new span, and alignment determines the next boundary.
-  Batching ASR first would change checkpoint semantics. The prior 35-second times
-  are not a comparable speed pair because one reused its first 30 seconds.
-
-## Existing integration
-
-- New jobs remain **Qwen3-ASR-1.7B + Qwen3-ForcedAligner-0.6B + Gemini 3.1 Flash-Lite**.
-  [Setup and recovery](qwen-subtitles.md). The actual 35-second public sample's v2
-  handoff removed its hard seam, and faithful-context-v5 preserved Obon/register.
-  All five saved sample versions remain; this is not broad quality acceptance.
-  Saved playback requires no paid inference.
-- PR #27 passed [CI 34453769503](https://github.com/seoji2005/media-server/actions/runs/34453769503):
-  231 tests per OS (one Windows-only skip on Ubuntu), seven DOM suites, actual
-  synthetic Chrome playback and server restart. Its fresh review independently
-  compared 97 initial/resume cases.
-- [Two-hour resource measurement](evidence/qwen_audio_memory.json): real FFmpeg with
-  deterministic model stubs reduced parent peak RSS from 910.172 to 39.383 MiB.
-  Both paths produced identical 326 spans; interruption at 55:15 resumed only the
-  remaining 176 stub calls. SQLite publication and HTTP/restart preserved originals
-  and VTT. This excludes model/child FFmpeg memory and establishes no long natural
-  video quality/speed claim. About 440 MiB temporary disk plus 32 MiB reserve is
-  required; resume still decodes all source audio.
+  `#item` opens the identity-bound video paused with saved audio, watch position,
+  caption/version/source/Off and offset. Rendition preparation remains explicit.
+  [Saved sample HTTP evidence](evidence/item_entry_saved_playback.json) preserves
+  five tracks, canonical bytes and all DB rows without inference.
+- Independently owned Fetch main `8ce413012d97c0426fe448264fb4a9bfd604f87a` includes
+  provided-caption handoff, transfer monitoring/stop and candidate address reconnect.
+  Its adapter still opens the verified library root; exact-item adoption and foreign
+  provided-caption translation end to end remain pending there. Do not edit Fetch.
+- PR #27 bounded PCM storage remains integrated. Its
+  [two-hour measurement](evidence/qwen_audio_memory.json) used real FFmpeg and model
+  stubs: parent peak RSS 910.172 → 39.383 MiB, identical spans and verified recovery.
+  This excludes model/child memory and is not two-hour natural-video quality.
 - Saved-source translation, scene search, opt-in local recommendations and companion
-  caption/library APIs remain integrated.
+  caption/library APIs remain integrated; do not recreate existing contracts.
 
 ## Remaining product gates
 
-- Natural long-video/multilingual ASR, alignment, translation and subjective timing/
-  readability. Resource stubs and synthetic captions do not establish this gate.
+- Natural long-video/multilingual ASR, alignment, translation and subjective caption
+  timing/readability; neither fixtures nor short samples establish this gate.
 - Windows 11 / RTX 4070 SUPER 12 GB installation, VRAM, actual inference and recovery.
-  Linux CPU history and Windows synthetic CI do not establish target-device fitness.
-- Actual saved-caption screen review here remains blocked by prior local Chrome
-  socket EPERM and supplied browser ERR_BLOCKED_BY_CLIENT. Synthetic CI screens
-  verify UI behavior, not the real public sample's display quality.
-- Conservative enhancement needs visual comparison and adoption. Fetch/Compass must
-  adopt their contracts; Pocket needs a verified accessible contract. iPhone/LAN
-  synchronization is separate from the local companion APIs.
+- Actual saved-caption screen review remains blocked by earlier local Chrome EPERM
+  and supplied-browser ERR_BLOCKED_BY_CLIENT. Synthetic CI is not sample-quality
+  review; do not retry with another browser/CDP/profile/proxy or inference in CI.
+- Conservative enhancement requires visual comparison and adoption. Search and
+  recommendations still need real viewing evaluation. Fetch's actual browser flow
+  and exact-item adapter remain separately owned. No final release claim.
