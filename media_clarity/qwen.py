@@ -1,6 +1,7 @@
 """Local Qwen speech recognition and separate forced alignment, one window at a time."""
 from __future__ import annotations
 
+from contextlib import contextmanager
 import gc
 import hashlib
 import importlib.metadata
@@ -10,9 +11,12 @@ import math
 import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
+import tempfile
 import unicodedata
 
-from .storage import MediaError, file_signature, no_symlink, run_media
+from .storage import MediaError, RESERVE, file_signature, no_symlink, run_media, safe_io
 from .subtitles import MAX_CUES, validate_cues
 
 LEGACY_PROFILE = 'qwen3-asr-1.7b-fa-0.6b-v1:all-audio-30s-quiet-cut:auto-language:phrase-boundaries'
@@ -279,6 +283,53 @@ def evidence_result(evidence, clip):
         return [], exc.code
 
 
+@contextmanager
+def decoded_audio(path, duration, audio_index):
+    """Spool PCM beside the owned input; retain only one speech window in RAM.
+
+    TemporaryFile is unlinked on POSIX and delete-on-close on Windows. The child
+    inherits its open handle; neither a decoder path nor diagnostics are exposed.
+    The PCM bytes/timeline match LocalModels.decode_audio for historical evidence.
+    """
+    if type(audio_index) is not int or not 0 <= audio_index < 128:
+        raise MediaError('invalid_audio_track', 422)
+    if type(duration) not in (int, float) or not math.isfinite(duration) or duration <= 0:
+        raise MediaError('invalid_media', 422)
+    from .models import require_private_runtime
+    require_private_runtime()
+    no_symlink(path)
+    limit = math.ceil(duration * SAMPLE_RATE * 4) + 1048576
+    try:
+        if shutil.disk_usage(path.parent).free < limit + RESERVE:
+            raise MediaError('insufficient_space', 507)
+        with tempfile.TemporaryFile(dir=path.parent, prefix='qwen-audio-') as output:
+            # FFmpeg may exceed -fs by one packet; anything above the historical
+            # cap is rejected, never mistaken for a successfully decoded ending.
+            args = ['ffmpeg','-v','error','-nostdin','-copyts','-start_at_zero',
+                    '-protocol_whitelist','file,pipe','-format_whitelist','mov,matroska,webm',
+                    '-i',str(path),'-map',f'0:a:{audio_index}','-vn','-sn','-dn',
+                    '-ac','1','-ar','16000','-af','aresample=async=1:first_pts=0',
+                    '-fs',str(limit+4),'-f','f32le','pipe:1']
+            try:
+                result = subprocess.run(args, stdin=subprocess.DEVNULL, stdout=output,
+                    stderr=subprocess.DEVNULL, timeout=max(120,min(1800,math.ceil(duration/2))))
+            except FileNotFoundError:
+                raise MediaError('ffmpeg_unavailable', 503) from None
+            except subprocess.TimeoutExpired:
+                raise MediaError('media_timeout', 422) from None
+            size = output.seek(0, os.SEEK_END)
+            if result.returncode and shutil.disk_usage(path.parent).free < RESERVE:
+                raise MediaError('insufficient_space', 507)
+            if result.returncode or not size or size % 4 or size > limit:
+                raise MediaError('invalid_media', 422)
+            count = size // 4
+            if count > math.ceil(duration * SAMPLE_RATE):
+                count = math.floor(duration * SAMPLE_RATE)
+            yield output, count
+    except OSError as exc:
+        raise safe_io(exc) from None
+
+
 class QwenSpeech:
     asr_profile = PROFILE
     audio_timing = 'source-timestamps-v1'
@@ -375,17 +426,25 @@ class QwenSpeech:
             self.close()
 
     def transcribe_parts(self, path, duration, audio_index, saved):
-        from .models import LocalModels
-        audio = LocalModels.decode_audio(self, path, duration, audio_index)
-        if len(audio) > math.ceil(duration * SAMPLE_RATE):
-            # Container rounding may expose a few padded samples after the media end.
-            audio = audio[:math.floor(duration * SAMPLE_RATE)]
+        with decoded_audio(path, duration, audio_index) as (stream, count):
+            yield from self._transcribe_audio(stream, count, saved)
+
+    def _transcribe_audio(self, stream, count, saved):
+        import numpy as np
         first, index = 0, 0
-        while first < len(audio):
-            _, relative_end, boundary = next(windows(audio[first:]))
+        while first < count:
+            # One lookahead sample distinguishes a full final window from a
+            # forced/quiet cut. The historical segmentation sees the same bytes.
+            read_count = min(30 * SAMPLE_RATE + 1, count - first)
+            stream.seek(first * 4)
+            raw = stream.read(read_count * 4)
+            if len(raw) != read_count * 4:
+                raise MediaError('invalid_media', 422)
+            audio = np.frombuffer(raw, dtype='<f4')
+            _, relative_end, boundary = next(windows(audio))
             last = first + relative_end
             clip = [first/SAMPLE_RATE, last/SAMPLE_RATE]
-            samples = audio[first:last].copy()
+            samples = audio[:relative_end].copy()
             digest = hashlib.sha256(samples.tobytes()).hexdigest()
             if index < len(saved):
                 part = saved[index]

@@ -1,6 +1,8 @@
 """Qwen boundary regressions and saved-job recovery; model-free fixtures unless noted."""
 import copy
+from contextlib import contextmanager
 import hashlib
+import io
 import json
 import os
 import unittest
@@ -23,6 +25,12 @@ def evidence(text, units, language='Japanese'):
             'audio_sha256':'a'*64, 'units':units, 'boundary':'end'}
 
 
+@contextmanager
+def audio_file(audio):
+    with io.BytesIO(audio.tobytes()) as stream:
+        yield stream, len(audio)
+
+
 class QwenBoundaryTests(unittest.TestCase):
     def handoff_fixture(self, profile=qwen.PROFILE):
         import numpy as np
@@ -43,7 +51,7 @@ class QwenBoundaryTests(unittest.TestCase):
 
     def test_handoff_reprocesses_suffix_and_keeps_raw_text_and_real_repetition(self):
         speech,audio,recognize,align,calls=self.handoff_fixture()
-        with patch('media_clarity.models.LocalModels.decode_audio',return_value=audio), \
+        with patch('media_clarity.qwen.decoded_audio',side_effect=lambda *args:audio_file(audio)), \
                 patch.object(speech,'recognize',side_effect=recognize),patch.object(speech,'align',side_effect=align):
             parts=list(speech.transcribe_parts(None,35,0,[]))
         self.assertEqual([p['clip'] for p in parts],[[0,23.08],[23.08,35]])
@@ -55,7 +63,7 @@ class QwenBoundaryTests(unittest.TestCase):
 
     def test_handoff_resume_checks_full_recognition_audio_and_reuses_committed_prefix(self):
         speech,audio,recognize,align,calls=self.handoff_fixture()
-        with patch('media_clarity.models.LocalModels.decode_audio',return_value=audio), \
+        with patch('media_clarity.qwen.decoded_audio',side_effect=lambda *args:audio_file(audio)), \
                 patch.object(speech,'recognize',side_effect=recognize),patch.object(speech,'align',side_effect=align):
             generator=speech.transcribe_parts(None,35,0,[])
             saved=next(generator);generator.close();calls.clear()
@@ -68,7 +76,7 @@ class QwenBoundaryTests(unittest.TestCase):
 
     def test_handoff_rejects_changed_extent_or_derived_cues(self):
         speech,audio,recognize,align,_=self.handoff_fixture()
-        with patch('media_clarity.models.LocalModels.decode_audio',return_value=audio), \
+        with patch('media_clarity.qwen.decoded_audio',side_effect=lambda *args:audio_file(audio)), \
                 patch.object(speech,'recognize',side_effect=recognize),patch.object(speech,'align',side_effect=align):
             generator=speech.transcribe_parts(None,35,0,[])
             part=next(generator);generator.close()
@@ -81,7 +89,7 @@ class QwenBoundaryTests(unittest.TestCase):
 
     def test_legacy_windows_are_not_reinterpreted_as_handoffs(self):
         speech,audio,recognize,align,calls=self.handoff_fixture(qwen.LEGACY_PROFILE)
-        with patch('media_clarity.models.LocalModels.decode_audio',return_value=audio), \
+        with patch('media_clarity.qwen.decoded_audio',side_effect=lambda *args:audio_file(audio)), \
                 patch.object(speech,'recognize',side_effect=recognize),patch.object(speech,'align',side_effect=align):
             parts=list(speech.transcribe_parts(None,35,0,[]))
             calls.clear();self.assertEqual(list(speech.transcribe_parts(None,35,0,parts)),[])

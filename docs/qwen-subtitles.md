@@ -58,6 +58,15 @@ runtime can still run. Speech language is automatically detected. The aligner su
 ## Text, timing and recovery
 
 - Decode the selected original audio with existing restricted FFmpeg behavior.
+  Decoded PCM lives in an automatically removed temporary file beside the owned
+  input; only up to 30 seconds plus one lookahead sample are read into RAM.
+  Allow about 440 MiB of temporary disk space for two hours, plus the existing
+  32 MiB reserve. Low disk space, timeout, malformed output or exceeding the
+  output cap stops the job without publishing a partial transcript. Normal close,
+  failure and worker exit release the temporary file. Resume still decodes the
+  complete audio and verifies saved recognition hashes; this is a memory bound,
+  not a persistent PCM cache or a claim of faster inference. Historical v1/v2
+  profiles, sample bytes, time origins and evidence identities remain unchanged.
   Cover every sample with committed, contiguous spans. Recognize at most 30 seconds
   per call. Prefer 300 ms of low
   energy in seconds 20–30 for a cut. Never discard quiet audio through VAD.
