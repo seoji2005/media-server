@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
+import checkItemEntry from './item-entry-browser.mjs';
 
 const [base, source, subtitle, phase] = process.argv.slice(2);
 assert.match(base, /^http:\/\/127\.0\.0\.1:\d+$/);
@@ -273,6 +274,7 @@ try {
   await page.locator('#player-close').click();
   await page.waitForFunction(() => !document.querySelector('#player-dialog').open);
   await checkMomentEntry();
+  await checkItemEntry(page,base,phase,trackId,source);
   assert(ranges.includes(206), 'real browser Range response required');
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);

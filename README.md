@@ -10,6 +10,9 @@ Google로 보내며 API 비용이 발생합니다. 영상·음성 파일은 보�
 [현재 모델 설치·복구](docs/qwen-subtitles.md), [Gemini 키 설정](docs/subtitles.md#optional-gemini-retranslation)을 확인하세요.
 새 작업의 번역 엔진은 Gemini로 고정했습니다. 중단된 과거 작업은 저장 당시 설정을 유지합니다.
 저장된 원문과 가져온 외국어 자막은 전사 없이 다시 번역할 수 있습니다. 영상 열기만으로 API 호출이 시작되지는 않습니다.
+연동 앱은 [지정 영상 열기 계약](docs/companion-library.md#open-a-specific-imported-video)으로
+보관함·원본을 확인하고 저장한 오디오·시청 위치·자막 설정으로 감상 화면을 열 수 있습니다.
+자동 재생하지 않으며 필요한 재생용 사본도 준비 버튼을 눌러 만듭니다. Fetch의 실제 연결 적용은 별도입니다.
 
 10월 Windows/RTX 감상 제품을 위한 진행 중 체크포인트입니다. UTF-8·CP949/EUC-KR SRT 가져오기·
 자막 버전 선택, 선택한 자막의 문장 검색·장면 이동, 로컬 ASR/번역 연결과 처리 재개를

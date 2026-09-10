@@ -1,0 +1,27 @@
+{
+  "revision": "6cd968f2ae4d6335fcefe8f2b6a248f8681fef1a",
+  "evidence": "Existing public 35-second Qwen/Gemini snapshot; production HTTP and new server process. No new inference or browser execution.",
+  "phases": [
+    {
+      "phase": "entry",
+      "identity_retries": 2,
+      "tracks": 5,
+      "canonical_views": 10,
+      "source_plus_500ms_preserved": true,
+      "range206": true
+    },
+    {
+      "phase": "restart",
+      "identity_retries": 2,
+      "tracks": 5,
+      "canonical_views": 10,
+      "source_plus_500ms_preserved": true,
+      "range206": true
+    }
+  ],
+  "all_database_rows_preserved": true,
+  "original_bytes_preserved": true,
+  "model_calls": 0,
+  "translation_calls": 0,
+  "server_log_bytes": 0
+}

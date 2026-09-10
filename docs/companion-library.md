@@ -4,6 +4,47 @@ These additive endpoints use the existing loopback boundary and `X-Media-Token`.
 They neither expose LAN access nor change existing `/api/library` responses.
 Persistent server/library identity is still obtained from `/api/companion/identity`.
 
+## Open a specific imported video
+
+`#item=` followed by URI-encoded JSON opens the existing player, paused, using the
+server's current audio, watch position and caption choice/Off/offset. This general
+entry is independent of recommendation inclusion and the existing `#moment` route.
+The fragment is bounded to 2,048 encoded characters and removed before application
+HTTP calls. It contains exactly these fields; no token, path, title, source URL,
+desired position/audio/caption or automatic processing instruction is accepted.
+
+| Field | Required value |
+| --- | --- |
+| `version` | Integer `1` |
+| `server_id`, `library_id` | Paired server/library IDs, 32 lowercase hex characters each |
+| `item_id`, `file_id` | Delivered item and original-file IDs, 32 lowercase hex characters each |
+| `sha256` | Delivered original's SHA-256, 64 lowercase hex characters |
+
+The page posts this same object to `POST /api/library/{item_id}/item-entry`, with its
+own current `X-Media-Token`. The maximum body is 1,024 bytes. Success is exactly
+`{version:1, server_id, library_id, item}` where `item` is the existing player item
+shape. The endpoint checks original bytes using normal integrity verification and,
+when available, the selected audio's rendition. IDs/hash always refer to the original;
+the player's duration/preparation can refer to the rendition. The first verification
+after restart can scan the complete file. Playback still verifies its own open
+descriptor; entry is not a guarantee against later changes.
+
+Wrong identity returns `item_reference_changed` (409), malformed/unsupported payload
+`invalid_item_entry` (422); missing/changed media retain existing errors. A rendition
+that has not been prepared returns the item with `unavailable_reason:rendition_required`.
+The page displays an explicit preparation button. Only clicking it requests existing
+local preparation, revalidating the entry first and again afterward. Navigation never
+prepares or translates automatically. Opening, seeking and closing before Play do not
+save watch history. Invalid or stale links do not replace an existing player; incoming
+valid links may save the previously playing video's current position when closing it.
+All existing caption, preference, source and processing rows are unchanged by entry.
+
+The Server browser tests cover startup/restart, Off/offset, default-excluded imports,
+wrong-library rejection and a real synthetic MKV → explicit MP4 preparation with a
+provided Korean VTT. These are not actual Fetch extension navigation or target-device
+acceptance. Fetch must adopt this versioned contract separately; root-library opening
+remains its currently published behavior.
+
 ## Included library
 
 `GET /api/companion/library?limit=20&cursor=...` returns `items` and `next_cursor`.

@@ -82,6 +82,10 @@ def run():
             check=True, timeout=30)
         subtitle.write_text('1\n00:00:01,000 --> 00:00:18,000\n한국어 자막 재생 확인\n', encoding='utf-8')
         digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        pending = work / 'pending.mkv'
+        subprocess.run(['ffmpeg', '-v', 'error', '-i', str(source), '-c', 'copy', str(pending)],
+                       check=True, timeout=30)
+        pending_digest = hashlib.sha256(pending.read_bytes()).hexdigest()
         data = work / 'library'
         for phase in ('first', 'restart'):
             if phase == 'restart':
@@ -159,7 +163,11 @@ def run():
                 )
         assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
         originals = list((data / 'files').glob('*/original.mp4'))
-        assert len(originals) == 1 and hashlib.sha256(originals[0].read_bytes()).hexdigest() == digest
+        assert len(originals) == 2  # Imported MP4 plus the explicitly requested MKV rendition.
+        assert sum(hashlib.sha256(p.read_bytes()).hexdigest() == digest for p in originals) == 1
+        pending_copies = list((data / 'files').glob('*/original.mkv'))
+        assert len(pending_copies) == 1 and hashlib.sha256(pending_copies[0].read_bytes()).hexdigest() == pending_digest
+        assert hashlib.sha256(pending.read_bytes()).hexdigest() == pending_digest
         print('PASS browser source/copy preservation, bound-server launch/fallback, quiet default restart (synthetic20s; OS browser handler mocked; no model/GPU evidence)')
 
 

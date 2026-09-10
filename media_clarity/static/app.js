@@ -6,11 +6,14 @@ let preferenceVersion = 0, savedPreference = null;
 const pendingPreferences = new Map();
 const preparingPlayback = new Set();
 let playerRequest = 0, entryAwaitingPlay = false;
+let pendingItemEntry = null;
 let toastTimer, saveTimer, saveChain = Promise.resolve(), lastQueuedPosition = null;
 const video = $("video"), dialog = $("player-dialog");
 $("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
 const errors = {
+  invalid_item_entry:"영상 연결 정보를 확인할 수 없습니다. 보낸 앱에서 다시 열어 주세요.",
+  item_reference_changed:"다른 보관함이거나 원본 정보가 바뀌었습니다. 보낸 앱에서 연결을 다시 확인해 주세요.",
   invalid_caption_view:"자막 시간은 10초까지 앞당기거나 늦출 수 있습니다.",
   caption_view_changed:"다른 창에서 자막 설정이 바뀌었습니다. 저장 상태를 다시 확인해 주세요.",
   invalid_moment_entry:"장면의 시점을 확인해 주세요.",
@@ -189,20 +192,55 @@ async function preparePlayback(id) {
   catch(e) { toast(e.message + " 보관된 원본은 유지됩니다.",true); return false; }
   finally { preparingPlayback.delete(id); await refresh(); }
 }
-async function openPlayer(id, entry=null) {
+async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false) {
   if(!entry) momentRequest++;
-  const request = ++playerRequest;
+  let request = ++playerRequest;
+  pendingItemEntry=null;
+  $("item-entry-notice").hidden=true; $("item-entry-prepare").onclick=null;
   try {
-    let item = await api(`/api/library/${id}`);
-    const moment=entry?await api(`/api/library/${id}/moment-entry`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(entry)}):null;
-    if(entry&&(item.preparation!=="original"||item.audio_index!==0||item.file_id!==entry.timeline.file_id||item.sha256!==entry.timeline.sha256||Math.floor(item.duration*1000)!==entry.duration_ms))return toast(errors.moment_reference_changed,true);
+    const itemEntry=entry&&entryKind==="item";
+    let item, moment=null;
+    if(itemEntry){
+      const result=await api(`/api/library/${id}/item-entry`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(entry)});
+      if(request!==playerRequest)return;
+      item=result.item;
+      if(result.version!==1||result.server_id!==entry.server_id||result.library_id!==entry.library_id||!item||item.id!==id||item.file_id!==entry.file_id||item.sha256!==entry.sha256)throw new Error(errors.item_reference_changed);
+    }else{
+      item=await api(`/api/library/${id}`);
+      if(request!==playerRequest)return;
+      if(entry){
+        moment=await api(`/api/library/${id}/moment-entry`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(entry)});
+        if(request!==playerRequest)return;
+        if(item.preparation!=="original"||item.audio_index!==0||item.file_id!==entry.timeline.file_id||item.sha256!==entry.timeline.sha256||Math.floor(item.duration*1000)!==entry.duration_ms)return toast(errors.moment_reference_changed,true);
+      }
+    }
     if(item.unavailable_reason === "rendition_required" || item.audio_tracks === null) {
-      if(entry)return toast(errors.moment_timeline_unsupported,true);
+      if(itemEntry&&!prepareEntry){
+        $("item-entry-message").textContent=`${item.title} · 원본은 보관돼 있습니다. 감상하려면 재생용 사본을 준비해 주세요.`;
+        $("item-entry-notice").hidden=false; $("item-entry-prepare").hidden=false;
+        pendingItemEntry=entry;
+        $("item-entry-prepare").onclick=()=>{if(pendingItemEntry===entry)openPlayer(id,entry,"item",true);};
+        if(dialog.open)toast("연결한 영상은 재생 준비가 필요합니다. 보관함에서 준비해 주세요.");
+        return;
+      }
+      if(entry&&!itemEntry)return toast(errors.moment_timeline_unsupported,true);
       if(!await preparePlayback(id))return;
+      if(request!==playerRequest)return;
+      if(itemEntry)return openPlayer(id,entry,"item");
       item = await api(`/api/library/${id}`);
     }
     if(request !== playerRequest)return;
     if(!item.available) return toast(message(item.unavailable_reason || "managed_file_missing"),true);
+    // Validate an incoming link before interrupting current playback. Closing can
+    // await a history write, so a newer entry must still win afterward.
+    if(entry&&dialog.open){
+      request++; await closePlayer();
+      if(request!==playerRequest)return;
+      if(itemEntry){
+        // Closing this same video can save a newer position than the entry read.
+        return openPlayer(id,entry,"item");
+      }
+    }
     for(const panel of ["audio-panel","subtitle-preparation","subtitle-search-panel","preference-panel"])$(panel).open=false;
     resetPreviews();
     entryAwaitingPlay=Boolean(entry); activeItem=item; lastQueuedPosition=null; $("player-title").textContent=item.title; renderAudio(item);
@@ -210,10 +248,16 @@ async function openPlayer(id, entry=null) {
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
     resetSubtitles(); video.src=`/api/media/${id}/content${audioQuery(item)}`; dialog.showModal(); dialog.scrollTop=0; refreshSubtitles(item);
     refreshPreference(item);
-    video.addEventListener("loadedmetadata", function restore(){ if(request!==playerRequest||!activeItem||activeItem.id!==id) return; const start=moment?moment.start_ms/1000:continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=moment?`${time(start)} 장면 · 재생 버튼을 눌러 시작하세요`:start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
+    video.addEventListener("loadedmetadata", function restore(){ if(activeItem!==item) return; const start=moment?moment.start_ms/1000:continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=moment?`${time(start)} 장면 · 재생 버튼을 눌러 시작하세요`:start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
     // Autoplay is optional; browser policy may require the native play button.
     if(!entry) video.play().catch(()=>{});
-  } catch(e) { toast(e.message,true); }
+  } catch(e) {
+    if(request!==playerRequest)return;
+    if(entryKind==="item"&&entry){
+      $("item-entry-message").textContent=e.message; $("item-entry-notice").hidden=false; $("item-entry-prepare").hidden=true;
+    }
+    toast(e.message,true);
+  }
 }
 function audioQuery(item){return Number.isInteger(item.audio_index)?`?audio_index=${item.audio_index}`:"";}
 function audioLabel(track){const language={jpn:"일본어",ja:"일본어",eng:"영어",en:"영어",kor:"한국어",ko:"한국어"}[track.language]||track.language;return [`오디오 ${track.index+1}`,language,track.title,track.codec?.toUpperCase(),track.channels?`${track.channels}채널`:"",track.error?"지원되지 않음":""].filter(Boolean).join(" · ");}
@@ -292,26 +336,33 @@ document.addEventListener("dragover",e=>{if(e.dataTransfer?.types.includes("File
 document.addEventListener("dragleave",()=>{dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)$("drop-overlay").hidden=true;});
 document.addEventListener("drop",e=>{e.preventDefault();dragDepth=0;$("drop-overlay").hidden=true;if(dialog.open||$("settings-dialog").open)return;if(e.dataTransfer.files.length!==1)return toast("한 번에 한 개의 영상을 선택해 주세요.");importFile(e.dataTransfer.files[0]);});
 // A fragment carries no token and is removed before any HTTP call. The server
-// validates identity/time/participation; navigation alone never saves watch position.
+// validates identity. Item links do not opt a video into recommendations.
 function takeMomentEntry(){
-  if(!location.hash.startsWith("#moment="))return null;
-  const fragment=location.hash.slice(8);history.replaceState(null,"",location.pathname);
-  try{if(fragment.length>2048)throw new Error();const entry=JSON.parse(decodeURIComponent(fragment));if(!entry||typeof entry.item_id!=="string"||!/^[a-f0-9]{32}$/.test(entry.item_id))throw new Error();return entry;}
-  catch{toast(errors.invalid_moment_entry,true);return null;}
+  const kind=location.hash.startsWith("#item=")?"item":location.hash.startsWith("#moment=")?"moment":null;
+  if(!kind)return null;
+  const fragment=location.hash.slice(kind==="item"?6:8);history.replaceState(null,"",location.pathname);
+  try{
+    if(fragment.length>2048)throw new Error();
+    const entry=JSON.parse(decodeURIComponent(fragment));
+    if(!entry||typeof entry.item_id!=="string"||!/^[a-f0-9]{32}$/.test(entry.item_id))throw new Error();
+    if(kind==="item"&&(entry.version!==1||Object.keys(entry).sort().join(",")!=="file_id,item_id,library_id,server_id,sha256,version"||["server_id","library_id","file_id","sha256"].some(key=>typeof entry[key]!=="string"||!(key==="sha256"?/^[a-f0-9]{64}$/:/^[a-f0-9]{32}$/).test(entry[key]))))throw new Error();
+    return {kind,value:entry};
+  }catch{toast(errors[kind==="item"?"invalid_item_entry":"invalid_moment_entry"],true);return {kind,value:null};}
 }
 let momentRequest=0, settleMomentSession;
 const momentSession=new Promise(resolve=>{settleMomentSession=resolve;});
 const initialMoment=takeMomentEntry();
 window.addEventListener("hashchange",async()=>{
   const entry=takeMomentEntry();if(!entry)return;
-  const request=++momentRequest;let player=++playerRequest;
+  const request=++momentRequest,player=++playerRequest;
+  pendingItemEntry=null;
+  $("item-entry-notice").hidden=true; $("item-entry-prepare").onclick=null;
+  if(!entry.value)return;
   await momentSession;
   if(!sessionToken||request!==momentRequest||player!==playerRequest)return;
-  if(dialog.open){player++;await closePlayer();}
-  if(request!==momentRequest||player!==playerRequest)return;
-  await openPlayer(entry.item_id,entry);
+  await openPlayer(entry.value.item_id,entry.value,entry.kind);
 });
-(async()=>{try{const session=await api("/api/session");sessionToken=session.token;settleMomentSession();const d=session.diagnostics;renderModelSetup(d.models);const notes=[];if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);if(notes.length){$("diagnostic").textContent=notes.join(" ");$("diagnostic").hidden=false;}await refresh();if(initialMoment&&momentRequest===0)await openPlayer(initialMoment.item_id,initialMoment);}catch(e){$("diagnostic").textContent=e.message;$("diagnostic").hidden=false;}finally{settleMomentSession();$("loading-state").hidden=true;}})();
+(async()=>{try{const session=await api("/api/session");sessionToken=session.token;settleMomentSession();const d=session.diagnostics;renderModelSetup(d.models);const notes=[];if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);if(notes.length){$("diagnostic").textContent=notes.join(" ");$("diagnostic").hidden=false;}await refresh();if(initialMoment?.value&&momentRequest===0)await openPlayer(initialMoment.value.item_id,initialMoment.value,initialMoment.kind);}catch(e){$("diagnostic").textContent=e.message;$("diagnostic").hidden=false;}finally{settleMomentSession();$("loading-state").hidden=true;}})();
 
 let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null, subtitleTracks=[], geminiConfigured=false;
 const subtitleMessages={
