@@ -42,6 +42,14 @@ not to prematurely complete it and translate that continuation again in the next
 target. Preserve actual repetition, hesitation and self-correction; do not silently
 repair uncertain ASR. Translate only each target's meaning, exactly once per id.
 '''
+PROMPT_V5 = CONTINUITY_PROMPT + '''
+Preserve culture-specific holidays, place names, institutions, customs and forms
+of address as references to the original culture. Use the established Korean name
+or a faithful transliteration; never substitute a Korean cultural analogue.
+Do not add shared nationality, relationships or ownership such as 'our' when the
+source does not express them. Keep a named holiday named rather than replacing
+it with a generic holiday throughout the dialogue.
+'''
 # Retain exact historical configurations and their actual prompts for recovery.
 CONFIGS = {model:json.dumps({'provider':'gemini', 'model':model, 'profile':'saved-context-v1',
     'prompt_sha256':hashlib.sha256(LEGACY_PROMPT.encode()).hexdigest(), 'batch_size':8,
@@ -51,14 +59,17 @@ FAITHFUL_V2 = json.dumps({**json.loads(CONFIGS[MODEL]), 'profile':'faithful-cont
     'prompt_sha256':hashlib.sha256(PROMPT.encode()).hexdigest()}, sort_keys=True, separators=(',', ':'))
 FAITHFUL_V3 = json.dumps({**json.loads(FAITHFUL_V2), 'profile':'faithful-context-v3',
     'response_contract':'exact-target-ids-v1'}, sort_keys=True, separators=(',', ':'))
-CONFIG = json.dumps({**json.loads(FAITHFUL_V3), 'profile':'faithful-context-v4',
+FAITHFUL_V4 = json.dumps({**json.loads(FAITHFUL_V3), 'profile':'faithful-context-v4',
     'prompt_sha256':hashlib.sha256(CONTINUITY_PROMPT.encode()).hexdigest(),
     'request_contract':'translated-prefix-v1', 'previous_units':2, 'previous_chars':400},
     sort_keys=True, separators=(',', ':'))
+CONFIG = json.dumps({**json.loads(FAITHFUL_V4), 'profile':'faithful-context-v5',
+    'prompt_sha256':hashlib.sha256(PROMPT_V5.encode()).hexdigest()}, sort_keys=True, separators=(',', ':'))
 PROFILES = {config:LEGACY_PROMPT for config in CONFIGS.values()}
 PROFILES[FAITHFUL_V2] = PROMPT
 PROFILES[FAITHFUL_V3] = PROMPT
-PROFILES[CONFIG] = CONTINUITY_PROMPT
+PROFILES[FAITHFUL_V4] = CONTINUITY_PROMPT
+PROFILES[CONFIG] = PROMPT_V5
 
 
 def model_for(config):

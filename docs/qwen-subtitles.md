@@ -92,7 +92,7 @@ runtime can still run. Speech language is automatically detected. The aligner su
   subwords. Korean display layout remains an explicit proportional display rule,
   not Korean word alignment. Long punctuation-free phrases can remain long and
   need reading/timing review; no general subtitle-quality completion claim.
-- New Gemini `faithful-context-v4` requests add the preceding two saved source/Korean
+- New Gemini `faithful-context-v5` requests add the preceding two saved source/Korean
   pairs (each text capped at 400 characters) as context, never additional targets.
   The context is rebuilt from this job's verified checkpoints after interruption;
   it does not read another track's translations or user corrections. The prompt
@@ -100,13 +100,17 @@ runtime can still run. Speech language is automatically detected. The aligner su
   instead of borrowing and repeating the next target's continuation. It does not
   delete source repetitions or change ASR text/times. This is translation guidance,
   not proof that an uncertain speech boundary has been repaired.
-- Gemini v3/v4 requests constrain array length and ID enum to
+- The v5 prompt also preserves culture-specific named holidays, places and customs
+  using their Korean names or faithful transliteration. It prohibits substituting
+  a Korean cultural analogue or inventing shared nationality/ownership. This is
+  guidance, not an automatic named-entity quality guarantee.
+- Gemini v3/v4/v5 requests constrain array length and ID enum to
   exactly the target set. The strict response validator still rejects extra,
   reordered, missing and duplicate IDs. No trimming, repair or automatic retry.
   [Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output).
 
 Schema v9 leaves old jobs' speech profile NULL, retaining their legacy Whisper
-identity. Historical Gemini v1/v2/v3 prompts and request/response schemas remain byte-for-byte
+identity. Historical Gemini v1/v2/v3/v4 prompts and request/response schemas remain byte-for-byte
 recoverable. New UI defaults do not relabel those jobs. Restoring their original
 runtime can still be necessary: the old optional `requirements-models.txt` pins
 Transformers 4.57.1 and must not be installed on top of the new Qwen environment.

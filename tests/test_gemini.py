@@ -200,7 +200,7 @@ class GeminiJobTests(unittest.TestCase):
         self.assertEqual(targets,[{'id':'0','text':'Before.','before':'','after':'한국어.'},
                                   {'id':'1','text':'After.','before':'한국어.','after':''}])
         self.assertEqual(set(calls[0]),{'systemInstruction','contents','generationConfig'})
-        self.assertEqual(calls[0]['systemInstruction']['parts'][0]['text'],gemini.CONTINUITY_PROMPT)
+        self.assertEqual(calls[0]['systemInstruction']['parts'][0]['text'],gemini.PROMPT_V5)
         self.assertEqual(row['transcript'],original['transcript'])
         self.assertEqual(row['translation_config'],gemini.CONFIG)
         status=self.jobs.status(self.item['id'])
@@ -215,8 +215,14 @@ class GeminiJobTests(unittest.TestCase):
         self.assertEqual((self.root/'calls').read_text().count('asr'),1)
 
     def test_checkpoint_survives_process_exit_resume_only_remaining_and_key_rotation(self):
+        self.check_context_recovery(gemini.CONFIG)
+
+    def test_v4_checkpoint_keeps_original_prompt_context_and_resume_request(self):
+        self.check_context_recovery(gemini.FAITHFUL_V4)
+
+    def check_context_recovery(self, profile):
         _,track=self.seed_source([f'Line {i}.' for i in range(10)])
-        jid=self.queue(track)
+        with patch('media_clarity.gemini.CONFIG',profile):jid=self.queue(track)
         script = '''import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -246,6 +252,7 @@ with patch('media_clarity.gemini.request',side_effect=transport):
         self.assertEqual(transport.call_count,1)
         body=transport.call_args.args[0]
         self.assertEqual(body,json.loads((self.root/'interrupted-request.json').read_text()))
+        self.assertEqual(body['systemInstruction']['parts'][0]['text'],gemini.PROFILES[profile])
         payload=json.loads(body['contents'][0]['parts'][0]['text'])
         self.assertEqual(payload['previous_translations'],[
             {'source':'Line 6.','translation':'번역 Line 6.'},
