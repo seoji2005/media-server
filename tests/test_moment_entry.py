@@ -34,7 +34,7 @@ class MomentEntryTests(unittest.TestCase):
             before = {t: [tuple(r) for r in db.execute(f'SELECT * FROM {t}')] for t in tables}
         self.jobs.close(); self.store.close(); self.store.start()
         with self.store.db() as db:
-            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 8)
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 9)
             self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
             for t, rows in before.items():
                 self.assertEqual([tuple(r) for r in db.execute(f'SELECT * FROM {t}')], rows)

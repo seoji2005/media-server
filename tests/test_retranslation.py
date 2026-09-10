@@ -117,7 +117,7 @@ class RetranslationTests(unittest.TestCase):
             db.execute('UPDATE files SET audio_tracks=?',(json.dumps(audio+audio),))
             db.execute('UPDATE items SET audio_index=1');db.commit()
         self.store.close()
-        with patch.object(Jobs,'start',lambda jobs:jobs.init()),patch('media_clarity.models.translation_identity',return_value='translation-v2'),TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
+        with patch('media_clarity.gemini.api_key',return_value='synthetic-key'),patch.object(Jobs,'start',lambda jobs:jobs.init()),patch('media_clarity.models.translation_identity',return_value='translation-v2'),TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
             url=f"/api/library/{self.item['id']}/subtitles/{track}/retranslate"
             token=client.get('/api/session').json()['token']; headers={'X-Media-Token':token}
             self.assertEqual(client.post(url).status_code,403)

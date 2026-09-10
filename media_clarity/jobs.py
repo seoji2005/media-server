@@ -6,6 +6,7 @@ import hashlib
 import html
 import json
 import os
+import re
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -15,16 +16,35 @@ import time
 import uuid
 
 from .storage import ID, MediaError, Store, no_symlink
-from .subtitles import MAX_SUBTITLE_BYTES, parse_srt, validate_cues, webvtt, translation_units, korean_text
+from .subtitles import MAX_SUBTITLE_BYTES, parse_srt, parse_webvtt, validate_cues, webvtt, translation_units, korean_text, korean_language
 from .subtitle_layout import generated_layout
-from . import asr_checkpoints, gemini
+from . import asr_checkpoints, gemini, qwen
 
 TRANSLATION_WARNINGS = {'translation_truncated', 'translation_empty', 'translation_input_too_long'}
+PROVIDED_PROFILE = 'provided-cues-v1'
+
+
+def speech_preflight(root, profile, cloud):
+    from .models import local_models
+    if profile == qwen.PROFILE and cloud:
+        return qwen.local_models(root, check_packages=True)
+    if profile is not None:
+        raise MediaError('processing_config_changed', 409)
+    return local_models(root, check_packages=True, asr_only=cloud)
+
+
+def source_units(transcript, profile):
+    # Qwen phrases retain exact original spacing; never rejoin Japanese subwords
+    # with artificial spaces or erase the new alignment's phrase boundaries.
+    return [dict(c) for c in transcript] if profile in (qwen.PROFILE, PROVIDED_PROFILE) else translation_units(transcript)
 
 
 def retranslation_identity(model_sha, row):
-    return hashlib.sha256(document(['saved-transcript-v1',model_sha,row['source_track_id'],
-        row['input_sha'],row['audio_index'],row['transcript_sha']]).encode()).hexdigest()
+    values = ['saved-transcript-v1',model_sha,row['source_track_id'],
+              row['input_sha'],row['audio_index'],row['transcript_sha']]
+    if row.get('speech_profile') in (qwen.PROFILE, PROVIDED_PROFILE):
+        values.append(row['speech_profile'])
+    return hashlib.sha256(document(values).encode()).hexdigest()
 
 
 def saved_transcript(db, media, track_id):
@@ -32,7 +52,7 @@ def saved_transcript(db, media, track_id):
     if not ID.fullmatch(track_id):
         raise MediaError('subtitle_not_found', 404)
     track = db.execute('SELECT * FROM subtitle_tracks WHERE id=? AND item_id=?', (track_id,media['id'])).fetchone()
-    if not track or track['source'] != 'generated':
+    if not track or track['source'] not in ('generated', 'supplied'):
         raise MediaError('subtitle_not_found', 404)
     digest = hashlib.sha256((track['cues']+(track['warnings'] or '')+(track['presentation'] or '')+(track['presentation_summary'] or '')).encode()).hexdigest()
     if track['input_sha'] != media['sha256'] or digest != track['sha256']:
@@ -40,7 +60,14 @@ def saved_transcript(db, media, track_id):
     audio = json.loads(media['audio_tracks']) if media['audio_tracks'] is not None else None
     if not 0 <= track['audio_index'] < 128 or (audio is not None and track['audio_index'] >= len(audio)):
         raise MediaError('subtitle_changed', 409)
-    job = db.execute('''SELECT transcript,transcript_sha FROM subtitle_jobs
+    if track['source'] == 'supplied':
+        cues = validate_cues(json.loads(track['cues']), media['duration'])
+        if not cues or korean_language(track['language']):
+            raise MediaError('subtitle_not_found', 404)
+        return {'source_track_id':track_id, 'input_sha':track['input_sha'], 'audio_index':track['audio_index'],
+                'transcript':track['cues'], 'transcript_sha':hashlib.sha256(track['cues'].encode()).hexdigest(),
+                'speech_profile':PROVIDED_PROFILE}
+    job = db.execute('''SELECT transcript,transcript_sha,speech_profile FROM subtitle_jobs
         WHERE id=? AND item_id=? AND input_sha=? AND audio_index=?''',
         (track['job_id'],media['id'],track['input_sha'],track['audio_index'])).fetchone()
     if not job or job['transcript'] is None:
@@ -55,7 +82,7 @@ def saved_transcript(db, media, track_id):
     except (ValueError, MediaError):
         raise MediaError('subtitle_changed', 409) from None
     return {'source_track_id':track_id, 'input_sha':track['input_sha'], 'audio_index':track['audio_index'],
-            'transcript':job['transcript'], 'transcript_sha':job['transcript_sha']}
+            'transcript':job['transcript'], 'transcript_sha':job['transcript_sha'], 'speech_profile':job['speech_profile']}
 
 
 def document(value):
@@ -206,7 +233,7 @@ class Jobs:
         media = self.store._row(item_id)
         with self.store.db() as db:
             jobs = db.execute('SELECT id,state,stage,attempt,completed,total,error,fallback_count,audio_index,asr_completed,asr_until,source_track_id,translation_config FROM subtitle_jobs WHERE item_id=? ORDER BY created_at DESC,id DESC', (item_id,)).fetchall()
-            tracks = db.execute('''SELECT t.id,t.source,t.input_sha,t.warnings,t.presentation_summary,t.audio_index,
+            tracks = db.execute('''SELECT t.id,t.source,t.input_sha,t.warnings,t.presentation_summary,t.audio_index,t.language,
                 EXISTS(SELECT 1 FROM subtitle_jobs j WHERE j.id=t.job_id AND j.item_id=t.item_id
                     AND j.input_sha=t.input_sha AND j.audio_index=t.audio_index
                     AND j.transcript IS NOT NULL AND j.transcript_sha IS NOT NULL) AS has_transcript
@@ -219,11 +246,13 @@ class Jobs:
             if r['input_sha'] != media['sha256']:
                 continue
             summary = json.loads(r['presentation_summary'] or '{}')
-            result.append({'id':r['id'], 'source':r['source'], 'language':'ko', 'audio_index':r['audio_index'],
+            result.append({'id':r['id'], 'source':r['source'], 'language':r['language'], 'audio_index':r['audio_index'],
                            'provider':label(r['translation_config']),
                            'has_transcript':r['source'] == 'generated' and bool(r['has_transcript']),
+                           'can_retranslate':(r['source'] == 'generated' and bool(r['has_transcript'])) or (r['source'] == 'supplied' and not korean_language(r['language'])),
                            'fallback_count':len(json.loads(r['warnings'] or '[]')),
                            'layout':summary.get('layout'), 'review_count':summary.get('review_count',0),
+                           'timing_review_count':summary.get('timing_review_count',0),
                            'fast_count':summary.get('fast_count',0), 'import_notes':summary.get('import_notes')})
         public_jobs = []
         for r in jobs:
@@ -270,8 +299,7 @@ class Jobs:
                        (job_id,first_index,payload,hashlib.sha256(payload.encode()).hexdigest()))
             db.commit()
 
-    def enqueue(self, item_id, force=False, audio_index=None, provider='local'):
-        from .models import local_models
+    def enqueue(self, item_id, force=False, audio_index=None, provider='local', speech_profile=None):
         if provider not in ('local', 'gemini'):
             raise MediaError('invalid_request', 422)
         translation_config = gemini.CONFIG if provider == 'gemini' else None
@@ -282,22 +310,24 @@ class Jobs:
             raise MediaError('invalid_audio_track', 422)
         # Supplied Korean subtitles should avoid needless expensive ASR.
         with self.lock, self.store.db() as db:
-            existing = db.execute("SELECT id,audio_index,source_track_id,translation_config FROM subtitle_jobs WHERE item_id=? AND state IN ('queued','running','paused')", (item_id,)).fetchone()
+            existing = db.execute("SELECT id,audio_index,source_track_id,translation_config,speech_profile FROM subtitle_jobs WHERE item_id=? AND state IN ('queued','running','paused')", (item_id,)).fetchone()
             if existing:
                 if existing['audio_index'] != index:
                     raise MediaError('processing_audio_conflict', 409)
-                if existing['source_track_id'] or existing['translation_config'] != translation_config:
+                if (existing['source_track_id'] or existing['translation_config'] != translation_config
+                        or existing['speech_profile'] != speech_profile):
                     raise MediaError('processing_busy', 409)
                 return self.row(existing['id'])['id']
-            if not force and db.execute('SELECT 1 FROM subtitle_tracks WHERE item_id=? AND audio_index=?', (item_id,index)).fetchone():
+            if not force and any(korean_language(t['language']) for t in db.execute(
+                    'SELECT language FROM subtitle_tracks WHERE item_id=? AND audio_index=?', (item_id,index))):
                 raise MediaError('subtitles_already_available', 409)
             if provider == 'gemini':
                 gemini.api_key()
-            local_models(self.store.root, check_packages=True, asr_only=provider == 'gemini')
+            speech_preflight(self.store.root, speech_profile, provider == 'gemini')
             self.store.open_verified(row).close()
             job_id = uuid.uuid4().hex
-            db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index,translation_config) VALUES(?,?,?,?,?,?)',
-                       (job_id,item_id,row['sha256'],'queued',index,translation_config))
+            db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index,translation_config,speech_profile) VALUES(?,?,?,?,?,?,?)',
+                       (job_id,item_id,row['sha256'],'queued',index,translation_config,speech_profile))
             db.commit()
             return job_id
 
@@ -310,9 +340,9 @@ class Jobs:
         self.store.open_verified(media).close()
         job_id = uuid.uuid4().hex
         db.execute('''INSERT INTO subtitle_jobs(id,item_id,input_sha,state,stage,audio_index,
-            source_track_id,transcript,transcript_sha,config_sha,translation_config) VALUES(?,?,?,'queued','translation',?,?,?,?,?,?)''',
+            source_track_id,transcript,transcript_sha,config_sha,translation_config,speech_profile) VALUES(?,?,?,'queued','translation',?,?,?,?,?,?,?)''',
             (job_id,media['id'],seed['input_sha'],seed['audio_index'],seed['source_track_id'],
-             seed['transcript'],seed['transcript_sha'],config,translation_config))
+             seed['transcript'],seed['transcript_sha'],config,translation_config,seed['speech_profile']))
         return job_id
 
     def retranslate(self, item_id, track_id, provider='local'):
@@ -345,7 +375,7 @@ class Jobs:
                 if not row['source_track_id']:
                     if cloud:
                         gemini.api_key()
-                    local_models(self.store.root, check_packages=True, asr_only=cloud)
+                    speech_preflight(self.store.root, row['speech_profile'], cloud)
                 media = self.store._row(row['item_id'])
                 self.store.open_verified(media).close()
                 with self.store.db() as db:
@@ -358,8 +388,8 @@ class Jobs:
                     if seed:
                         self._queue_translation(db, media, seed, row['translation_config'])
                     else:
-                        db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index,translation_config) VALUES(?,?,?,?,?,?)',
-                                   (uuid.uuid4().hex,row['item_id'],media['sha256'],'queued',row['audio_index'],row['translation_config']))
+                        db.execute('INSERT INTO subtitle_jobs(id,item_id,input_sha,state,audio_index,translation_config,speech_profile) VALUES(?,?,?,?,?,?,?)',
+                                   (uuid.uuid4().hex,row['item_id'],media['sha256'],'queued',row['audio_index'],row['translation_config'],row['speech_profile']))
                     db.commit()
                 return
             if action == 'pause':
@@ -378,7 +408,7 @@ class Jobs:
                 if cloud:
                     gemini.api_key()
                     if not row['source_track_id']:
-                        local_models(self.store.root, check_packages=True, asr_only=True)
+                        speech_preflight(self.store.root, row['speech_profile'], True)
                 else:
                     local_models(self.store.root, check_packages=True, translation_only=bool(row['source_track_id']))
                 with self.store.db() as db:
@@ -401,11 +431,53 @@ class Jobs:
         return self.publish(row, cues, 'supplied', None, source_srt=data,
                             presentation={'profile':'supplied-v1', 'import':notes})
 
-    def publish(self, media, cues, source, job_id, source_srt=None, warnings=None, presentation=None):
+    def import_provided(self, item_id, data, file_id, file_sha256, content_sha256, format, language, timebase):
+        if (format not in ('srt', 'webvtt') or timebase != 'original-file'
+                or not isinstance(language, str) or not re.fullmatch(r'[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,3}', language)
+                or any(not isinstance(v, str) or not re.fullmatch('[0-9a-f]{64}', v)
+                       for v in (file_sha256, content_sha256))):
+            raise MediaError('invalid_request', 422)
+        if not data or len(data) > MAX_SUBTITLE_BYTES:
+            raise MediaError('subtitles_too_large', 413)
+        try:
+            data.decode('utf-8-sig')
+        except UnicodeError:
+            raise MediaError('subtitle_encoding_unsupported', 422) from None
+        if hashlib.sha256(data).hexdigest() != content_sha256:
+            raise MediaError('subtitle_changed', 409)
+        row = self.store._row(item_id)
+        if row['file_id'] != file_id or row['sha256'] != file_sha256:
+            raise MediaError('processing_input_changed', 409)
+        row['audio_index'] = 0  # Explicit original-file timeline, not selected rendition.
+        self.store.open_verified(row).close()
+        cues, notes = (parse_srt if format == 'srt' else parse_webvtt)(data, row['duration'], report=True)
+        metadata = {'file_id':file_id, 'file_sha256':file_sha256, 'content_sha256':content_sha256,
+                    'format':format, 'language':language, 'timebase':timebase, 'audio_index':0}
+        identity = hashlib.sha256(document(metadata).encode()).hexdigest()
+        receipt = self.publish(row, cues, 'supplied', None, source_srt=data,
+            presentation={'profile':'provided-v1', 'import':notes, 'provided':metadata},
+            language=language, import_identity=identity)
+        self.track(item_id, receipt['id'])  # Validate a reused track too.
+        return {**receipt, **metadata, 'item_id':item_id, 'ready':True, 'import_notes':notes}
+
+    def publish(self, media, cues, source, job_id, source_srt=None, warnings=None, presentation=None,
+                language='ko', import_identity=None):
         cues = validate_cues(cues, media['duration'])
         encoded = document(cues)
         if source == 'generated':
             presentation = generated_layout(cues, media['duration'], {w['index'] for w in warnings or []})
+            job = self.row(job_id)
+            if job['source_track_id']:
+                with self.store.db() as db:
+                    original = db.execute('SELECT presentation_summary FROM subtitle_tracks WHERE id=?', (job['source_track_id'],)).fetchone()
+                presentation['timing_review_count'] = json.loads(original[0] or '{}').get('timing_review_count',0)
+            elif job['speech_profile'] == qwen.PROFILE:
+                parts = asr_checkpoints.load(self.store, job, media['duration'])
+                presentation['timing_review_count'] = sum(
+                    p['evidence']['boundary'] == 'forced' or any(
+                        u['start'] == u['end'] or u['start'] != u['raw_start'] or u['end'] != u['raw_end']
+                        or u['end'] > p['clip'][1]-p['clip'][0]
+                        for u in p['evidence']['units']) for p in parts)
         presentation_json = document(presentation) if presentation is not None else None
         summary_json = None
         if presentation is not None:
@@ -413,6 +485,7 @@ class Jobs:
             # Polling status never loads/parses every version's full display cues.
             summary_json = document({'layout':presentation['profile'], 'review_count':len(issues),
                                      'fast_count':sum('reading_speed' in issue['codes'] for issue in issues),
+                                     'timing_review_count':presentation.get('timing_review_count',0),
                                      'import_notes':presentation.get('import')})
         if len(encoded.encode()) > MAX_SUBTITLE_BYTES * 4:
             raise MediaError('subtitles_too_large', 422)
@@ -421,15 +494,21 @@ class Jobs:
         track_id = uuid.uuid4().hex
         warning_json = document(warnings or [])
         with self.store.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if import_identity is not None:
+                existing = db.execute('SELECT id FROM subtitle_tracks WHERE item_id=? AND import_identity=?',
+                                      (media['id'], import_identity)).fetchone()
+                if existing:
+                    return {'id':existing['id'], 'duplicate':True}
             digest = hashlib.sha256((encoded+warning_json+(presentation_json or '')+(summary_json or '')).encode()).hexdigest()
-            db.execute('INSERT INTO subtitle_tracks(id,item_id,input_sha,job_id,source,cues,sha256,source_srt,warnings,presentation,presentation_summary,audio_index) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-                       (track_id,media['id'],media['sha256'],job_id,source,encoded,digest,source_srt,warning_json,presentation_json,summary_json,media['audio_index']))
+            db.execute('INSERT INTO subtitle_tracks(id,item_id,input_sha,job_id,source,cues,sha256,source_srt,warnings,presentation,presentation_summary,audio_index,language,import_identity) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                       (track_id,media['id'],media['sha256'],job_id,source,encoded,digest,source_srt,warning_json,presentation_json,summary_json,media['audio_index'],language,import_identity))
             if job_id:
                 changed = db.execute("UPDATE subtitle_jobs SET state='succeeded',stage='ready',error=NULL WHERE id=? AND state='running' AND attempt=?", (job_id,self.expected_attempt)).rowcount
                 if changed != 1:
                     raise MediaError('processing_interrupted', 409)
             db.commit()
-        return track_id
+        return {'id':track_id, 'duplicate':False} if import_identity is not None else track_id
 
     def track(self, item_id, track_id, *, transcript=False):
         if not ID.fullmatch(track_id):
@@ -535,7 +614,13 @@ def _execute(store, job_id, backend_factory):
         cloud = gemini.provider(row['translation_config']) == 'gemini'
         backend = gemini.Gemini(row['translation_config']) if cloud else (
             backend_factory(store.root) if backend_factory else LocalModels(store.root, translation_only=bool(row['source_track_id'])))
-        speech = (backend_factory(store.root) if backend_factory else LocalModels(store.root, asr_only=True)) if cloud and not row['source_track_id'] else backend
+        if (row['speech_profile'] not in (None, qwen.PROFILE, PROVIDED_PROFILE)
+                or (row['speech_profile'] == PROVIDED_PROFILE and not row['source_track_id'])
+                or (row['speech_profile'] and not cloud)):
+            raise MediaError('processing_config_changed', 409)
+        speech = (backend_factory(store.root) if backend_factory else
+                  qwen.QwenSpeech(store.root) if row['speech_profile'] == qwen.PROFILE else
+                  LocalModels(store.root, asr_only=True)) if cloud and not row['source_track_id'] else backend
         def input_identity():
             value = backend.identity()
             if row['source_track_id']:
@@ -554,6 +639,9 @@ def _execute(store, job_id, backend_factory):
             return hashlib.sha256(document([value,row['audio_index'],timing]).encode()).hexdigest()
         identity = input_identity()
         saved_asr = asr_checkpoints.load(store, row, media['duration'])
+        for part in saved_asr:
+            if part.get('error'):
+                raise MediaError(part['error'], 422)
         if row['source_track_id'] and saved_asr:
             raise MediaError('processing_checkpoint_invalid', 409)
         has_checkpoint = row['transcript'] is not None or row['translation'] != '[]' or row['completed'] or row['total'] or saved_asr
@@ -582,6 +670,8 @@ def _execute(store, job_id, backend_factory):
                             if len(transcript) + len(part['cues']) > asr_checkpoints.MAX_CUES or size > MAX_SUBTITLE_BYTES * 4:
                                 raise MediaError('subtitles_too_large', 422)
                             part = asr_checkpoints.save(store, job_id, jobs.expected_attempt, ordinal, part, until, media['duration'])
+                            if part.get('error'):
+                                raise MediaError(part['error'], 422)
                             until = part['clip'][1]
                             transcript.extend(part['cues'])
                     finally:
@@ -599,14 +689,14 @@ def _execute(store, job_id, backend_factory):
             encoded = document(transcript)
             if len(encoded.encode()) > MAX_SUBTITLE_BYTES * 4:
                 raise MediaError('subtitles_too_large', 422)
-            jobs.update(job_id, transcript=encoded, transcript_sha=hashlib.sha256(encoded.encode()).hexdigest(), total=len(translation_units(transcript)), stage='translation')
+            jobs.update(job_id, transcript=encoded, transcript_sha=hashlib.sha256(encoded.encode()).hexdigest(), total=len(source_units(transcript, row['speech_profile'])), stage='translation')
         else:
             if hashlib.sha256(row['transcript'].encode()).hexdigest() != row['transcript_sha']:
                 raise MediaError('processing_checkpoint_invalid', 409)
             transcript = validate_cues(json.loads(row['transcript']), media['duration'])
             if saved_asr and transcript != [c for part in saved_asr for c in part['cues']]:
                 raise MediaError('processing_checkpoint_invalid', 409)
-        units = translation_units(transcript)
+        units = source_units(transcript, row['speech_profile'])
         translated, warnings = jobs.saved_results(row, units, media['duration'])
         jobs.update(job_id, stage='translation', total=len(units))
         batch_size = min(8 if cloud else 2, max(1, getattr(backend, 'batch_size', 1)))

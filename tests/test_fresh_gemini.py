@@ -144,9 +144,9 @@ with patch('media_clarity.gemini.request',side_effect=transport):
         self.assertEqual(self.jobs.row(successor['id'])['state'],'succeeded')
         self.assertTrue(all(c.args[2]=='gemini-3.8-flash' for c in transport.call_args_list))
 
-    def test_http_default_local_explicit_cloud_validation_and_conflicts(self):
+    def test_http_fixed_qwen_gemini_validation_and_conflicts(self):
         self.store.close()
-        with patch.object(Jobs,'start',lambda jobs:jobs.init()),patch('media_clarity.models.local_models') as setup,patch('media_clarity.gemini.request') as transport,TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
+        with patch.object(Jobs,'start',lambda jobs:jobs.init()),patch('media_clarity.qwen.local_models') as setup,patch('media_clarity.gemini.request') as transport,TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
             root = f"/api/library/{self.item['id']}/subtitle-jobs"
             headers = {'X-Media-Token':client.get('/api/session').json()['token']}
             for url in (root,root+'/regenerate'):
@@ -158,13 +158,11 @@ with patch('media_clarity.gemini.request',side_effect=transport):
                     result = client.post(url,json={'provider':'gemini'},headers=headers)
                     self.assertEqual((result.status_code,result.json()['error']),(503,'gemini_key_missing'))
             self.assertEqual(client.app.state.jobs.status(self.item['id'])['jobs'],[])
-            local = client.post(root,headers=headers).json()['id']
-            self.assertIsNone(client.app.state.jobs.row(local)['translation_config'])
-            self.assertEqual(client.post(root,json={'provider':'gemini'},headers=headers).status_code,409)
-            client.app.state.jobs.update(local,state='failed')
-            cloud = client.post(root,json={'provider':'gemini'},headers=headers).json()['id']
+            from media_clarity.qwen import PROFILE
+            cloud = client.post(root,headers=headers).json()['id']
             self.assertEqual(client.app.state.jobs.row(cloud)['translation_config'],gemini.CONFIG)
+            self.assertEqual(client.app.state.jobs.row(cloud)['speech_profile'],PROFILE)
             self.assertEqual(client.post(root,json={'provider':'gemini'},headers=headers).json()['id'],cloud)
-            self.assertEqual(client.post(root,headers=headers).status_code,409)
-            setup.assert_called_with(self.root,check_packages=True,asr_only=True)
+            self.assertEqual(client.post(root,json={'provider':'local'},headers=headers).status_code,422)
+            setup.assert_called_with(self.root,check_packages=True)
             transport.assert_not_called()

@@ -246,6 +246,40 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         with store.db() as db:
             return companion_identity(db)
 
+    @app.get('/api/companion/library')
+    def companion_library(request: Request, limit: int = 20, cursor: str | None = None):
+        from .companion import page
+        companion_token(request)
+        return page(store, limit, cursor)
+
+    @app.post('/api/companion/library/lookup')
+    async def companion_lookup(request: Request):
+        from .companion import lookup
+        data = bytearray()
+        async for chunk in request.stream():
+            if len(data) + len(chunk) > 2048:
+                raise MediaError('invalid_request', 422)
+            data.extend(chunk)
+        try:
+            value = json.loads(data)
+            if type(value) is not dict or set(value) != {'ids'}:
+                raise ValueError()
+        except (ValueError, UnicodeError):
+            raise MediaError('invalid_request', 422) from None
+        return await run_in_threadpool(lookup, store, value['ids'])
+
+    @app.post('/api/companion/library/{item_id}/subtitles')
+    async def provided_subtitles(item_id: str, request: Request, file_id: str, file_sha256: str,
+                                 content_sha256: str, format: str, language: str, timebase: str):
+        data = bytearray()
+        async for chunk in request.stream():
+            if len(data) + len(chunk) > MAX_SUBTITLE_BYTES:
+                raise MediaError('subtitles_too_large', 413)
+            data.extend(chunk)
+        receipt = await run_in_threadpool(jobs.import_provided, item_id, bytes(data), file_id,
+            file_sha256, content_sha256, format, language, timebase)
+        return JSONResponse(receipt, status_code=200 if receipt['duplicate'] else 201)
+
     @app.get('/api/library/{item_id}/moment-reference')
     def moment_reference(item_id: str, request: Request):
         from .moment_entry import reference
@@ -357,21 +391,23 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             options = json.loads(data) if data else {}
         except (ValueError, UnicodeError):
             raise MediaError('invalid_request', 422) from None
-        if type(options) is not dict or not set(options) <= {'provider'} or options.get('provider', 'local') not in ('local', 'gemini'):
+        if type(options) is not dict or not set(options) <= {'provider'} or options.get('provider', 'gemini') != 'gemini':
             raise MediaError('invalid_request', 422)
-        return options.get('provider', 'local')
+        return 'gemini'
 
     @app.post("/api/library/{item_id}/subtitle-jobs")
     async def create_subtitle_job(item_id: str, request: Request, audio_index: int | None = None):
         provider = await translation_provider(request)
-        job_id = await run_in_threadpool(jobs.enqueue, item_id, audio_index=audio_index, provider=provider)
+        from .qwen import PROFILE
+        job_id = await run_in_threadpool(jobs.enqueue, item_id, audio_index=audio_index, provider=provider, speech_profile=PROFILE)
         return JSONResponse({"id":job_id}, status_code=202)
 
     @app.post("/api/library/{item_id}/subtitle-jobs/regenerate")
     async def regenerate_subtitle_job(item_id: str, request: Request, audio_index: int | None = None):
         # A new version; existing supplied/generated tracks remain available.
         provider = await translation_provider(request)
-        job_id = await run_in_threadpool(jobs.enqueue, item_id, force=True, audio_index=audio_index, provider=provider)
+        from .qwen import PROFILE
+        job_id = await run_in_threadpool(jobs.enqueue, item_id, force=True, audio_index=audio_index, provider=provider, speech_profile=PROFILE)
         return JSONResponse({"id":job_id}, status_code=202)
 
     @app.post("/api/library/{item_id}/subtitles/{track_id}/retranslate")

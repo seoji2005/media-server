@@ -52,7 +52,12 @@ dialogue and bounded neighboring text only, with egress/billing disclosure. No m
 titles, paths, watch history or credentials enter prompts. Under the owner's September 8
 instruction, Gemini is the initial UI selection; starting it requires a labeled Gemini
 action with visible egress/billing disclosure. Merely opening a video sends nothing.
-Local MADLAD stays selectable; API requests omitting a provider remain local for compatibility.
+The September 9 owner instruction fixes new ASR to Qwen3-ASR-1.7B plus
+Qwen3-ForcedAligner-0.6B and translation to Gemini 3.1 Flash-Lite. New API requests
+omitting a provider use Gemini; explicit local requests are rejected. Existing jobs
+retain their saved settings. Minimal local companion caption and library APIs are
+authorized by the owner's integration feedback; cross-device synchronization remains
+a separate pending contract.
 Never automatically retry or switch providers. Fresh Gemini jobs recognize
 speech locally and send only the validated transcript for translation; saved-transcript
 retranslation skips ASR. Media/audio never enter either cloud path.

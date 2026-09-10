@@ -313,6 +313,10 @@ window.addEventListener("hashchange",async()=>{
 
 let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null, subtitleTracks=[], geminiConfigured=false;
 const subtitleMessages={
+  asr_truncated:"전사 출력이 잘려 작업을 중단했습니다. 완료한 구간은 보존했습니다.",
+  alignment_unresolved:"일부 대사의 시간을 확정하지 못했습니다. 원문과 정렬 결과를 보존했습니다. 기존 영상·자막은 계속 볼 수 있습니다.",
+  alignment_text_mismatch:"정렬 결과와 원문이 일치하지 않습니다. 해당 원문을 보존하고 자막 생성을 중단했습니다.",
+  alignment_language_unsupported:"이 구간의 언어는 현재 시간 정렬에서 지원되지 않습니다. 원문을 보존했습니다.",
   gemini_key_missing:"Gemini API 키가 설정되지 않았습니다. 설치 안내에 따라 GEMINI_API_KEY를 설정한 뒤 앱을 다시 시작해 주세요.",
   gemini_auth_failed:"Gemini API 키 또는 프로젝트 권한을 확인해 주세요. 완료한 번역은 보존했습니다.",
   gemini_quota:"Gemini 사용 한도에 도달했습니다. 결제·할당량을 확인한 뒤 재개해 주세요. 완료한 번역은 보존했습니다.",
@@ -367,6 +371,7 @@ function renderSubtitleNotes(){
   const {track,transcript}=selectedSubtitle(),notes=[];
   if(transcript)notes.push("음성 인식으로 만든 원문 자막입니다. 실제 대사와 다를 수 있습니다.");
   if(!transcript&&track?.review_count)notes.push(`가독성 확인이 필요한 표시 구간 ${track.review_count}개${track.fast_count?` · 읽기 속도가 빠른 구간 ${track.fast_count}개`:""}. 번역 내용을 생략하지 않고 표시했습니다.`);
+  if(track?.timing_review_count)notes.push(`시간 정렬 확인이 필요한 음성 구간 ${track.timing_review_count}개. 원문과 원래 시간값을 보존했습니다.`);
   const imported=track?.import_notes;
   if(imported){
     if(imported.empty)notes.push(`빈 자막 ${imported.empty}개 제외`);
@@ -374,7 +379,7 @@ function renderSubtitleNotes(){
     if(imported.clipped)notes.push(`영상 끝에 맞춘 자막 ${imported.clipped}개`);
     if(imported.reordered)notes.push("시간순으로 정렬");
     if(imported.settings)notes.push(`파일 위치 설정 ${imported.settings}개 생략`);
-    if(notes.length)notes.push("가져온 SRT 원본은 그대로 보존했습니다.");
+    if(notes.length)notes.push("가져온 자막 원본은 그대로 보존했습니다.");
   }
   if(track&&(track.audio_index||0)!==(activeItem?.audio_index||0))notes.unshift(`오디오 ${(track.audio_index||0)+1}에서 만든 자막입니다. 현재 음성과 다를 수 있습니다.`);
   $("subtitle-notes").textContent=notes.join(" · ");$("subtitle-notes").hidden=!notes.length;
@@ -382,13 +387,13 @@ function renderSubtitleNotes(){
 }
 function renderRetranslation(){
   const {track}=selectedSubtitle();
-  $("subtitle-retranslate").hidden=!track?.has_transcript||track.source!=="generated"||!!(subtitleJob&&["queued","running","paused"].includes(subtitleJob.state));
+  $("subtitle-retranslate").hidden=!(track?.can_retranslate??track?.has_transcript)||!!(subtitleJob&&["queued","running","paused"].includes(subtitleJob.state));
   $("subtitle-translator-panel").hidden=!!(subtitleJob&&["queued","running","paused"].includes(subtitleJob.state));
   const cloud=$("subtitle-translator").value==="gemini";
   $("subtitle-generate").textContent=cloud?"Gemini로 자막 만들기":$("subtitle-generate").dataset.regenerate==="true"?"새 자막 만들기":"한국어 자막 만들기";
   $("subtitle-retranslate").textContent=cloud?"Gemini로 다시 번역":"저장된 원문으로 다시 번역";
   $("subtitle-cloud-note").hidden=!cloud;
-  $("subtitle-cloud-note").textContent=cloud?`새 자막의 음성 인식은 이 기기에서 실행합니다. 인식·저장된 대사와 앞뒤 문맥 텍스트를 Google로 보내 한국어로 번역합니다. 영상·음성 파일은 보내지 않습니다. API 사용료가 발생합니다. ${geminiConfigured?"API 키가 설정되어 있습니다. 연결은 번역을 시작할 때 확인합니다.":"API 키 설정이 필요합니다. 설치 안내를 확인해 주세요."} 중단 후 재개하면 처리 중이던 요청이 다시 전송되어 과금될 수 있습니다. 재개·처음부터 다시는 기존 작업의 번역 엔진을 유지합니다.`:"";
+  $("subtitle-cloud-note").textContent=cloud?`새 자막의 음성 인식은 이 기기에서 Qwen으로 실행하고 시간에 맞춥니다. 인식·저장된 대사와 앞뒤 문맥 텍스트를 Google로 보내 한국어로 번역합니다. 영상·음성 파일은 보내지 않습니다. API 사용료가 발생합니다. ${geminiConfigured?"API 키가 설정되어 있습니다. 연결은 번역을 시작할 때 확인합니다.":"API 키 설정이 필요합니다. 설치 안내를 확인해 주세요."} 중단 후 재개하면 처리 중이던 요청이 다시 전송되어 과금될 수 있습니다. 재개·처음부터 다시는 기존 작업의 번역 엔진을 유지합니다.`:"";
 }
 $("subtitle-translator").addEventListener("change",renderRetranslation);
 function renderPreparationSummary(){
@@ -416,7 +421,7 @@ function loadSubtitle(id){
   if(!id)return;
   const owner=activeItem,{track:chosen,transcript}=selectedSubtitle();
   if(!chosen||(transcript&&!chosen.has_transcript))return;
-  const track=document.createElement("track");track.kind="subtitles";track.srclang=transcript?"und":"ko";track.label=transcript?"원문 · 자동 전사":"한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${chosen.id}.vtt${transcript?"?transcript=true":""}`;
+  const track=document.createElement("track");track.kind="subtitles";track.srclang=transcript?"und":chosen.language||"ko";track.label=transcript?"원문 · 자동 전사":chosen.language&&chosen.language!=="ko"?chosen.language:"한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${chosen.id}.vtt${transcript?"?transcript=true":""}`;
   track.addEventListener("load",()=>{
     if(activeItem!==owner||subtitleLoaded!==id||track.parentNode!==video)return;
     subtitleSearch={owner, id, track:track.track, state:"ready", cues:null};
@@ -436,7 +441,7 @@ async function refreshSubtitles(owner){
     select.replaceChildren(new Option("자막 끄기",""));
     for(const [i,t] of data.tracks.entries()){
       const version=` · ${data.tracks.length-i}${(owner.audio_tracks||[]).length>1?` · 오디오 ${(t.audio_index||0)+1}`:""}`;
-      select.add(new Option(`${t.source==="supplied"?"가져온 자막":t.provider==="gemini"?"한국어 · Gemini":"한국어 · 자동 번역"}${version}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));
+      select.add(new Option(`${t.source==="supplied"?`가져온 자막 · ${t.language||"ko"}`:t.provider==="gemini"?"한국어 · Gemini":"한국어 · 자동 번역"}${version}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));
       if(t.has_transcript)select.add(new Option(`원문 · 자동 전사${version}`,`${t.id}:transcript`));
     }
     const matching=data.tracks.filter(t=>(t.audio_index||0)===(owner.audio_index||0));
@@ -473,7 +478,7 @@ $("subtitle-input").addEventListener("change",async()=>{
 });
 $("subtitle-generate").addEventListener("click",async()=>{const owner=activeItem;if(!owner)return;const suffix=$("subtitle-generate").dataset.regenerate==="true"?"/regenerate":"";try{await api(`/api/library/${owner.id}/subtitle-jobs${suffix}${audioQuery(owner)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider:$("subtitle-translator").value})});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)subtitleError(e.message);}});
 $("subtitle-retranslate").addEventListener("click",async()=>{
-  const owner=activeItem,{track}=selectedSubtitle();if(!owner||!track?.has_transcript||track.source!=="generated")return;
+  const owner=activeItem,{track}=selectedSubtitle();if(!owner||!(track?.can_retranslate??track?.has_transcript))return;
   try{await api(`/api/library/${owner.id}/subtitles/${track.id}/retranslate`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider:$("subtitle-translator").value})});if(activeItem===owner)await refreshSubtitles(owner);}
   catch(e){if(activeItem===owner&&selectedSubtitle().track?.id===track.id)subtitleError(e.message);}
 });

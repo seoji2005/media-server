@@ -3,7 +3,7 @@ from .storage import MediaError
 import re
 import uuid
 
-VERSION = 8
+VERSION = 9
 
 
 def companion_identity(db):
@@ -188,6 +188,13 @@ def migrate(db):
                            (uuid.uuid4().hex, uuid.uuid4().hex))
         if version < 8:
             _add(db, 'subtitle_jobs', 'translation_config', 'TEXT')
+        if version < 9:
+            # NULL preserves historical Whisper jobs, including queued work.
+            _add(db, 'subtitle_jobs', 'speech_profile', 'TEXT')
+            _add(db, 'subtitle_tracks', 'language', "TEXT NOT NULL DEFAULT 'ko'")
+            _add(db, 'subtitle_tracks', 'import_identity', 'TEXT')
+            db.execute('CREATE UNIQUE INDEX IF NOT EXISTS provided_subtitle_identity ON subtitle_tracks(item_id,import_identity) WHERE import_identity IS NOT NULL')
+            db.execute('CREATE INDEX IF NOT EXISTS companion_library_order ON items(created_at DESC,id DESC)')
         # Existing malformed identities, including old draft v6, never regenerate.
         companion_identity(db)
         db.execute(f'PRAGMA user_version={VERSION}')

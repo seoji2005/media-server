@@ -1,0 +1,9 @@
+# Current subtitle runtime. Install CPU/CUDA Torch for the target machine first.
+torch==2.8.0
+transformers==5.16.1
+numpy>=2.0,<3
+librosa==1.0.0
+nagisa==0.3.0
+soynlp==0.0.493
+# Optional visual search shares Transformers; no legacy Whisper/MADLAD required.
+Pillow==12.3.0

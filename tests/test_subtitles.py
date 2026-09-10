@@ -328,7 +328,7 @@ class SubtitleTests(unittest.TestCase):
             headers={'X-Media-Token':client.get('/api/session').json()['token']}
             url=f"/api/library/{self.item['id']}/subtitle-jobs"
             self.assertEqual(client.post(url).status_code,403)
-            r=client.post(url,headers=headers);self.assertEqual(r.status_code,503);self.assertEqual(r.json()['error'],'local_models_missing')
+            r=client.post(url,headers=headers);self.assertEqual(r.status_code,503);self.assertEqual(r.json()['error'],'gemini_key_missing')
             url=f"/api/library/{self.item['id']}/subtitles"
             self.assertEqual(client.post(url,headers=headers,content=b'x'*(2*1024*1024+1)).status_code,413)
             r=client.post(url,headers=headers,content=SRT.encode());self.assertEqual(r.status_code,201)
@@ -356,7 +356,7 @@ class SubtitleTests(unittest.TestCase):
     def test_regenerate_http_preserves_supplied_track_and_deduplicates(self):
         track=self.jobs.import_srt(self.item['id'],SRT.encode());before=self.jobs.track(self.item['id'],track)
         self.store.close()
-        with patch.object(Jobs,'start',lambda jobs:jobs.init(recover=True)), patch('media_clarity.models.local_models'), TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
+        with patch('media_clarity.gemini.api_key',return_value='synthetic-key'),patch.object(Jobs,'start',lambda jobs:jobs.init(recover=True)), patch('media_clarity.qwen.local_models'), TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
             headers={'X-Media-Token':client.get('/api/session').json()['token']}
             url=f"/api/library/{self.item['id']}/subtitle-jobs"
             self.assertEqual(client.post(url,headers=headers).json()['error'],'subtitles_already_available')

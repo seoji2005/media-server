@@ -33,9 +33,12 @@ CONFIGS = {model:json.dumps({'provider':'gemini', 'model':model, 'profile':'save
     'prompt_sha256':hashlib.sha256(LEGACY_PROMPT.encode()).hexdigest(), 'batch_size':8,
     'context_units':1, 'context_chars':400, 'thinking':'low', 'max_output_tokens':4096},
     sort_keys=True, separators=(',', ':')) for model in (MODEL, 'gemini-3.8-flash')}
-CONFIG = json.dumps({**json.loads(CONFIGS[MODEL]), 'profile':'faithful-context-v2',
+FAITHFUL_V2 = json.dumps({**json.loads(CONFIGS[MODEL]), 'profile':'faithful-context-v2',
     'prompt_sha256':hashlib.sha256(PROMPT.encode()).hexdigest()}, sort_keys=True, separators=(',', ':'))
+CONFIG = json.dumps({**json.loads(FAITHFUL_V2), 'profile':'faithful-context-v3',
+    'response_contract':'exact-target-ids-v1'}, sort_keys=True, separators=(',', ':'))
 PROFILES = {config:LEGACY_PROMPT for config in CONFIGS.values()}
+PROFILES[FAITHFUL_V2] = PROMPT
 PROFILES[CONFIG] = PROMPT
 
 
@@ -170,7 +173,12 @@ class Gemini:
                 'responseSchema':{'type':'OBJECT', 'properties':{'translations':{'type':'ARRAY',
                     'items':{'type':'OBJECT', 'properties':{'id':{'type':'STRING'}, 'text':{'type':'STRING'}},
                         'required':['id', 'text']}}}, 'required':['translations']}}}
-        return translations(request(body, self.key, self.model), [t['id'] for t in targets])
+        ids = [t['id'] for t in targets]
+        if json.loads(self.config).get('response_contract') == 'exact-target-ids-v1':
+            schema = body['generationConfig']['responseSchema']['properties']['translations']
+            schema.update(minItems=len(ids), maxItems=len(ids))
+            schema['items']['properties']['id']['enum'] = ids
+        return translations(request(body, self.key, self.model), ids)
 
     def close(self):
         self.key = None

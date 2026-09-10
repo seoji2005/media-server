@@ -91,6 +91,59 @@ def parse_srt(data, duration, *, report=False):
     return (cues, notes) if report else cues
 
 
+def parse_webvtt(data, duration, *, report=False):
+    """Provided VTT on the original timebase; strip inert styles, reject remapping."""
+    if not data or len(data) > MAX_SUBTITLE_BYTES:
+        raise MediaError('invalid_subtitles', 422)
+    try:
+        text = data.decode('utf-8-sig').replace('\r\n', '\n').replace('\r', '\n')
+    except UnicodeError:
+        raise MediaError('subtitle_encoding_unsupported', 422) from None
+    if any(ord(c) < 32 and c not in '\n\t' for c in text) or '\x7f' in text:
+        raise MediaError('invalid_subtitles', 422)
+    blocks = re.split(r'\n(?:[ \t]*\n)+', text.strip())
+    if not blocks or not re.fullmatch(r'WEBVTT(?:[ \t][^\n]*)?', blocks[0]) or '-->' in blocks[0]:
+        raise MediaError('subtitle_timebase_unsupported', 422)
+    if len(blocks) > MAX_CUES + 1:
+        raise MediaError('subtitles_too_large', 422)
+    converted = []
+    time = r'((?:\d{2,3}:)?\d{2}:\d{2}\.\d{3})'
+    for block in blocks[1:]:
+        if re.match(r'^NOTE(?:[ \t\n]|$)', block):
+            continue
+        if block.startswith(('STYLE', 'REGION', 'X-TIMESTAMP-MAP')):
+            raise MediaError('subtitle_timebase_unsupported', 422)
+        lines = block.split('\n')
+        if '-->' not in lines[0]:
+            lines.pop(0)  # Optional cue identifier, never exposed as markup.
+        if not lines:
+            raise MediaError('invalid_subtitles', 422)
+        match = re.fullmatch(time + r'[ \t]+-->[ \t]+' + time + r'([ \t]+[^\n]*)?', lines[0])
+        if not match:
+            raise MediaError('invalid_subtitles', 422)
+        start, end = (('00:' + t) if t.count(':') == 1 else t for t in (match[1], match[2]))
+        body = '\n'.join(lines[1:])
+        # Ruby annotations are pronunciation aids, not additional spoken text.
+        # Validate nesting before removal; a missing close must not consume the
+        # next ruby block and the dialogue between them.
+        stack = []
+        for tag in re.finditer(r'<(/?)(ruby|rt)(?:[ \t]+[^>]*)?>', body):
+            if tag[1]:
+                if tag[0] != f'</{tag[2]}>' or not stack or stack.pop() != tag[2]:
+                    raise MediaError('invalid_subtitles', 422)
+            else:
+                if (tag[2] == 'ruby' and stack) or (tag[2] == 'rt' and stack != ['ruby']):
+                    raise MediaError('invalid_subtitles', 422)
+                stack.append(tag[2])
+        if stack:
+            raise MediaError('invalid_subtitles', 422)
+        body = re.sub(r'<rt(?:[ \t]+[^>]*)?>.*?</rt>', '', body, flags=re.S)
+        # Voice/class/lang tags and inline timestamps are presentation, not dialogue.
+        body = re.sub(r'</?(?:b|i|u|ruby|c(?:\.[\w-]+)*|v|lang)(?:[ \t]+[^>]*)?>|<(?:(?:\d{2,3}:)?\d{2}:\d{2}\.\d{3})>', '', body)
+        converted.append(f'{len(converted)+1}\n{start} --> {end}{match[3] or ""}\n{body}')
+    return parse_srt('\n\n'.join(converted).encode('utf-8'), duration, report=report)
+
+
 def translation_units(cues):
     """Join adjacent fragments, preserving source timing rather than inventing alignment."""
     units = []
@@ -105,6 +158,10 @@ def translation_units(cues):
         else:
             units.append(dict(cue))
     return units
+
+
+def korean_language(language):
+    return language.split('-', 1)[0].lower() in ('ko', 'kor')
 
 
 def korean_text(text):

@@ -286,7 +286,7 @@ with patch('media_clarity.gemini.request',side_effect=transport):
             result=client.post(url,json={'provider':'gemini'},headers=headers)
             self.assertEqual(result.status_code,202);jid=result.json()['id']
             self.assertEqual(client.post(url,json={'provider':'gemini'},headers=headers).json()['id'],jid)
-            self.assertEqual(client.post(url,headers=headers).status_code,409)
+            self.assertEqual(client.post(url,headers=headers).json()['id'],jid)
             transport.assert_not_called()
 
     def test_v7_upgrade_preserves_rows_and_identity_without_cloud_selection(self):
@@ -300,6 +300,6 @@ with patch('media_clarity.gemini.request',side_effect=transport):
             db.execute('PRAGMA user_version=7')
         self.store.start()
         with self.store.db() as db:
-            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],8)
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],9)
             for table,rows in before.items():
                 self.assertEqual([dict(r) for r in db.execute(f'SELECT * FROM {table}')],rows)

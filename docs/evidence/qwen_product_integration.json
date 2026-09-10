@@ -1,0 +1,50 @@
+{
+  "input": "First 35 seconds of the already evaluated public IngCrowd dialogue01, encoded with AAC in a black-video MP4; not a held-out sample.",
+  "first_attempt": {
+    "state": "failed",
+    "error": "alignment_unresolved",
+    "seconds": 102.82894607199705,
+    "duration": 35.0,
+    "asr_completed": 2,
+    "translation_completed": 0,
+    "source_sha256": "a10542cfd29cdaccadea7182284a4367d4756f868c9cf5243460c2bdac0efeba",
+    "model_device": "CPU float32",
+    "real_asr_and_alignment": true,
+    "gemini_transport": "synthetic; not translation quality",
+    "batches": []
+  },
+  "after_fix": {
+    "state": "succeeded",
+    "error": null,
+    "seconds": 21.77362781300326,
+    "duration": 35.0,
+    "asr_completed": 2,
+    "translation_completed": 9,
+    "source_sha256": "a10542cfd29cdaccadea7182284a4367d4756f868c9cf5243460c2bdac0efeba",
+    "model_device": "CPU float32",
+    "real_asr_and_alignment": true,
+    "gemini_transport": "synthetic; not translation quality",
+    "batches": [
+      {
+        "count": 8,
+        "model": "gemini-3.1-flash-lite"
+      },
+      {
+        "count": 1,
+        "model": "gemini-3.1-flash-lite"
+      }
+    ]
+  },
+  "reuse": "first 30s actual output reused by exact decoded audio hash; final 5s actual models rerun",
+  "timing_review_windows": 2,
+  "finding": "The final official unit ended at 5.04 seconds for a 5-second window. Preserve raw values, intersect at most one 80ms grid tick with actual audio. First failure retained.",
+  "limitations": [
+    "Gemini transport was synthetic; no new paid API call or translation-quality claim.",
+    "First window ended inside a word; forced seam is flagged, not claimed seamless.",
+    "CPU float32, 4 threads; not Windows/RTX or long-video evidence."
+  ],
+  "raw_evidence_sha256": {
+    "parts.json": "52206fdbdb879f111983a906bd17f52f0b9b866e8e4ed376ff0aab41c08f8b54",
+    "parts-after-boundary-fix.json": "785a2446a7775b03571210da6f1d8434751919b17972a11475b451c1f6029faf"
+  }
+}
