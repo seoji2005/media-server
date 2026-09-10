@@ -1,0 +1,264 @@
+{
+  "date_utc": "2026-09-10",
+  "status": "actual_speech_and_provided_caption_flow_completed; quality_not_accepted",
+  "code": {
+    "code_revision": "3d31d79de9d9ad3c885ae82ce35ba79437c84fdf",
+    "code_tree": "f5d4d722b8eb4b33c43f821c995a2f2bbee45cbd",
+    "remote_main": "06d3537c83cc4cb171d4dd87c790af01033eccd2"
+  },
+  "runtime": {
+    "runtime_identity": "2d74db9b11a792ef28878df756fff6873a4e7e6008915ca1e3e2920d0480340e",
+    "packages": {
+      "torch": "2.8.0+cpu",
+      "transformers": "5.16.1",
+      "numpy": "2.3.5",
+      "librosa": "1.0.0",
+      "nagisa": "0.3.0",
+      "soynlp": "0.0.493",
+      "tokenizers": "0.23.2"
+    },
+    "device": "cpu",
+    "threads": 4,
+    "cpu_count": 9
+  },
+  "source": {
+    "source_revision": "e2eed8769400269f20821deb0e47e68b40012e8b",
+    "license": "CC BY-NC 4.0",
+    "source_files": [
+      {
+        "file": "japanese-themed-dialogue01/japanese-themed-dialogue01_audio.wav",
+        "sha256": "ea1138f2b05e6b3cc9580ed1196748ed67c5847f222c1cf4a54de6bf4d9d3282",
+        "bytes": 21624910,
+        "url": "https://huggingface.co/datasets/IngCrowd/japanese-themed-dialogue/resolve/e2eed8769400269f20821deb0e47e68b40012e8b/japanese-themed-dialogue01/japanese-themed-dialogue01_audio.wav"
+      },
+      {
+        "file": "japanese-themed-dialogue01/japanese-themed-dialogue01.eaf",
+        "sha256": "c59daa71d0ffa34e50b4c532d33f5c0d2a51ceaa8aea4435a68a87d924f61b32",
+        "bytes": 103214,
+        "url": "https://huggingface.co/datasets/IngCrowd/japanese-themed-dialogue/resolve/e2eed8769400269f20821deb0e47e68b40012e8b/japanese-themed-dialogue01/japanese-themed-dialogue01.eaf"
+      },
+      {
+        "file": "README.md",
+        "sha256": "6eb32fd1cec62af9d03321f6122a0f5d880e4724e56d643d7cd5936983c0bbfd",
+        "bytes": 14776,
+        "url": "https://huggingface.co/datasets/IngCrowd/japanese-themed-dialogue/resolve/e2eed8769400269f20821deb0e47e68b40012e8b/README.md"
+      }
+    ],
+    "seconds": 605.35,
+    "prefix_s16le_sha256": "5d6324b171ecfbb130756428eeffe22a5ecfc22b6355cfb0a8734bb8f48a38cb",
+    "prefix_f32le_sha256": "7264f47c0a485b0c070f3cb03309111582ab476129485053dfa0fe374aa7d3b8",
+    "container_sha256": "9ace97ad0609997621190fed90e0672e27cc4249194ae15cd2a7efa9518cfce5",
+    "scope": "Previously studied natural two-speaker public audio. Audio-only production speech stage; no video admission or new holdout."
+  },
+  "commands": [
+    "python scripts/probe_qwen_speech.py --input <public-prefix.mkv> --duration 605.350 --data-dir <pinned-runtime> --output <fresh> --threads 4; controller SIGKILL after six committed spans",
+    "same probe arguments --output <continued> --resume-from <fresh>",
+    "same probe arguments --output <full-resume> --resume-from <continued>",
+    "one-off provided_caption_trial.py: existing Server ASGI API, direct execute(store, job), real Gemini, SQLite restart; raw helper retained with archive"
+  ],
+  "speech_runs": {
+    "fresh": {
+      "complete": false,
+      "saved_spans": 0,
+      "new_spans": 6,
+      "retained_spans": 6,
+      "speech_seconds": 416.47768948600424,
+      "setup_seconds": 3.6830021170026157,
+      "checkpoint_seconds": 0.6648479879950173,
+      "elapsed_seconds": 420.92421952000586,
+      "parts_sha256": "97442ead4330204c88783e609783a77795d86eca2a2d039b9f5040d423619ff8",
+      "network_attempts": 0,
+      "exit_code": -9,
+      "controller_wall_seconds": 421.27558062000026,
+      "phase_calls": {
+        "align_cleanup": 6,
+        "align_decode": 6,
+        "align_infer": 6,
+        "align_load": 6,
+        "align_prepare": 6,
+        "asr_cleanup": 6,
+        "asr_decode": 6,
+        "asr_infer": 6,
+        "asr_load": 6,
+        "asr_prepare": 6
+      }
+    },
+    "continued": {
+      "complete": true,
+      "saved_spans": 6,
+      "new_spans": 16,
+      "retained_spans": 22,
+      "speech_seconds": 1056.482850805034,
+      "setup_seconds": 3.6901647669947124,
+      "checkpoint_seconds": 1.6955774259695318,
+      "elapsed_seconds": 1061.9645416999992,
+      "parts_sha256": "f68853173423eb79c1fbc610bfd783702dce832b7c7ba2be942aded8068ae6e2",
+      "network_attempts": 0,
+      "exit_code": 0,
+      "controller_wall_seconds": 1063.1951062389999,
+      "phase_calls": {
+        "align_cleanup": 16,
+        "align_decode": 16,
+        "align_infer": 16,
+        "align_load": 16,
+        "align_prepare": 16,
+        "asr_cleanup": 16,
+        "asr_decode": 16,
+        "asr_infer": 16,
+        "asr_load": 16,
+        "asr_prepare": 16
+      }
+    },
+    "full-resume": {
+      "complete": true,
+      "saved_spans": 22,
+      "new_spans": 0,
+      "retained_spans": 22,
+      "speech_seconds": 0.3672174460007227,
+      "setup_seconds": 3.9060822180035757,
+      "checkpoint_seconds": 0.0,
+      "elapsed_seconds": 4.369192511003348,
+      "parts_sha256": "f68853173423eb79c1fbc610bfd783702dce832b7c7ba2be942aded8068ae6e2",
+      "network_attempts": 0,
+      "exit_code": 0,
+      "controller_wall_seconds": 5.511799787003838,
+      "phase_calls": {
+        "align_cleanup": 0,
+        "align_decode": 0,
+        "align_infer": 0,
+        "align_load": 0,
+        "align_prepare": 0,
+        "asr_cleanup": 0,
+        "asr_decode": 0,
+        "asr_infer": 0,
+        "asr_load": 0,
+        "asr_prepare": 0
+      }
+    }
+  },
+  "speech_cost": {
+    "completed_span_speech_seconds": 1472.9605402910383,
+    "phase_seconds": {
+      "align_cleanup": 11.609406805990147,
+      "align_decode": 0.17016142199281603,
+      "align_infer": 149.0957280940056,
+      "align_load": 31.27793612999085,
+      "align_prepare": 3.9082517720016767,
+      "asr_cleanup": 9.090432493016124,
+      "asr_decode": 0.024918416020227596,
+      "asr_infer": 1202.5122610859617,
+      "asr_load": 62.983757296955446,
+      "asr_prepare": 0.5688250100065488
+    },
+    "model_load_seconds": 94.2616934269463,
+    "model_load_percent": 6.399471733867451,
+    "scope": "Sum of six persisted fresh spans and sixteen continued spans, not uninterrupted wall time. Excludes setup, checkpoint publication, restart delay and any uncheckpointed work after the kill boundary. CPU cache state uncontrolled; separate API/archival work overlapped. Not a GPU result or speedup comparison."
+  },
+  "speech_recovery": {
+    "prefix_equal": true,
+    "full_saved_parts_equal": true,
+    "fresh_final_exports_absent": true,
+    "independent_saved_replay_with_model_and_network_tripwires": "passed"
+  },
+  "quality_diagnostics": {
+    "parts": 22,
+    "cues": 153,
+    "cue_characters": 3384,
+    "coverage_contiguous": true,
+    "unresolved_parts": 0,
+    "cue_duration_max": 28.24000000000001,
+    "long_source_cues_over_7_seconds": 20,
+    "source_cues_over_42_characters": 16,
+    "unique_exact_anchors": 30,
+    "anchor_absolute_endpoint_median_seconds": 0.04000000000000359,
+    "anchor_absolute_endpoint_max_seconds": 1.009999999999991,
+    "boundary_seams": 21,
+    "seams_with_normalized_suffix_repeat_at_least_four_characters": 0,
+    "reference_findings": "Overlapping reference a216 and part of a217 are absent from committed transcript near 424 seconds. Reference-text comparison, not independent listening. No complete-content or subjective readability acceptance.",
+    "limits": [
+      "Literal matches are diagnostic, not transcript accuracy; kana/kanji, fillers, punctuation and overlapping speaker order differ.",
+      "Timing anchors require an exact normalized match of at least eight characters, unique in both reference annotations and hypothesis; this matched subset excludes unmatched speech and is selection-biased.",
+      "Initial partial diagnostics matched repeated hai acknowledgements to a later occurrence. Reference-side uniqueness now excludes those ambiguous anchors; no ASR output changed.",
+      "Endpoint times use actual aligned word envelopes; no invented character interpolation. EAF and model word segmentation can differ.",
+      "Repeated boundary text is a review flag, not automatic deletion evidence. No subjective listening or screen readability acceptance."
+    ]
+  },
+  "provided_caption_flow": {
+    "scope": "ASGI request/response with real SQLite and Gemini. Worker scheduling held for explicit calls; no browser/socket playback acceptance.",
+    "complete": true,
+    "source_bytes": 20403,
+    "source_sha256": "3c850563a71791a1e6ad31e06c4627c56db3a603a4ead5b6bbeda1d0a3bd48d2",
+    "fixture_sha256": "5044d1cc051c28a2f0f0e8c2df007095600546ef8c21b339c6feae9c39a0484f",
+    "fixture_kind": "Synthetic black video with public dialogue audio; not real-video quality evidence.",
+    "first_import_status": 201,
+    "retry_status": 200,
+    "retry_same_track": true,
+    "job_state": "succeeded",
+    "completed_units": 239,
+    "total_units": 239,
+    "speech_profile": "provided-cues-v1",
+    "asr_spans": 0,
+    "asr_calls": 0,
+    "local_model_calls": 0,
+    "view_preserved": true,
+    "track_count": 2,
+    "source_preserved": true,
+    "original_vtt_bytes_preserved": true,
+    "original_media_preserved": true,
+    "position_preserved": true,
+    "restart_view_preserved": true,
+    "restart_track_count": 2,
+    "restart_korean_bytes_preserved": true,
+    "restart_paid_requests": 0,
+    "elapsed_seconds": 598.2623262839988,
+    "model": "gemini-3.1-flash-lite",
+    "actual_requests": 30,
+    "successful_requests": 30,
+    "fallback_count": 0,
+    "display_cues": 343,
+    "review_flagged_display_cues": 173,
+    "canonical_unit_intervals_preserved": true,
+    "saved_position_seconds": 42,
+    "selected_caption": "source",
+    "offset_ms": 500,
+    "limits": "Human EAF annotations converted to VTT include overlapping/short turns. Review flags are not translation-error counts. No Fetch UI, actual browser/socket playback or background-worker acceptance."
+  },
+  "separate_qwen_text_translation": {
+    "status": "blocked_by_automatic_approval_review",
+    "action": "Send Qwen-derived text from the verified public IngCrowd recording to Google Gemini for translation.",
+    "reason": "Review considered generic network approval insufficient authorization for disclosing potentially private derived transcript content to Google.",
+    "local_observation": "Incomplete output, 153 source units, zero saved request/response records and translated units; no matching live process found after rejection.",
+    "limits": "Zero saved requests is not independent proof of zero provider-side receipt. No retry or alternate route after rejection.",
+    "next": "Obtain explicit authorization for this named public-text payload and Google Gemini destination before retrying."
+  },
+  "independent_review": {
+    "reviewer": "review_long_trial_evidence",
+    "code_revision": "3d31d79de9d9ad3c885ae82ce35ba79437c84fdf",
+    "code_tree": "f5d4d722b8eb4b33c43f821c995a2f2bbee45cbd",
+    "verdict": "Approved execution/recovery evidence only; no complete-content, readability, target-GPU or release acceptance.",
+    "checks": [
+      "input/model/runtime hashes",
+      "6-span prefix equality and 22-span replay equality",
+      "production saved replay with zero model/network calls",
+      "phase sums",
+      "read-only SQLite integrity, caption times/bytes, two tracks and saved viewing settings",
+      "30 response usages",
+      "selected anchors and overlapping reference omissions"
+    ]
+  },
+  "raw_evidence_sha256": {
+    "source.json": "3b1808852c3763685d61683b2975b4c7af57a5ffab0e9e92bd9a7f6e3110b552",
+    "runtime.json": "45130d4b1c16371d3893e6e8fc89ae2ecc6c30ea2bfa2db285190653ec4cc71f",
+    "execution.json": "d31c5ffd04576c434bad0dab2dd14d2371fbd61e20ca02edf5b76d8fb702d481",
+    "quality.json": "e07621d04849abc6a98a29134786cc456c19740652d08f69b3a2f0489ad5d7f4",
+    "provided-result.json": "60aa31838e3b3a449184578f0c842e7bae2819ddba852d467388613a1abd7a90",
+    "provided-responses.json": "ef76a908d60568fe2217d882c6305de9b58f549d09b05e298c603b610e78caab",
+    "provided-tracks.json": "b5509a3899ee8aa9416cc9179067d875075988f6a90d4fd74b361a51edf6549b",
+    "provided-library.sqlite3": "9ccfcfdd04efc2479d19d49562d12b96f350ece5b88badd47c2411e5f6b8f6f4",
+    "translation.json": "c5d0e29b18a28bc051612010e692a487735bcc1afbe3c54f804118390dd5793e",
+    "translation-blocker.json": "89488245b8fcabc60d445520fa42905f4339a2b3c5d599758ade079d71371733",
+    "fresh/checkpoint.json": "eaa864515c11a0274b0df946e89060abf2f0935579ba9c642eca77a351df255c",
+    "continued/checkpoint.json": "6c97e9a33e194b565a98fbe3f782d5bfbf0207ed84fb5722f6bfa4087e0f3214",
+    "full-resume/checkpoint.json": "bceb5ab6022ee2d522fdb65b47937360ae56639ffb41d35ff823608b6c796849"
+  }
+}
