@@ -29,8 +29,14 @@ speech runs took 83.515 and 88.591 seconds with identical canonical parts hashes
 The first included 9.237 seconds of model loading, so it was not the dominant cost
 in this short CPU case. Full saved recovery made zero model calls (0.122 seconds
 speech stage; setup/imports separate). No Gemini/network attempts or old-track writes.
-A 605.350-second continuous public dialogue is now running through this same speech
-path; its result is pending. It is previously studied audio, not a new holdout.
+A 605.350-second continuous public dialogue was started through this speech path.
+Workspace maintenance removed the local runtime/session and raw outputs after the
+last observed 13 valid spans through 364.500 seconds. This is **incomplete**, with
+no final aggregate, full recovery or long-input quality acceptance. The published
+code and 35-second summaries were recovered byte-for-byte from GitHub. Expensive
+future trials need durable raw checkpoints before another environment transition;
+old progress messages cannot reconstruct or authorize reuse of missing parts. The
+input is previously studied public audio, not a new holdout.
 
 ## Reconciled integration
 

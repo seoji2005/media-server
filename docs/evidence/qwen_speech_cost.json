@@ -246,5 +246,29 @@
       "parts_sha256": "d4892a1f20ced98542e66c5b1d50f958eb6514ed4d4744fbc764b5a296d694aa"
     }
   },
-  "result_hashes_equal": true
+  "result_hashes_equal": true,
+  "continuous_attempt": {
+    "input_seconds": 605.35,
+    "completed": false,
+    "last_observed_new_spans": 13,
+    "last_observed_through_seconds": 364.5,
+    "last_observed_unresolved": false,
+    "termination": "Workspace maintenance removed the local files and running execution session. The last progress message is not completion evidence.",
+    "final_phase_aggregates": null,
+    "raw_parts_recovered": false,
+    "full_resume_verified": false,
+    "source": "https://huggingface.co/datasets/IngCrowd/japanese-themed-dialogue/tree/e2eed8769400269f20821deb0e47e68b40012e8b",
+    "source_file": "japanese-themed-dialogue01/japanese-themed-dialogue01_audio.wav",
+    "source_sha256": "ea1138f2b05e6b3cc9580ed1196748ed67c5847f222c1cf4a54de6bf4d9d3282",
+    "source_license": "CC BY-NC 4.0",
+    "prefix_samples": 9685600,
+    "sample_rate": 16000,
+    "prefix_pcm_sha256": "7264f47c0a485b0c070f3cb03309111582ab476129485053dfa0fe374aa7d3b8",
+    "container_sha256": "eb4a098d47b7b243b07bb1023d2d55ff2d275f2577fe26c9d6721d2fe2ac8c67",
+    "lossless_pcm_match_verified_before_run": true,
+    "container": "audio-only Matroska PCM; production speech stage, not full video admission",
+    "code_revision": "d7f83731dd7f99b93bb07e6b270144b5a1a5f8f4",
+    "limits": "Previously studied recording; no new holdout, translation, player, target GPU or broad quality acceptance."
+  },
+  "recovery_note": "GitHub retained the three successful 35-second summaries and their equal result hashes. Their raw parts and the local model runtime were removed by workspace maintenance; do not claim those raw artifacts remain available or relabel another runtime to resume them."
 }
