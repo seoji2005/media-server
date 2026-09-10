@@ -1,31 +1,41 @@
 # Current work
 
-- **Milestone:** remember caption choices and adjust timing while watching.
-- **Branch / base:** `feat/caption-viewing-settings`, main
-  `16d53d96025e0e00f0e8b29aa76c4be5c993a11a`.
-  [PR #27](https://github.com/seoji2005/media-server/pull/27) is merged. Resolve live
-  PRs, HEAD and checks before writing; one writer, AGENTS.md and product.md govern.
-- **Authorization:** the owner requests multiple stages, review and merge after
-  successful checks. Do not reinstate old one-stage or pending-approval limits.
+- **Milestone:** open the exact companion-delivered video with its saved viewing settings.
+- **Branch / base:** `feat/verified-item-entry`, main
+  `c0e27079995a9db9c2ae22f0b247c24a5560a0f6` (PR #28 merged).
+  Resolve live PRs/HEAD/checks before writing; one writer and AGENTS.md govern.
+- **Authorization:** continue the owner's multi-stage implementation, independent
+  review and merge after successful checks. This is not final release approval.
 
 ## Current change
 
-Caption version/source/Off and timing adjustments survive reopening and server
-restart independently for each video's audio. Native Off/On participates. Earlier
-and later controls step by 0.5 seconds within ±10 seconds; switching versions resets
-its timing. Original time and automatic selection can be restored. Playback position
-stays unchanged and caption search follows the adjusted time.
+A bounded, identity-bound `#item` and authenticated POST open the existing player
+using current audio, watch position and caption choice/Off/offset. New imports do
+not need recommendation inclusion. Original and selected rendition integrity are
+checked; changed identity/media fail. Entry stays paused and does not write watch
+history before Play. Missing renditions have an explicit preparation action.
+Invalid/late entries do not replace the current player. No schema, model or cloud
+processing change. [Contract](companion-library.md#open-a-specific-imported-video).
 
-[Contract, API and validation](caption-viewing.md). Schema v10 adds only viewing
-settings. VTT response timing changes without altering originals, captions,
-transcripts, translations, checkpoints or hashes. Revision checks reject stale writes;
-uncertain saves require a read before further edits. Missing versions stay Off with
-a notice. No model or cloud inference is added.
+Focused author Python/API and all eight DOM suites passed locally. Real browser
+startup/restart and synthetic MKV/provided-caption preparation checks are added to
+the existing Ubuntu/Windows CI; their final results and independent review remain
+pending. Local DOM/TestClient are not actual browser or socket execution. Keep final
+fixed HEAD, review and CI/merge facts in the PR, not a growing ledger here.
 
-Acceptance requires focused author checks, a fresh independent persistence/privacy
-review, and final Ubuntu/Windows Python/DOM/actual Chrome CI. Final fixed HEAD,
-review, CI attempts and merge facts belong in the live PR and existing validation
-bundle. Pending CI and subjective quality must not be described as passed.
+## Reconciled next work
+
+- PR #28 already passed final Ubuntu/Windows CI and merged. Its caption choice,
+  source/Off, offset and canonical-byte preservation are retained; do not redo it.
+- Fetch is ahead of the supplied analysis: provided-caption delivery/retry and root
+  library opening are implemented there. Do not recreate the Server caption API or
+  modify the independently owned Fetch branch. It must adopt this new item entry.
+- Qwen reloads ASR and alignment weights for every new span. Alignment determines
+  the next span boundary, so batching ASR first changes checkpoint semantics. Measure
+  loading/preparation/inference/cleanup separately before choosing reuse. Existing
+  35-second runs are not a comparable speed pair (one reused the first 30 seconds).
+  No actual model environment/weights or target GPU is available in the recovered
+  runtime; new long natural-video inference remains unexecuted.
 
 ## Existing integration
 

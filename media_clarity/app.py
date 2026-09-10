@@ -287,6 +287,20 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         companion_token(request)
         return reference(store, recommendations, item_id)
 
+    @app.post('/api/library/{item_id}/item-entry')
+    async def item_entry(item_id: str, request: Request):
+        from .item_entry import validate
+        payload = bytearray()
+        async for chunk in request.stream():
+            if len(payload) + len(chunk) > 1024:
+                raise MediaError('invalid_item_entry', 422)
+            payload.extend(chunk)
+        try:
+            body = json.loads(payload)
+        except (ValueError, UnicodeError):
+            raise MediaError('invalid_item_entry', 422) from None
+        return await run_in_threadpool(validate, store, item_id, body)
+
     @app.post('/api/library/{item_id}/moment-entry')
     async def moment_entry(item_id: str, request: Request):
         from .moment_entry import validate

@@ -80,6 +80,7 @@ async function run(js) {
 (async()=>{
   const result=await run(source);
   await require('./moments.cjs')(html,source);
+  await require('./item-entry.cjs')(html,source);
   const faulty=source.replace('clearTimeout(saveTimer); saveTimer=null;', 'clearTimeout(saveTimer);');
   assert.notEqual(faulty,source,'known autosave mutation must apply');
   let detected=false;
