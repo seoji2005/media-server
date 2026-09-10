@@ -68,7 +68,7 @@ class CompanionIdentityTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
         self.store.start()
         self.assertEqual(self.identity()['version'], 1)
-        self.assertEqual(self.snapshot()[0], 9)
+        self.assertEqual(self.snapshot()[0], 10)
 
     def test_abrupt_exit_before_commit_keeps_v6_and_retry_succeeds(self):
         self.legacy_fixture(); before = self.snapshot()
@@ -90,7 +90,7 @@ Store(Path(sys.argv[1])).start()
         self.assertEqual(self.snapshot(), before)
         self.store.start()
         self.assertEqual(self.identity()['version'], 1)
-        self.assertEqual(self.snapshot()[0], 9)
+        self.assertEqual(self.snapshot()[0], 10)
 
     def test_current_missing_corrupt_or_duplicate_identity_never_recreated(self):
         self.store.close()
@@ -159,7 +159,7 @@ Store(Path(sys.argv[1])).start()
                         before = {t: [dict(r) for r in db.execute(f'SELECT * FROM {t}')] for t in tables}
                     upgraded.start()
                     with upgraded.db() as db:
-                        self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 9)
+                        self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 10)
                         for table, rows in before.items():
                             if version == 5 and table == 'subtitle_jobs':
                                 rows[0]['source_track_id'] = None
@@ -180,7 +180,7 @@ Store(Path(sys.argv[1])).start()
         self.store.start()
         self.assertEqual(self.identity(), identity)
         with self.store.db() as db:
-            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 9)
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 10)
             self.assertIn('source_track_id', {r['name'] for r in db.execute('PRAGMA table_info(subtitle_jobs)')})
 
     def test_corrupt_old_draft_v6_is_untouched(self):

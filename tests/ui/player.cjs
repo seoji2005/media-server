@@ -16,7 +16,7 @@ async function run(js) {
     if(path==='/api/session') result={token:'synthetic-token',diagnostics:{ffprobe:true,ffmpeg:true,recovered_copies:0}};
     else if(path==='/api/library') result={items:library.map(x=>({...x}))};
     else {const id=path.split('/')[3], item=library.find(x=>x.id===id); assert(item,path);
-      if(path.endsWith('/subtitles')) result={jobs:[],tracks:[]};
+      if(path.split('?')[0].endsWith('/subtitles')) result={jobs:[],tracks:[]};
       else if(path.endsWith('/playback')) {
         assert.equal(opts.method,'POST');assert.equal(opts.headers['X-Media-Token'],'synthetic-token');
         if(!preparationFailed){preparationFailed=true;item.preparation_error='media_timeout';return {ok:false,json:async()=>({error:'media_timeout'})};}

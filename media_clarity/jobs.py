@@ -510,7 +510,9 @@ class Jobs:
             db.commit()
         return {'id':track_id, 'duplicate':False} if import_identity is not None else track_id
 
-    def track(self, item_id, track_id, *, transcript=False):
+    def track(self, item_id, track_id, *, transcript=False, offset_ms=0):
+        from .caption_view import check_offset, shifted
+        check_offset(offset_ms)
         if not ID.fullmatch(track_id):
             raise MediaError('subtitle_not_found', 404)
         media = self.store._row(item_id)
@@ -525,7 +527,7 @@ class Jobs:
             # Read the saved ASR for this version, never the newest job or audio.
             with self.store.db() as db:
                 seed = saved_transcript(db, media, track_id)
-            return webvtt(validate_cues(json.loads(seed['transcript']), media['duration']))
+            return webvtt(shifted(validate_cues(json.loads(seed['transcript']), media['duration']), media['duration'], offset_ms))
         warning_json = row['warnings'] or '[]'
         warnings = json.loads(warning_json)
         fallback = {w['index'] for w in warnings}
@@ -535,7 +537,10 @@ class Jobs:
             fallback = {i for i, unit in enumerate(presentation['units']) if unit in fallback}
         else:
             cues = validate_cues(json.loads(row['cues']), media['duration'])
-        return webvtt(cues, fallback)
+        # Keep fallback indices paired with their cues when shifting removes a cue
+        # outside the video. Only this response changes; canonical rows stay intact.
+        adjusted = shifted([cue | {'fallback': i in fallback} for i, cue in enumerate(cues)], media['duration'], offset_ms)
+        return webvtt(adjusted, {i for i, cue in enumerate(adjusted) if cue['fallback']})
 
 
 def execute(store, job_id, backend_factory=None):

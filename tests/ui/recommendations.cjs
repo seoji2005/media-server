@@ -28,7 +28,7 @@ w.fetch=async(url,options={})=>{
    }
    result=copy(prefs[id]);
    if(delayReadA&&id==='a'&&!options.method){delayReadA=false;await new Promise(resolve=>releaseReadA=resolve);}
-  } else if(url.endsWith('/subtitles'))result={jobs:[],tracks:[]};
+  } else if(url.split('?')[0].endsWith('/subtitles'))result={jobs:[],tracks:[]};
   else result=library.find(i=>i.id===id);
  }
  return {ok:true,json:async()=>copy(result)};

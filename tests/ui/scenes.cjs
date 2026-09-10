@@ -10,7 +10,7 @@ w.fetch=async(path,opts={})=>{
  if(path==='/api/session')result={token:'fixture',diagnostics:{ffmpeg:true,ffprobe:true}};
  else if(path==='/api/library')result={items:[item]};
  else if(path==='/api/library/a'||path==='/api/library/b')result={...item,id:path.split('/').at(-1)};
- else if(path.endsWith('/subtitles'))result={tracks:[],jobs:[]};
+ else if(path.split('?')[0].endsWith('/subtitles'))result={tracks:[],jobs:[]};
  else if(path.endsWith('/preference'))result={included:false,preference:'neutral',revision:0};
  else if(path.endsWith('/position'))result={position:0};
  else if(path.endsWith('/scenes'))return new Promise(r=>reads=r);

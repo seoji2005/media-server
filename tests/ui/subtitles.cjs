@@ -9,11 +9,12 @@ let modelResult={device:'cuda',selection:'default',state:'blocked',error:'model_
 const timers=new Map();let counter=0;
 w.setTimeout=(fn,ms)=>{timers.set(++counter,{fn,ms});return counter;};w.clearTimeout=id=>timers.delete(id);
 w.fetch=async (url,options={})=>{
+ if(url.endsWith('/caption-view'))return {ok:true,json:async()=>({...JSON.parse(options.body),revision:JSON.parse(options.body).revision+1})};
  if(options.method==='POST'){posts.push(url);bodies.push(options.body);}
  if(url==='/api/session')return {ok:true,json:async()=>({token:'fixture',diagnostics:{ffmpeg:true,ffprobe:true,models:{device:'cuda',selection:'default',state:'unchecked',error:null}}})};
  if(url==='/api/models/diagnostics')return {ok:!modelBusy,json:async()=>modelBusy?{error:'processing_worker_active'}:modelResult};
  if(url==='/api/library')return {ok:true,json:async()=>({items})};
- if(url.endsWith('/subtitles')){
+ if(url.split('?')[0].endsWith('/subtitles')){
   if(delayA&&url.includes('/a/'))await new Promise(resolve=>pendingA=resolve);
   return {ok:true,json:async()=>JSON.parse(JSON.stringify(data))};
  }
@@ -53,10 +54,10 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  assert.equal(JSON.parse(bodies[posts.lastIndexOf('/api/library/a/subtitle-jobs/regenerate')]).provider,'gemini');
  assert.equal(video.querySelector('track').getAttribute('src'),'/api/library/a/subtitles/first.vtt');
  assert.equal(video.querySelector('track').srclang,'ja');assert.equal(d.getElementById('subtitle-retranslate').hidden,false);
- const select=d.getElementById('subtitle-select');select.value='';select.dispatchEvent(new w.Event('change'));
+ const select=d.getElementById('subtitle-select');select.value='';select.dispatchEvent(new w.Event('change'));await settle();
  assert.equal(video.querySelectorAll('track').length,0);
  await w.qa.refreshSubtitles(w.qa.owner());assert.equal(video.querySelectorAll('track').length,0,'poll must preserve user opting out');
- select.value='first';select.dispatchEvent(new w.Event('change'));assert.equal(video.querySelectorAll('track').length,1);
+ select.value='first';select.dispatchEvent(new w.Event('change'));await settle();assert.equal(video.querySelectorAll('track').length,1);
  data={tracks:[{id:'second',source:'generated'},{id:'first',source:'supplied'}],jobs:[{id:'j',state:'running',stage:'translation',completed:1,total:2}]};
  await w.qa.refreshSubtitles(w.qa.owner());assert.equal(select.value,'first','keep chosen version');
  assert.equal(generate.hidden,true,'active preparation cannot launch another job');
@@ -84,7 +85,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  const notes=d.getElementById('subtitle-notes');
  assert(notes.textContent.includes('빈 자막 1개'));assert(notes.textContent.includes('영상 밖 자막 2개'));assert(!notes.textContent.includes('읽기 속도'));
  assert(d.getElementById('subtitle-brief').textContent.includes('보정 내역'));
- select.value='second';select.dispatchEvent(new w.Event('change'));
+ select.value='second';select.dispatchEvent(new w.Event('change'));await settle();
  assert(notes.textContent.includes('읽기 속도가 빠른 구간 2개'));assert(!notes.textContent.includes('빈 자막'));
  assert(d.getElementById('subtitle-brief').textContent.includes('표시 확인 3구간'));
  data.tracks[0].has_transcript=true;await w.qa.refreshSubtitles(w.qa.owner());
@@ -97,7 +98,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  assert(disclosure.textContent.includes('영상·음성 파일은 보내지 않습니다'));
  assert(disclosure.textContent.includes('API 키 설정이 필요'));
  const previousTrack=video.querySelector('track'),position=video.currentTime;
- select.value='second:transcript';select.dispatchEvent(new w.Event('change'));
+ select.value='second:transcript';select.dispatchEvent(new w.Event('change'));await settle();
  assert.equal(video.currentTime,position,'caption switching preserves playback position');
  assert.equal(video.querySelector('track').getAttribute('src'),'/api/library/a/subtitles/second.vtt?transcript=true');
  assert.equal(video.querySelector('track').srclang,'und');
@@ -117,8 +118,8 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  data.tracks[0].has_transcript=false;await w.qa.refreshSubtitles(w.qa.owner());
  assert.equal(select.value,'');assert.equal(video.querySelectorAll('track').length,0);
  assert.equal(retranslate.hidden,true);
- select.value='';select.dispatchEvent(new w.Event('change'));assert.equal(notes.hidden,true);
- select.value='first';select.dispatchEvent(new w.Event('change'));
+ select.value='';select.dispatchEvent(new w.Event('change'));await settle();assert.equal(notes.hidden,true);
+ select.value='first';select.dispatchEvent(new w.Event('change'));await settle();
  delayA=true;const old=w.qa.refreshSubtitles(w.qa.owner());await settle();await w.qa.closePlayer();await w.qa.openPlayer('b');await settle();
  assert.equal(provider.value,'gemini','opening another video restores the owner-selected default');
  const before=video.querySelector('track').getAttribute('src');pendingA();await old;

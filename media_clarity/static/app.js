@@ -11,6 +11,8 @@ const video = $("video"), dialog = $("player-dialog");
 $("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
 const errors = {
+  invalid_caption_view:"자막 시간은 10초까지 앞당기거나 늦출 수 있습니다.",
+  caption_view_changed:"다른 창에서 자막 설정이 바뀌었습니다. 저장 상태를 다시 확인해 주세요.",
   invalid_moment_entry:"장면의 시점을 확인해 주세요.",
   moment_reference_changed:"원본이나 시간 기준이 바뀌었습니다. 장면 기록을 다시 연결해 주세요.",
   moment_not_available:"이 장면은 현재 열 수 없습니다.",
@@ -365,7 +367,50 @@ $("model-check").addEventListener("click",async()=>{
   catch(e){$("model-check-state").textContent=e.code==="processing_worker_active"?"자막 처리 중에는 진단할 수 없습니다. 작업을 마치거나 일시정지한 뒤 다시 확인해 주세요.":e.message;}
   finally{button.disabled=false;if(hadFocus&&$("settings-dialog").open&&document.activeElement===document.body)button.focus();}
 });
-function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];geminiConfigured=false;$("subtitle-translator").value="gemini";renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
+let captionView=null, captionViewVersion=0, captionSaving=false, captionSaveError="", captionNativeHidden=false, subtitleReadVersion=0;
+const pendingCaptionViews=new Map();
+function captionKey(owner){return `${owner.id}:${owner.audio_index||0}`;}
+function renderCaptionView(){
+  const offset=captionView?.offset_ms||0,disabled=!captionView||captionSaving||!!captionSaveError;
+  $("subtitle-select").disabled=disabled;
+  $("caption-earlier").disabled=disabled||!subtitleLoaded||captionNativeHidden||offset<=-10000;
+  $("caption-later").disabled=disabled||!subtitleLoaded||captionNativeHidden||offset>=10000;
+  $("caption-reset").disabled=disabled||!subtitleLoaded||captionNativeHidden||!offset;
+  $("caption-auto").disabled=disabled;
+  $("caption-offset-brief").textContent=offset?`${Math.abs(offset/1000).toFixed(1)}초 ${offset<0?"앞당김":"늦춤"}`:"원래 시간";
+  $("caption-view-state").textContent=captionSaving?"자막 설정 저장 중…":captionSaveError?captionSaveError+" 현재 감상에는 적용했지만 저장 여부를 확인하지 못했습니다.":!captionView?"자막 설정을 확인하고 있어요.":captionView.selection===null?"다시 열면 최신 자막을 자동으로 선택합니다.":`오디오 ${(activeItem?.audio_index||0)+1}의 자막 설정을 이 기기에 저장했습니다. 다른 자막을 선택하면 원래 시간으로 시작합니다.`;
+  $("caption-view-retry").hidden=!captionSaveError;
+}
+async function saveCaptionView(selection,offset_ms=0,keepNative=false){
+  const owner=activeItem;
+  if(!owner||!captionView||captionSaving||captionSaveError)return;
+  const version=++captionViewVersion,key=captionKey(owner);
+  const value={selection,offset_ms,revision:captionView.revision};
+  captionView=value;captionSaving=true;renderCaptionView();
+  if(selection===null)subtitleLoaded=null;
+  const chosen=selection===null?(subtitleTracks.find(t=>(t.audio_index||0)===(owner.audio_index||0))?.id||""):selection;
+  $("subtitle-select").value=chosen;
+  if(!keepNative)loadSubtitle(chosen,true);
+  const pending=api(`/api/library/${owner.id}/caption-view`,{method:"PUT",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({...value,audio_index:owner.audio_index||0})});
+  pendingCaptionViews.set(key,pending);
+  try{
+    const saved=await pending;
+    if(activeItem===owner&&captionViewVersion===version)captionView=saved;
+  }catch(e){
+    if(activeItem===owner&&captionViewVersion===version)captionSaveError=e.message;
+  }finally{
+    if(pendingCaptionViews.get(key)===pending)pendingCaptionViews.delete(key);
+    if(activeItem===owner&&captionViewVersion===version){captionSaving=false;renderCaptionView();syncNativeCaptionView();refreshSubtitles(owner);}
+  }
+}
+for(const [id,delta] of [["caption-earlier",-500],["caption-later",500],["caption-reset",0]])$(id).addEventListener("click",()=>{
+  if(subtitleLoaded&&captionView)saveCaptionView(subtitleLoaded,delta?Math.min(10000,Math.max(-10000,captionView.offset_ms+delta)):0);
+});
+$("caption-auto").addEventListener("click",()=>saveCaptionView(null));
+$("caption-view-retry").addEventListener("click",()=>{
+  if(!activeItem)return;captionViewVersion++;captionView=null;captionSaveError="";subtitleLoaded=null;renderCaptionView();refreshSubtitles(activeItem);
+});
+function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];captionViewVersion++;captionView=null;captionSaving=false;captionSaveError="";captionNativeHidden=false;renderCaptionView();geminiConfigured=false;$("subtitle-translator").value="gemini";renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";}
 function selectedSubtitle(){const [id,view]=(subtitleLoaded||"").split(":");return {track:subtitleTracks.find(t=>t.id===id),transcript:view==="transcript"};}
 function renderSubtitleNotes(){
   const {track,transcript}=selectedSubtitle(),notes=[];
@@ -412,16 +457,19 @@ function renderPreparationSummary(){
   if($("subtitle-brief").textContent!==label)$("subtitle-brief").textContent=label;
 }
 function subtitleError(text){$("subtitle-state").textContent=text;$("subtitle-brief").textContent="자막 확인 필요";}
-function loadSubtitle(id){
+function loadSubtitle(id,force=false){
   if(!activeItem)return;
-  if(subtitleLoaded===id){renderSubtitleNotes();return;}
+  if(subtitleLoaded===id&&!force){renderSubtitleNotes();renderCaptionView();return;}
+  captionNativeHidden=false;
   video.querySelectorAll("track").forEach(t=>t.remove());subtitleLoaded=id;
-  renderSubtitleNotes();
+  renderSubtitleNotes();renderCaptionView();
   resetSubtitleSearch(false, id ? "loading" : "empty");
   if(!id)return;
   const owner=activeItem,{track:chosen,transcript}=selectedSubtitle();
   if(!chosen||(transcript&&!chosen.has_transcript))return;
-  const track=document.createElement("track");track.kind="subtitles";track.srclang=transcript?"und":chosen.language||"ko";track.label=transcript?"원문 · 자동 전사":chosen.language&&chosen.language!=="ko"?chosen.language:"한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${chosen.id}.vtt${transcript?"?transcript=true":""}`;
+  const query=new URLSearchParams();if(transcript)query.set("transcript","true");if(captionView?.offset_ms)query.set("offset_ms",String(captionView.offset_ms));
+  const track=document.createElement("track");track.kind="subtitles";track.srclang=transcript?"und":chosen.language||"ko";track.label=transcript?"원문 · 자동 전사":chosen.language&&chosen.language!=="ko"?chosen.language:"한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${chosen.id}.vtt${query.size?"?"+query:""}`;
+  track.dataset.offsetMs=String(captionView?.offset_ms||0);
   track.addEventListener("load",()=>{
     if(activeItem!==owner||subtitleLoaded!==id||track.parentNode!==video)return;
     subtitleSearch={owner, id, track:track.track, state:"ready", cues:null};
@@ -434,8 +482,12 @@ function loadSubtitle(id){
 }
 async function refreshSubtitles(owner){
   clearTimeout(subtitleTimer);
+  const version=captionViewVersion,readVersion=++subtitleReadVersion;
   try{
-    const data=await api(`/api/library/${owner.id}/subtitles`);if(activeItem!==owner)return;
+    const pending=pendingCaptionViews.get(captionKey(owner));if(pending)await pending.catch(()=>{});
+    if(activeItem!==owner||version!==captionViewVersion)return;
+    const data=await api(`/api/library/${owner.id}/subtitles${audioQuery(owner)}`);if(activeItem!==owner||version!==captionViewVersion||readVersion!==subtitleReadVersion)return;
+    if(!captionView)captionView=data.view||{selection:null,offset_ms:0,revision:0};
     subtitleTracks=data.tracks;geminiConfigured=!!data.gemini_configured;
     const select=$("subtitle-select"),was=select.value;
     select.replaceChildren(new Option("자막 끄기",""));
@@ -445,8 +497,10 @@ async function refreshSubtitles(owner){
       if(t.has_transcript)select.add(new Option(`원문 · 자동 전사${version}`,`${t.id}:transcript`));
     }
     const matching=data.tracks.filter(t=>(t.audio_index||0)===(owner.audio_index||0));
-    const chosen=subtitleLoaded===null?(matching[0]?.id||""):was;
-    select.value=[...select.options].some(o=>o.value===chosen)?chosen:"";if(data.tracks.length&&(chosen||subtitleLoaded!==null))loadSubtitle(select.value);
+    const chosen=captionView.selection!==null?captionView.selection:subtitleLoaded===null?(matching[0]?.id||""):was;
+    select.value=[...select.options].some(o=>o.value===chosen)?chosen:"";if(!(captionNativeHidden&&chosen==="")&&(chosen||subtitleLoaded!==null||captionView.selection!==null))loadSubtitle(select.value);
+    renderCaptionView();
+    if(chosen&&select.value!==chosen)$("caption-view-state").textContent="저장한 자막을 찾을 수 없습니다. 사용할 자막을 직접 선택해 주세요.";
     subtitleJob=data.jobs.find(j=>["queued","running","paused"].includes(j.state))||data.jobs.find(j=>(j.audio_index||0)===(owner.audio_index||0))||null;
     const j=subtitleJob,busy=j&&["queued","running"].includes(j.state);
     const generate=$("subtitle-generate");
@@ -461,19 +515,19 @@ async function refreshSubtitles(owner){
     const asrNote=j?.asr_completed?`음성 인식 ${j.asr_completed}구간을 저장했습니다. 재개하면 저장된 다음 말소리 구간부터 이어갑니다.`:"아직 저장된 말소리 구간이 없어 재개하면 음성 인식을 처음부터 다시 합니다.";
     const resumeNote=j?.stage==="asr"?`${asrNote} 현재 구간은 다시 처리할 수 있으며 기존 자막은 보존됩니다.`:`전사와 번역 ${j?.completed||0}구간을 저장했습니다. 재개하면 저장된 다음 구간부터 이어갑니다.`;
     $("subtitle-state").textContent=paused?`${j.error?subtitleMessages[j.error]:"자막 처리를 일시정지했습니다."} ${resumeNote}`:j?.error?(subtitleMessages[j.error]||message(j.error)):busy?(j.stage==="translation"?`한국어 번역 중 · ${j.completed}/${j.total} 구간 저장됨${j.fallback_count?` · 원문 ${j.fallback_count}구간`:""}`:`음성 인식 중 · ${j.asr_completed||0}구간 저장됨. 중단하면 현재 말소리 구간을 다시 처리합니다. 원본은 계속 감상할 수 있습니다.`):data.tracks.length?"자막이 준비됐습니다. 번역하지 못한 구간은 [원문]으로 표시합니다. 새로 만들어도 기존 자막은 보존됩니다.":"가진 한국어 SRT를 열거나 이 기기에서 자막을 만들 수 있습니다.";
-    if(busy)subtitleTimer=setTimeout(()=>refreshSubtitles(owner),1500);
+    if(busy){clearTimeout(subtitleTimer);subtitleTimer=setTimeout(()=>refreshSubtitles(owner),1500);}
     if(j&&(j.audio_index||0)!==(owner.audio_index||0))$("subtitle-state").textContent=`오디오 ${(j.audio_index||0)+1}의 자막 작업입니다. `+$("subtitle-state").textContent;
     if(j?.provider==="gemini")$("subtitle-state").textContent="Gemini · "+$("subtitle-state").textContent+(["queued","running","paused","failed"].includes(j.state)?" 완료한 구간은 재사용합니다. 처리 중이던 요청은 재개할 때 다시 전송되어 과금될 수 있습니다.":"");
     renderPreparationSummary();
-  }catch(e){if(activeItem===owner)subtitleError(e.message);}
+  }catch(e){if(activeItem===owner&&version===captionViewVersion&&readVersion===subtitleReadVersion){subtitleError(e.message);if(!captionView){captionSaveError=e.message;renderCaptionView();}}}
 }
-$("subtitle-select").addEventListener("change",()=>loadSubtitle($("subtitle-select").value));
+$("subtitle-select").addEventListener("change",()=>saveCaptionView($("subtitle-select").value));
 $("subtitle-import").addEventListener("click",()=>$("subtitle-input").click());
 $("subtitle-input").addEventListener("change",async()=>{
   const owner=activeItem,file=$("subtitle-input").files[0];if(!owner||!file)return;
   try{if(file.size>2*1024*1024)throw new Error(subtitleMessages.subtitles_too_large);
-    await api(`/api/library/${owner.id}/subtitles${audioQuery(owner)}`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:file});
-    if(activeItem===owner){subtitleLoaded=null;await refreshSubtitles(owner);}
+    const imported=await api(`/api/library/${owner.id}/subtitles${audioQuery(owner)}`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:file});
+    if(activeItem===owner){await refreshSubtitles(owner);await saveCaptionView(imported.id);}
   }catch(e){toast(e.message,true);}finally{$("subtitle-input").value="";}
 });
 $("subtitle-generate").addEventListener("click",async()=>{const owner=activeItem;if(!owner)return;const suffix=$("subtitle-generate").dataset.regenerate==="true"?"/regenerate":"";try{await api(`/api/library/${owner.id}/subtitle-jobs${suffix}${audioQuery(owner)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider:$("subtitle-translator").value})});if(activeItem===owner)await refreshSubtitles(owner);}catch(e){if(activeItem===owner)subtitleError(e.message);}});
@@ -530,9 +584,19 @@ $("subtitle-query").addEventListener("input",()=>{
   clearTimeout(subtitleSearchTimer);
   subtitleSearchTimer=setTimeout(()=>{subtitleSearchTimer=null;renderSubtitleSearch();},150);
 });
+function syncNativeCaptionView(){
+  const element=video.querySelector("track");
+  if(!element?.track||!subtitleLoaded||!captionView||captionSaving||captionSaveError)return;
+  if(element.track.mode==="disabled"&&captionView.selection!==""){
+    captionNativeHidden=true;saveCaptionView("",0,true);
+  }else if(element.track.mode==="showing"&&captionNativeHidden){
+    captionNativeHidden=false;saveCaptionView(subtitleLoaded,Number(element.dataset.offsetMs)||0,true);
+  }
+}
 video.textTracks?.addEventListener?.("change",()=>{
   // Native caption controls also invalidate retained result callbacks.
   subtitleSearch={...subtitleSearch};renderSubtitleSearch();
+  syncNativeCaptionView();
 });
 
 let previewView={version:0,data:null,building:false,paused:false,owner:null,readVersion:0};

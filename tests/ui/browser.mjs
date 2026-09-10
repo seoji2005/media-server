@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
+import {mkdir} from 'node:fs/promises';
+import path from 'node:path';
 
 const [base, source, subtitle, phase] = process.argv.slice(2);
 assert.match(base, /^http:\/\/127\.0\.0\.1:\d+$/);
@@ -25,6 +27,59 @@ await page.route('**/*', route => {
   return route.continue();
 });
 const video = page.locator('#video');
+async function checkCaptionViewing(trackId){
+  const selector=page.locator('#subtitle-select');
+  await selector.selectOption(trackId);
+  await page.locator('#caption-view-panel').evaluate(el=>el.open=true);
+  await page.locator('#caption-later').click();
+  await page.waitForFunction(()=>{
+    const el=document.querySelector('#video track');
+    return !document.querySelector('#subtitle-select').disabled&&el?.readyState===2&&el.src.endsWith('offset_ms=500');
+  });
+  const cue=await video.evaluate(v=>{const c=[...v.textTracks].find(t=>t.mode==='showing').cues[0];return [c.startTime,c.endTime];});
+  assert.deepEqual(cue,[1.5,18.5]);
+  await video.evaluate(v=>{v.pause();v.currentTime=1.2;});
+  await page.waitForFunction(()=>{const v=document.querySelector('#video');return !v.seeking&&[...v.textTracks].every(t=>!t.activeCues?.length);});
+  await page.locator('#subtitle-search-panel').evaluate(el=>el.open=true);
+  await page.locator('#subtitle-query').fill('자막 재생 확인');
+  await page.locator('#subtitle-results button').click();
+  await page.waitForFunction(()=>document.querySelector('#video').currentTime>=1.5);
+  await video.evaluate(v=>v.pause());
+  assert((await video.evaluate(v=>v.currentTime))<2.5,'search seeks to shifted cue');
+  assert(await video.evaluate(v=>[...v.textTracks].some(t=>t.mode==='showing'&&[...t.activeCues].some(c=>c.text.includes('자막 재생 확인')))));
+  await page.locator('#subtitle-search-panel').evaluate(el=>el.open=false);
+  if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
+    await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
+    await page.locator('#subtitle-preparation').evaluate(el=>el.open=false);
+    await page.locator('#toast').evaluate(el=>el.hidden=true);
+    const frameSettings=()=>page.locator('#caption-view-panel').evaluate(el=>{
+      const dialog=document.querySelector('#player-dialog'),header=dialog.querySelector('header');
+      dialog.scrollTop+=el.getBoundingClientRect().top-dialog.getBoundingClientRect().top-header.getBoundingClientRect().height-16;
+    });
+    await frameSettings();
+    await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`${phase}-desktop.png`)});
+    await page.setViewportSize({width:390,height:844});
+    await frameSettings();
+    assert(await page.locator('#player-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'mobile controls must fit without horizontal scroll');
+    await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`${phase}-mobile.png`)});
+    await page.setViewportSize({width:1280,height:720});
+  }
+  // Native Off is persisted while the native track remains available for On.
+  await video.evaluate(v=>[...v.textTracks].forEach(t=>t.mode='disabled'));
+  await page.waitForFunction(()=>!document.querySelector('#subtitle-select').disabled&&document.querySelector('#subtitle-select').value==='');
+  await page.locator('#player-close').click();
+  await page.waitForFunction(()=>!document.querySelector('#player-dialog').open);
+  await page.locator('.card-button').click();
+  await page.waitForFunction(()=>!document.querySelector('#subtitle-select').disabled);
+  assert.equal(await selector.inputValue(),'');
+  assert.equal(await video.locator('track').count(),0,'Off survives reopen');
+  await video.evaluate(v=>v.pause());
+  await selector.selectOption(trackId);
+  await page.locator('#caption-view-panel').evaluate(el=>el.open=true);
+  await page.locator('#caption-later').click();
+  await page.waitForFunction(()=>!document.querySelector('#subtitle-select').disabled&&document.querySelector('#video track')?.readyState===2);
+  assert.match(await video.locator('track').getAttribute('src'),/offset_ms=500$/);
+}
 async function checkMomentEntry() {
   const session = await (await page.request.get(`${base}/api/session`)).json();
   const headers = {'X-Media-Token': session.token};
@@ -125,6 +180,11 @@ try {
   }
   await page.waitForFunction(count => document.querySelector('#subtitle-select').options.length === count, phase === 'first' ? 2 : 4);
   const trackId = await selector.locator('option').filter({hasText: '가져온 자막'}).getAttribute('value');
+  if(phase==='restart'){
+    await page.waitForFunction(()=>!document.querySelector('#subtitle-select').disabled&&document.querySelector('#video track')?.readyState===2);
+    assert.equal(await selector.inputValue(),trackId,'server restart preserves chosen older version instead of newest generated track');
+    assert.match(await video.locator('track').getAttribute('src'),/offset_ms=500$/);
+  }
   await selector.selectOption(trackId);
   await page.waitForFunction(() => document.querySelector('#video track')?.readyState === 2);
   await video.evaluate(v => { v.pause(); v.currentTime = 5; });
@@ -200,6 +260,7 @@ try {
   await page.waitForFunction(() => [...document.querySelector('#video').textTracks].every(t => t.mode !== 'showing'));
   await selector.selectOption(trackId);
   await page.waitForFunction(() => [...document.querySelector('#video').textTracks].some(t => t.mode === 'showing'));
+  await checkCaptionViewing(trackId);
   await video.evaluate(v => { v.currentTime = 7; });
   await page.waitForFunction(() => !document.querySelector('#video').seeking);
   await page.locator('#player-close').click();
@@ -216,7 +277,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
-    nativeCaption: true, freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
+    nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   await browser.close();
 }

@@ -3,7 +3,7 @@ from .storage import MediaError
 import re
 import uuid
 
-VERSION = 9
+VERSION = 10
 
 
 def companion_identity(db):
@@ -195,6 +195,15 @@ def migrate(db):
             _add(db, 'subtitle_tracks', 'import_identity', 'TEXT')
             db.execute('CREATE UNIQUE INDEX IF NOT EXISTS provided_subtitle_identity ON subtitle_tracks(item_id,import_identity) WHERE import_identity IS NOT NULL')
             db.execute('CREATE INDEX IF NOT EXISTS companion_library_order ON items(created_at DESC,id DESC)')
+        if version < 10:
+            db.execute('''CREATE TABLE IF NOT EXISTS caption_views (
+                item_id TEXT NOT NULL REFERENCES items(id),
+                audio_index INTEGER NOT NULL CHECK(audio_index>=0),
+                selection TEXT,
+                offset_ms INTEGER NOT NULL DEFAULT 0 CHECK(offset_ms BETWEEN -10000 AND 10000),
+                revision INTEGER NOT NULL DEFAULT 0 CHECK(revision>=0),
+                PRIMARY KEY(item_id,audio_index)
+            )''')
         # Existing malformed identities, including old draft v6, never regenerate.
         companion_identity(db)
         db.execute(f'PRAGMA user_version={VERSION}')
