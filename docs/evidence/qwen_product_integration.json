@@ -69,6 +69,87 @@
     "no_failed_track_published": true,
     "stage_complete": false,
     "real_translation_display_verified": false,
-    "restart": "Resume saved-source translation in an authorized runtime with Gemini endpoint access; keep prior results and verify actual browser display."
+    "restart": "Resume saved-source translation in an authorized runtime with Gemini endpoint access; keep prior results and verify actual browser display.",
+    "later_diagnosis": "Direct-only transport omitted the already configured, working platform HTTPS route; prior permission refusal did not establish that this route was unavailable."
+  },
+  "after_system_https_opt_in": {
+    "date": "2026-09-10",
+    "model": "gemini-3.1-flash-lite",
+    "state": "succeeded",
+    "actual_execution_revision": "6c28cc172a4ea954377f00916ae13ce47b48cab1",
+    "subsequent_reviewed_revision": "0814a9543e02a8ac937b3ba1f035ec691e7f9b28",
+    "subsequent_change": "Opt-in flag renamed to MEDIA_GEMINI_USE_SYSTEM_HTTPS so it does not shadow native OS proxy discovery; default-route test isolated. No inference or output transformation changed.",
+    "transport": "real production Gemini HTTPS request; explicit system proxy opt-in",
+    "source_units": 9,
+    "translated_units": 9,
+    "display_cues": 11,
+    "seconds": 29.712,
+    "requests": [
+      {
+        "targets": 8,
+        "model": "gemini-3.1-flash-lite",
+        "outcome": "response_received",
+        "tokens": {
+          "promptTokenCount": 679,
+          "candidatesTokenCount": 148,
+          "totalTokenCount": 927,
+          "thoughtsTokenCount": 100
+        },
+        "seconds": 15.845
+      },
+      {
+        "targets": 1,
+        "model": "gemini-3.1-flash-lite",
+        "outcome": "response_received",
+        "tokens": {
+          "promptTokenCount": 320,
+          "candidatesTokenCount": 31,
+          "totalTokenCount": 473,
+          "thoughtsTokenCount": 122
+        },
+        "seconds": 13.856
+      }
+    ],
+    "fallback_count": 0,
+    "transcript_sha256": "9ec88c90f58af29fec3691edafe26f57c54463ed731c3b5cf91435e0bd6de8f9",
+    "track_sha256": "c06b912b6f191c536befebe9501432263390f9c126d81b56af58505e598989e5",
+    "previous_tracks_unchanged": true,
+    "source_transcript_unchanged": true,
+    "timing_preserved": true,
+    "original_sample_hash_unchanged": true,
+    "timing_review_count": 2,
+    "http_restart_verification": {
+      "checks": [
+        {
+          "phase": "first",
+          "http_status": 200,
+          "ko_and_ja_vtt_match_saved_bytes": true,
+          "old_and_new_tracks_available": true,
+          "translated_units": 9,
+          "timing_review_count": 2,
+          "fallback_count": 0,
+          "new_inference": false
+        },
+        {
+          "phase": "restart",
+          "http_status": 200,
+          "ko_and_ja_vtt_match_saved_bytes": true,
+          "old_and_new_tracks_available": true,
+          "translated_units": 9,
+          "timing_review_count": 2,
+          "fallback_count": 0,
+          "new_inference": false
+        }
+      ],
+      "original_unchanged": true,
+      "browser": "unverified: ordinary Chrome launch blocked by socket EPERM before page creation"
+    },
+    "quality_limitations": [
+      "Short reused public sample, not held-out or long-video evidence.",
+      "Return-home phrase repeated across the hard 30-second ASR seam.",
+      "Native browser display remains unverified: normal Chrome launch failed with socket EPERM."
+    ],
+    "paid_translation_and_persistence_complete": true,
+    "full_display_stage_complete": false
   }
 }

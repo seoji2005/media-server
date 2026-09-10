@@ -25,6 +25,15 @@ setup, diagnostics and application commands. Models use `models/qwen-asr` and
 Windows defaults to CUDA, other systems to CPU. CUDA is float16, CPU float32.
 Only one model is loaded at a time. No target 12 GB fit or Windows inference claim.
 
+Gemini connects directly by default. If the runtime requires a trusted system HTTPS
+proxy (including this Work environment), explicitly set `MEDIA_GEMINI_USE_SYSTEM_HTTPS=1`
+before launching the server or resuming a job. This uses the platform's configured
+HTTPS route; verify that you trust it with the API key and dialogue. It does not
+change the official Google endpoint, TLS verification, redirect prohibition,
+request/response validation or retry policy. Leave the option unset for direct
+connections. The worker inherits it; no transcription or successful translation
+batches need to be repeated just to change the network route.
+
 Existing complete caches can be reused without copying several gigabytes: place an
 explicit `{"asr":"ABSOLUTE_SNAPSHOT_DIRECTORY","aligner":"ABSOLUTE_SNAPSHOT_DIRECTORY"}`
 in the private library's `models/qwen-paths.json`. Each model must have its correct

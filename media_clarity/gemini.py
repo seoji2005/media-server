@@ -84,8 +84,11 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def request(body, key, model=MODEL):
     if model not in CONFIGS:
         raise MediaError('processing_config_changed', 409)
-    # Never pass subtitle text or credentials to an environment proxy or redirect.
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    # Use a trusted system HTTPS route only when the operator explicitly opts in.
+    # Direct connections remain the default; neither mode follows redirects.
+    proxy = (urllib.request.ProxyHandler() if os.environ.get('MEDIA_GEMINI_USE_SYSTEM_HTTPS') == '1'
+             else urllib.request.ProxyHandler({}))
+    opener = urllib.request.build_opener(proxy, NoRedirect())
     endpoint = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
     req = urllib.request.Request(endpoint, data=json.dumps(body, ensure_ascii=False).encode(),
         headers={'Content-Type':'application/json', 'x-goog-api-key':key}, method='POST')

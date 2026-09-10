@@ -30,6 +30,33 @@ def reply(body, key, model=None):
 
 
 class GeminiTransportTests(unittest.TestCase):
+    def test_system_https_opt_in_does_not_shadow_os_proxy_discovery(self):
+        # A *_PROXY flag would become a fake proxy and suppress OS fallback on
+        # Windows/macOS even when no ordinary proxy environment is configured.
+        with patch.dict(os.environ, {'MEDIA_GEMINI_USE_SYSTEM_HTTPS':'1'}, clear=True):
+            self.assertEqual(urllib.request.getproxies_environment(), {})
+
+    def test_system_proxy_requires_explicit_opt_in_and_keeps_destination_guards(self):
+        configured = {'https':'http://127.0.0.1:12345'}
+        for option in ('', '0', 'true', '1'):
+            with (self.subTest(option=option),
+                  patch.dict(os.environ, {'MEDIA_GEMINI_USE_SYSTEM_HTTPS':option}),
+                  patch('urllib.request.getproxies', return_value=configured),
+                  patch('media_clarity.gemini.urllib.request.build_opener') as build):
+                body = io.BytesIO(b'private-provider-body synthetic-key')
+                build.return_value.open.side_effect = urllib.error.HTTPError(
+                    gemini.ENDPOINT, 403, 'private', {}, body)
+                with self.assertRaisesRegex(MediaError, '^gemini_auth_failed$'):
+                    gemini.request({'synthetic':'dialogue'}, 'synthetic-key')
+                proxy, redirect = build.call_args.args
+                self.assertEqual(proxy.proxies, configured if option == '1' else {})
+                self.assertIsNone(redirect.redirect_request(None,None,302,'',{},'https://example.com'))
+                req = build.return_value.open.call_args.args[0]
+                self.assertEqual(req.full_url, gemini.ENDPOINT)
+                self.assertEqual(req.get_header('X-goog-api-key'), 'synthetic-key')
+                self.assertEqual(build.return_value.open.call_count, 1)
+                self.assertTrue(body.closed)
+
     def test_prompt_profiles_are_exact_and_reject_unknown_identity(self):
         self.assertNotEqual(gemini.CONFIG, gemini.CONFIGS[gemini.MODEL])
         for config, prompt in gemini.PROFILES.items():
@@ -59,7 +86,8 @@ class GeminiTransportTests(unittest.TestCase):
 
     def test_request_fixed_destination_no_proxy_redirect_or_retry(self):
         data = json.dumps(response([{'id':'0', 'text':'안녕'}])).encode()
-        with patch('media_clarity.gemini.urllib.request.build_opener') as build:
+        with (patch.dict(os.environ, {'MEDIA_GEMINI_USE_SYSTEM_HTTPS':''}),
+              patch('media_clarity.gemini.urllib.request.build_opener') as build):
             build.return_value.open.return_value = io.BytesIO(data)
             result = gemini.request({'synthetic':'dialogue'}, 'synthetic-key')
             args = build.call_args.args
