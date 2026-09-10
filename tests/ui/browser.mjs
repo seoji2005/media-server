@@ -50,10 +50,16 @@ async function checkCaptionViewing(trackId){
   await page.locator('#subtitle-search-panel').evaluate(el=>el.open=false);
   if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
     await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
-    await page.locator('#caption-view-panel').scrollIntoViewIfNeeded();
+    await page.locator('#subtitle-preparation').evaluate(el=>el.open=false);
+    await page.locator('#toast').evaluate(el=>el.hidden=true);
+    const frameSettings=()=>page.locator('#caption-view-panel').evaluate(el=>{
+      const dialog=document.querySelector('#player-dialog'),header=dialog.querySelector('header');
+      dialog.scrollTop+=el.getBoundingClientRect().top-dialog.getBoundingClientRect().top-header.getBoundingClientRect().height-16;
+    });
+    await frameSettings();
     await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`${phase}-desktop.png`)});
     await page.setViewportSize({width:390,height:844});
-    await page.locator('#caption-view-panel').scrollIntoViewIfNeeded();
+    await frameSettings();
     assert(await page.locator('#player-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'mobile controls must fit without horizontal scroll');
     await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`${phase}-mobile.png`)});
     await page.setViewportSize({width:1280,height:720});
