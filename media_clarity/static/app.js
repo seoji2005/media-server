@@ -375,7 +375,7 @@ function renderCaptionView(){
   $("subtitle-select").disabled=disabled;
   $("caption-earlier").disabled=disabled||!subtitleLoaded||captionNativeHidden||offset<=-10000;
   $("caption-later").disabled=disabled||!subtitleLoaded||captionNativeHidden||offset>=10000;
-  $("caption-reset").disabled=disabled||!offset;
+  $("caption-reset").disabled=disabled||!subtitleLoaded||captionNativeHidden||!offset;
   $("caption-auto").disabled=disabled;
   $("caption-offset-brief").textContent=offset?`${Math.abs(offset/1000).toFixed(1)}초 ${offset<0?"앞당김":"늦춤"}`:"원래 시간";
   $("caption-view-state").textContent=captionSaving?"자막 설정 저장 중…":captionSaveError?captionSaveError+" 현재 감상에는 적용했지만 저장 여부를 확인하지 못했습니다.":!captionView?"자막 설정을 확인하고 있어요.":captionView.selection===null?"다시 열면 최신 자막을 자동으로 선택합니다.":`오디오 ${(activeItem?.audio_index||0)+1}의 자막 설정을 이 기기에 저장했습니다. 다른 자막을 선택하면 원래 시간으로 시작합니다.`;

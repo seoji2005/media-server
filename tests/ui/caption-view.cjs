@@ -62,7 +62,9 @@ async function nativeMode(mode){video.querySelector('track').track.mode=mode;vid
  delay=false;pending();await settle();assert.equal(select.value,'first:transcript');assert.match(video.querySelector('track').src,/offset_ms=500$/);
  await choose('');tracks.unshift({id:'new',source:'supplied',audio_index:0});await w.qa.refreshSubtitles(w.qa.owner());assert.equal(select.value,'');
  d.getElementById('caption-auto').click();await settle();assert.equal(select.value,'new');assert.equal(views.get('a:0').selection,null);
- await choose('first:transcript');tracks[1].has_transcript=false;await w.qa.refreshSubtitles(w.qa.owner());assert.equal(select.value,'');assert.equal(video.querySelector('track'),null);assert.match(state.textContent,/저장한 자막을 찾을 수/);
+ await choose('first:transcript');d.getElementById('caption-later').click();await settle();
+ tracks[1].has_transcript=false;await w.qa.refreshSubtitles(w.qa.owner());assert.equal(select.value,'');assert.equal(video.querySelector('track'),null);assert.match(state.textContent,/저장한 자막을 찾을 수/);
+ assert.equal(d.getElementById('caption-reset').disabled,true,'missing saved version cannot offer a timing action with no target');
  assert.equal(video.currentTime,7,'view settings never seek or reload the media source');
  assert(writes.every(r=>r.key==='a:0'||r.key==='a:1'));
  console.log('PASS caption viewing DOM: audio-specific choice/offset, native Off/On, stale write isolation, reopen waits, lost response/conflict recovery, missing track, automatic reset (mocked HTTP/media).');
