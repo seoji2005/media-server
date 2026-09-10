@@ -6,6 +6,7 @@ let preferenceVersion = 0, savedPreference = null;
 const pendingPreferences = new Map();
 const preparingPlayback = new Set();
 let playerRequest = 0, entryAwaitingPlay = false;
+let pendingItemEntry = null;
 let toastTimer, saveTimer, saveChain = Promise.resolve(), lastQueuedPosition = null;
 const video = $("video"), dialog = $("player-dialog");
 $("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
@@ -194,6 +195,7 @@ async function preparePlayback(id) {
 async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false) {
   if(!entry) momentRequest++;
   let request = ++playerRequest;
+  pendingItemEntry=null;
   $("item-entry-notice").hidden=true; $("item-entry-prepare").onclick=null;
   try {
     const itemEntry=entry&&entryKind==="item";
@@ -216,7 +218,8 @@ async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false
       if(itemEntry&&!prepareEntry){
         $("item-entry-message").textContent=`${item.title} · 원본은 보관돼 있습니다. 감상하려면 재생용 사본을 준비해 주세요.`;
         $("item-entry-notice").hidden=false; $("item-entry-prepare").hidden=false;
-        $("item-entry-prepare").onclick=()=>{if(request===playerRequest)openPlayer(id,entry,"item",true);};
+        pendingItemEntry=entry;
+        $("item-entry-prepare").onclick=()=>{if(pendingItemEntry===entry)openPlayer(id,entry,"item",true);};
         if(dialog.open)toast("연결한 영상은 재생 준비가 필요합니다. 보관함에서 준비해 주세요.");
         return;
       }
@@ -245,7 +248,7 @@ async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
     resetSubtitles(); video.src=`/api/media/${id}/content${audioQuery(item)}`; dialog.showModal(); dialog.scrollTop=0; refreshSubtitles(item);
     refreshPreference(item);
-    video.addEventListener("loadedmetadata", function restore(){ if(request!==playerRequest||!activeItem||activeItem.id!==id) return; const start=moment?moment.start_ms/1000:continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=moment?`${time(start)} 장면 · 재생 버튼을 눌러 시작하세요`:start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
+    video.addEventListener("loadedmetadata", function restore(){ if(activeItem!==item) return; const start=moment?moment.start_ms/1000:continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=moment?`${time(start)} 장면 · 재생 버튼을 눌러 시작하세요`:start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
     // Autoplay is optional; browser policy may require the native play button.
     if(!entry) video.play().catch(()=>{});
   } catch(e) {
@@ -352,6 +355,7 @@ const initialMoment=takeMomentEntry();
 window.addEventListener("hashchange",async()=>{
   const entry=takeMomentEntry();if(!entry)return;
   const request=++momentRequest,player=++playerRequest;
+  pendingItemEntry=null;
   $("item-entry-notice").hidden=true; $("item-entry-prepare").onclick=null;
   if(!entry.value)return;
   await momentSession;

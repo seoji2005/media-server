@@ -19,9 +19,14 @@ processing change. [Contract](companion-library.md#open-a-specific-imported-vide
 
 Focused author Python/API and all eight DOM suites passed locally. Real browser
 startup/restart and synthetic MKV/provided-caption preparation checks are added to
-the existing Ubuntu/Windows CI; their final results and independent review remain
-pending. Local DOM/TestClient are not actual browser or socket execution. Keep final
-fixed HEAD, review and CI/merge facts in the PR, not a growing ledger here.
+the existing Ubuntu/Windows CI; final results remain pending. Fresh independent
+review found two player-lifetime defects (pending preparation after close; rejected
+link cancelling delayed resume); both fixes and independent probes passed.
+[Actual saved-sample HTTP/restart](evidence/item_entry_saved_playback.json) preserved
+all database rows, five tracks/ten canonical views, source +500 ms, original bytes
+and Range 206, with zero model/translation calls and empty logs. This reused the
+prior public 35-second outputs; it is not new inference or browser display. Keep
+final fixed HEAD and CI/merge facts in the PR, not a growing ledger here.
 
 ## Reconciled next work
 

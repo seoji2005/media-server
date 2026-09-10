@@ -49,6 +49,7 @@ module.exports=async function checkItemEntry(html,source){
    w.eval(source+'\nglobalThis.qa={openPlayer,closePlayer,owner:()=>activeItem};');
    await tick();w.location.hash=fragment(b);await tick();release();await tick();
    assert.equal(w.qa.owner().id,b.item_id,'latest entry wins over slow startup/read');
+   w.location.hash=fragment({...a,library_id:'f'.repeat(32)});await tick();
    v.dispatchEvent(new w.Event('loadedmetadata'));assert.equal(v.currentTime,8.25);
    assert.equal(plays,0);assert.equal(d.getElementById('subtitle-select').value,'');assert.equal(v.querySelector('track'),null);
    assert.match(v.src,/audio_index=1$/);assert.equal(d.getElementById('player-title').textContent,'<private> 영상');
@@ -65,9 +66,12 @@ module.exports=async function checkItemEntry(html,source){
    w.location.hash=fragment(a);await tick();
    assert.equal(d.getElementById('subtitle-select').value,track.id);assert.match(v.querySelector('track').src,/offset_ms=500$/);
    await w.qa.closePlayer();
+   await w.qa.openPlayer(b.item_id,b,'item');await tick();
    items[0].available=false;items[0].unavailable_reason='rendition_required';
    w.location.hash=fragment(a);await tick();
-   assert.equal(dialog.open,false);assert.equal(d.getElementById('item-entry-notice').hidden,false);
+   assert.equal(dialog.open,true);assert.equal(w.qa.owner().id,b.item_id);
+   await w.qa.closePlayer();
+   assert.equal(d.getElementById('item-entry-notice').hidden,false);
    assert.equal(posts.filter(p=>p.endsWith('/playback')).length,0,'navigation cannot prepare a rendition');
    d.getElementById('item-entry-prepare').click();await tick();
    assert.equal(posts.filter(p=>p.endsWith('/playback')).length,1);assert.equal(dialog.open,true);assert.equal(plays,0);assert.equal(writes.length,0);
