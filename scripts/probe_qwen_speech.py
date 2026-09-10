@@ -15,6 +15,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from media_clarity.qwen import PACKAGES, QwenSpeech, SpeechTimings, private_runtime
+from media_clarity.asr_checkpoints import validate_part
 from media_clarity.storage import MediaError, no_symlink
 
 
@@ -143,6 +144,11 @@ def run(args):
             if prior is not None and any(prior.get(key) != report[key] for key in
                     ('input_sha256', 'runtime_identity', 'profile', 'duration', 'audio_index')):
                 raise MediaError('processing_config_changed', 409)
+            for part in saved:
+                # Use the same structural/evidence gate as product DB recovery,
+                # before malformed data can be published under this runtime.
+                if set(validate_part(part, args.duration)) != {'clip', 'cues', 'evidence', 'error'}:
+                    raise MediaError('processing_checkpoint_invalid', 409)
             parts = list(saved)
             report['saved_spans'] = len(saved)
             accepted = True

@@ -1,6 +1,7 @@
 """The offline probe refuses overwrite and never places text/paths in its summary."""
 from contextlib import ExitStack
 import json
+import hashlib
 from pathlib import Path
 import subprocess
 import sys
@@ -10,6 +11,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from scripts import probe_qwen_speech as probe
+from media_clarity import qwen
 
 
 class ProbeTests(unittest.TestCase):
@@ -21,7 +23,12 @@ class ProbeTests(unittest.TestCase):
         self.input.write_bytes(b'original media')
         self.args = types.SimpleNamespace(input=self.input, output=self.root / 'result',
             data_dir=self.root, duration=1., audio_index=0, threads=4, resume_from=None, reuse_spans=None)
-        self.part = {'clip': [0, 1], 'cues': [], 'evidence': {'text': 'private dialogue'}, 'error': None}
+        self.part = {'clip': [0, 1],
+            'cues': [{'start': .1, 'end': .5, 'text': 'private dialogue.'}],
+            'evidence': {'profile': qwen.PROFILE, 'language': 'English',
+                'text': 'private dialogue.', 'audio_sha256': 'a' * 64,
+                'units': [{'text': 'private dialogue', 'start': .1, 'end': .5, 'raw_start': .1, 'raw_end': .5}],
+                'boundary': 'end', 'recognition_end': 1}, 'error': None}
         self.speech = Mock(asr_profile='profile', device='cpu')
         self.speech.identity.return_value = 'a' * 64
         self.speech.transcribe_parts.return_value = iter([self.part])
@@ -72,6 +79,8 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(summary['retained_spans'], 0)
 
     def test_unresolved_saved_evidence_never_becomes_complete(self):
+        self.part['evidence']['units'][0].update(start=0., end=0., raw_start=0., raw_end=0.)
+        self.part['cues'] = []
         self.part['error'] = 'alignment_unresolved'
         self.assertEqual(probe.run(self.args), 1)
         self.args.resume_from = self.args.output
@@ -138,6 +147,36 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(probe.run(self.args), 1)
         self.assertFalse(self.summary()['resumable'])
         self.assertEqual(self.summary()['retained_spans'], 0)
+
+    def test_malformed_hashed_parts_never_become_resumable(self):
+        self.assertEqual(probe.run(self.args), 0)
+        prior = self.args.output
+        raw = (prior / 'checkpoint.json').read_bytes()
+        changes = [('clip', None), ('clip', []), ('evidence', []), ('cues', None)]
+        for index, (key, value) in enumerate(changes):
+            checkpoint = json.loads(raw)
+            if value is None:
+                del checkpoint['parts'][0][key]
+            else:
+                checkpoint['parts'][0][key] = value
+            checkpoint['summary']['parts_sha256'] = hashlib.sha256(probe.canonical(checkpoint['parts'])).hexdigest()
+            (prior / 'checkpoint.json').write_bytes(probe.canonical(checkpoint))
+            self.args.resume_from, self.args.output = prior, self.root / ('malformed-' + str(index))
+            self.speech.transcribe_parts.reset_mock()
+            self.assertEqual(probe.run(self.args), 1)
+            self.speech.transcribe_parts.assert_not_called()
+            self.assertEqual(self.summary()['error'], 'processing_checkpoint_invalid')
+            self.assertFalse(self.summary()['resumable'])
+            self.assertEqual(self.summary()['retained_spans'], 0)
+
+    def test_valid_saved_prefix_survives_later_model_failure(self):
+        self.assertEqual(probe.run(self.args), 0)
+        self.args.resume_from, self.args.output = self.args.output, self.root / 'model-failed'
+        self.speech.transcribe_parts.side_effect = RuntimeError('private model failure')
+        self.assertEqual(probe.run(self.args), 1)
+        self.assertEqual(self.summary()['error'], 'RuntimeError')
+        self.assertTrue(self.summary()['resumable'])
+        self.assertEqual(self.summary()['retained_spans'], 1)
 
     def test_failed_atomic_replacement_leaves_previous_checkpoint_readable(self):
         self.assertEqual(probe.run(self.args), 0)
