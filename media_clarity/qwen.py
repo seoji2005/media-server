@@ -1,7 +1,7 @@
 """Local Qwen speech recognition and separate forced alignment, one window at a time."""
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import gc
 import hashlib
 import importlib.metadata
@@ -13,7 +13,9 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
+import time
 import unicodedata
 
 from .storage import MediaError, RESERVE, file_signature, no_symlink, run_media, safe_io
@@ -330,14 +332,42 @@ def decoded_audio(path, duration, audio_index):
         raise safe_io(exc) from None
 
 
+class SpeechTimings:
+    """Opt-in, bounded aggregates. Never part of model identity or checkpoints."""
+    def __init__(self):
+        self.phases = {f'{kind}_{phase}': {'calls': 0, 'seconds': 0., 'failures': 0}
+                      for kind in ('asr', 'align')
+                      for phase in ('load', 'prepare', 'infer', 'decode', 'cleanup')}
+
+    @contextmanager
+    def measure(self, name, synchronize=None):
+        row = self.phases[name]
+        failed = True
+        started = time.perf_counter()
+        try:
+            if synchronize:
+                synchronize()
+            started = time.perf_counter()
+            yield
+            if synchronize:
+                synchronize()
+            failed = False
+        finally:
+            row['calls'] += 1
+            row['seconds'] += time.perf_counter() - started
+            row['failures'] += int(failed)
+
+
 class QwenSpeech:
     asr_profile = PROFILE
     audio_timing = 'source-timestamps-v1'
+    timings = None
 
-    def __init__(self, root, profile=PROFILE):
+    def __init__(self, root, profile=PROFILE, *, timings=None):
         if profile not in PROFILES:
             raise MediaError('processing_config_changed', 409)
         self.asr_profile = profile
+        self.timings = timings
         from .models import device_configuration
         private_runtime()
         self.paths = local_models(root, check_packages=True)
@@ -370,31 +400,47 @@ class QwenSpeech:
                         digest.update((path.relative_to(root).as_posix() + str(target) + repr(file_signature(stream))).encode())
         return digest.hexdigest()
 
+    def _phase(self, name):
+        if self.timings is None:
+            return nullcontext()
+        synchronize = None
+        # Cleanup must run even if CUDA synchronization fails. Successful decode
+        # already drained preceding work; cleanup adds no new model operations.
+        # Failed execution timings are partial, not successful cost samples.
+        if self.device == 'cuda' and not name.endswith('_cleanup') and sys.exc_info()[0] is None:
+            import torch
+            synchronize = torch.cuda.synchronize
+        return self.timings.measure(name, synchronize)
+
     def recognize(self, audio):
         import torch
         from transformers import AutoModelForMultimodalLM, AutoProcessor
         dtype = torch.float16 if self.device == 'cuda' else torch.float32
         model = processor = inputs = output = generated = None
         try:
-            processor = AutoProcessor.from_pretrained(str(self.paths['asr']), local_files_only=True, trust_remote_code=False)
-            model = AutoModelForMultimodalLM.from_pretrained(str(self.paths['asr']), local_files_only=True,
-                trust_remote_code=False, use_safetensors=True, dtype=dtype, attn_implementation='sdpa').to(self.device).eval()
-            inputs = processor.apply_transcription_request(audio=audio, language=None, prompt=None).to(self.device, dtype)
-            with torch.inference_mode():
+            with self._phase('asr_load'):
+                processor = AutoProcessor.from_pretrained(str(self.paths['asr']), local_files_only=True, trust_remote_code=False)
+                model = AutoModelForMultimodalLM.from_pretrained(str(self.paths['asr']), local_files_only=True,
+                    trust_remote_code=False, use_safetensors=True, dtype=dtype, attn_implementation='sdpa').to(self.device).eval()
+            with self._phase('asr_prepare'):
+                inputs = processor.apply_transcription_request(audio=audio, language=None, prompt=None).to(self.device, dtype)
+            with self._phase('asr_infer'), torch.inference_mode():
                 output = model.generate(**inputs, do_sample=False, max_new_tokens=1024)
-            generated = output[:, inputs['input_ids'].shape[1]:]
-            eos = model.config.eos_token_id
-            eos = [eos] if isinstance(eos, int) else eos
-            if not any(token in eos for token in generated[0].tolist()):
-                raise MediaError('asr_truncated', 422)
-            parsed = processor.decode(generated, return_format='parsed')[0]
-            text, language = parsed['transcription'], parsed['language']
-            if not isinstance(text, str) or len(text) > 4000:
-                raise MediaError('asr_truncated', 422)
-            return text, language
+            with self._phase('asr_decode'):
+                generated = output[:, inputs['input_ids'].shape[1]:]
+                eos = model.config.eos_token_id
+                eos = [eos] if isinstance(eos, int) else eos
+                if not any(token in eos for token in generated[0].tolist()):
+                    raise MediaError('asr_truncated', 422)
+                parsed = processor.decode(generated, return_format='parsed')[0]
+                text, language = parsed['transcription'], parsed['language']
+                if not isinstance(text, str) or len(text) > 4000:
+                    raise MediaError('asr_truncated', 422)
+                return text, language
         finally:
-            model = processor = inputs = output = generated = None
-            self.close()
+            with self._phase('asr_cleanup'):
+                model = processor = inputs = output = generated = None
+                self.close()
 
     def align(self, audio, text, language):
         if language == 'Korean' and importlib.util.find_spec('soynlp') is None:
@@ -404,26 +450,30 @@ class QwenSpeech:
         dtype = torch.float16 if self.device == 'cuda' else torch.float32
         model = processor = inputs = output = None
         try:
-            processor = AutoProcessor.from_pretrained(str(self.paths['aligner']), local_files_only=True, trust_remote_code=False)
-            model = AutoModelForTokenClassification.from_pretrained(str(self.paths['aligner']), local_files_only=True,
-                trust_remote_code=False, use_safetensors=True, dtype=dtype, attn_implementation='sdpa').to(self.device).eval()
-            inputs, words = processor.prepare_forced_aligner_inputs(audio=audio, transcript=text,
-                language=language, sampling_rate=SAMPLE_RATE)
-            inputs = inputs.to(self.device, dtype)
-            with torch.inference_mode():
+            with self._phase('align_load'):
+                processor = AutoProcessor.from_pretrained(str(self.paths['aligner']), local_files_only=True, trust_remote_code=False)
+                model = AutoModelForTokenClassification.from_pretrained(str(self.paths['aligner']), local_files_only=True,
+                    trust_remote_code=False, use_safetensors=True, dtype=dtype, attn_implementation='sdpa').to(self.device).eval()
+            with self._phase('align_prepare'):
+                inputs, words = processor.prepare_forced_aligner_inputs(audio=audio, transcript=text,
+                    language=language, sampling_rate=SAMPLE_RATE)
+                inputs = inputs.to(self.device, dtype)
+            with self._phase('align_infer'), torch.inference_mode():
                 output = model(**inputs)
-            classes = output.logits[0].argmax(-1)[inputs['input_ids'][0] == model.config.timestamp_token_id].cpu().tolist()
-            official = processor.decode_forced_alignment(logits=output.logits, input_ids=inputs['input_ids'],
-                word_lists=words, timestamp_token_id=model.config.timestamp_token_id)[0]
-            if len(classes) != 2 * len(official):
-                raise MediaError('alignment_unresolved', 422)
-            tick = processor.timestamp_segment_time / 1000
-            return [{'text':unit['text'], 'start':float(unit['start_time']), 'end':float(unit['end_time']),
-                     'raw_start':classes[2*i]*tick, 'raw_end':classes[2*i+1]*tick}
-                    for i, unit in enumerate(official)]
+            with self._phase('align_decode'):
+                classes = output.logits[0].argmax(-1)[inputs['input_ids'][0] == model.config.timestamp_token_id].cpu().tolist()
+                official = processor.decode_forced_alignment(logits=output.logits, input_ids=inputs['input_ids'],
+                    word_lists=words, timestamp_token_id=model.config.timestamp_token_id)[0]
+                if len(classes) != 2 * len(official):
+                    raise MediaError('alignment_unresolved', 422)
+                tick = processor.timestamp_segment_time / 1000
+                return [{'text':unit['text'], 'start':float(unit['start_time']), 'end':float(unit['end_time']),
+                         'raw_start':classes[2*i]*tick, 'raw_end':classes[2*i+1]*tick}
+                        for i, unit in enumerate(official)]
         finally:
-            model = processor = inputs = output = None
-            self.close()
+            with self._phase('align_cleanup'):
+                model = processor = inputs = output = None
+                self.close()
 
     def transcribe_parts(self, path, duration, audio_index, saved):
         with decoded_audio(path, duration, audio_index) as (stream, count):

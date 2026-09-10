@@ -1,0 +1,250 @@
+{
+  "scope": "Actual local CPU Qwen speech, not translation/player/RTX acceptance. Timings include observer overhead and cache state, no speedup comparison. First run used initial probe; final/resume used provenance-bound probe.",
+  "runs": {
+    "public35-first": {
+      "complete": true,
+      "profile": "qwen3-asr-1.7b-fa-0.6b-v2:all-audio-30s-quiet-cut:auto-language:aligned-phrase-handoff-20s",
+      "input_sha256": "a10542cfd29cdaccadea7182284a4367d4756f868c9cf5243460c2bdac0efeba",
+      "duration": 35.0,
+      "audio_index": 0,
+      "threads": 4,
+      "saved_spans": 0,
+      "new_spans": 2,
+      "network_attempts": 0,
+      "phases": {
+        "asr_load": {
+          "calls": 2,
+          "seconds": 6.604428754988476,
+          "failures": 0
+        },
+        "asr_prepare": {
+          "calls": 2,
+          "seconds": 0.026584375998936594,
+          "failures": 0
+        },
+        "asr_infer": {
+          "calls": 2,
+          "seconds": 62.75730197799567,
+          "failures": 0
+        },
+        "asr_decode": {
+          "calls": 2,
+          "seconds": 0.006777563001378439,
+          "failures": 0
+        },
+        "asr_cleanup": {
+          "calls": 2,
+          "seconds": 0.7752700609926251,
+          "failures": 0
+        },
+        "align_load": {
+          "calls": 2,
+          "seconds": 2.632285592997505,
+          "failures": 0
+        },
+        "align_prepare": {
+          "calls": 2,
+          "seconds": 1.6375970919980318,
+          "failures": 0
+        },
+        "align_infer": {
+          "calls": 2,
+          "seconds": 8.21941290399991,
+          "failures": 0
+        },
+        "align_decode": {
+          "calls": 2,
+          "seconds": 0.008853689992974978,
+          "failures": 0
+        },
+        "align_cleanup": {
+          "calls": 2,
+          "seconds": 0.7175440230057575,
+          "failures": 0
+        }
+      },
+      "code_revision": "929d136df3ddf2190c692b2f31c12a8cd68f35ed",
+      "scope": "Local speech only. No Gemini, database or playback. Failed timings are partial.",
+      "device": "cpu",
+      "runtime_identity": "75dc18e8c5bb16aa39c0676d68e25127aa825c6f9f61ee83888168a06e31f1d1",
+      "packages": {
+        "torch": "2.8.0+cpu",
+        "transformers": "5.16.1",
+        "numpy": "2.5.3",
+        "librosa": "1.0.0",
+        "nagisa": "0.3.0",
+        "soynlp": "0.0.493",
+        "tokenizers": "0.23.2"
+      },
+      "setup_seconds": 3.3180445850011893,
+      "speech_seconds": 83.51508061299683,
+      "elapsed_seconds": 86.92498722200253,
+      "parts_sha256": "d4892a1f20ced98542e66c5b1d50f958eb6514ed4d4744fbc764b5a296d694aa"
+    },
+    "public35-final": {
+      "complete": true,
+      "profile": "qwen3-asr-1.7b-fa-0.6b-v2:all-audio-30s-quiet-cut:auto-language:aligned-phrase-handoff-20s",
+      "input_sha256": "a10542cfd29cdaccadea7182284a4367d4756f868c9cf5243460c2bdac0efeba",
+      "duration": 35.0,
+      "audio_index": 0,
+      "threads": 4,
+      "saved_spans": 0,
+      "new_spans": 2,
+      "resumable": true,
+      "network_attempts": 0,
+      "phases": {
+        "asr_load": {
+          "calls": 2,
+          "seconds": 7.574751150001248,
+          "failures": 0
+        },
+        "asr_prepare": {
+          "calls": 2,
+          "seconds": 0.03295963099662913,
+          "failures": 0
+        },
+        "asr_infer": {
+          "calls": 2,
+          "seconds": 67.12566699300078,
+          "failures": 0
+        },
+        "asr_decode": {
+          "calls": 2,
+          "seconds": 0.0062270429989439435,
+          "failures": 0
+        },
+        "asr_cleanup": {
+          "calls": 2,
+          "seconds": 0.8063214720095857,
+          "failures": 0
+        },
+        "align_load": {
+          "calls": 2,
+          "seconds": 2.462783038005,
+          "failures": 0
+        },
+        "align_prepare": {
+          "calls": 2,
+          "seconds": 1.6444547569917631,
+          "failures": 0
+        },
+        "align_infer": {
+          "calls": 2,
+          "seconds": 8.064372430999356,
+          "failures": 0
+        },
+        "align_decode": {
+          "calls": 2,
+          "seconds": 0.008997605997137725,
+          "failures": 0
+        },
+        "align_cleanup": {
+          "calls": 2,
+          "seconds": 0.7385444600004121,
+          "failures": 0
+        }
+      },
+      "code_revision": "dd57fde43f152ac5ad2f7e84f2ccce1dda70a36c",
+      "scope": "Local speech only. No Gemini, database or playback. Failed timings are partial.",
+      "device": "cpu",
+      "runtime_identity": "75dc18e8c5bb16aa39c0676d68e25127aa825c6f9f61ee83888168a06e31f1d1",
+      "packages": {
+        "torch": "2.8.0+cpu",
+        "transformers": "5.16.1",
+        "numpy": "2.5.3",
+        "librosa": "1.0.0",
+        "nagisa": "0.3.0",
+        "soynlp": "0.0.493",
+        "tokenizers": "0.23.2"
+      },
+      "setup_seconds": 3.5750402260018745,
+      "speech_seconds": 88.59079426400422,
+      "elapsed_seconds": 92.25107022200245,
+      "retained_spans": 2,
+      "parts_sha256": "d4892a1f20ced98542e66c5b1d50f958eb6514ed4d4744fbc764b5a296d694aa"
+    },
+    "public35-resume": {
+      "complete": true,
+      "profile": "qwen3-asr-1.7b-fa-0.6b-v2:all-audio-30s-quiet-cut:auto-language:aligned-phrase-handoff-20s",
+      "input_sha256": "a10542cfd29cdaccadea7182284a4367d4756f868c9cf5243460c2bdac0efeba",
+      "duration": 35.0,
+      "audio_index": 0,
+      "threads": 4,
+      "saved_spans": 2,
+      "new_spans": 0,
+      "resumable": true,
+      "network_attempts": 0,
+      "phases": {
+        "asr_load": {
+          "calls": 0,
+          "seconds": 0.0,
+          "failures": 0
+        },
+        "asr_prepare": {
+          "calls": 0,
+          "seconds": 0.0,
+          "failures": 0
+        },
+        "asr_infer": {
+          "calls": 0,
+          "seconds": 0.0,
+          "failures": 0
+        },
+        "asr_decode": {
+          "calls": 0,
+          "seconds": 0.0,
+          "failures": 0
+        },
+        "asr_cleanup": {
+          "calls": 0,
+          "seconds": 0.0,
+          "failures": 0
+        },
+        "align_load": {
+          "calls": 0,
+          "seconds": 0.0,
+          "failures": 0
+        },
+        "align_prepare": {
+          "calls": 0,
+          "seconds": 0.0,
+          "failures": 0
+        },
+        "align_infer": {
+          "calls": 0,
+          "seconds": 0.0,
+          "failures": 0
+        },
+        "align_decode": {
+          "calls": 0,
+          "seconds": 0.0,
+          "failures": 0
+        },
+        "align_cleanup": {
+          "calls": 0,
+          "seconds": 0.0,
+          "failures": 0
+        }
+      },
+      "code_revision": "dd57fde43f152ac5ad2f7e84f2ccce1dda70a36c",
+      "scope": "Local speech only. No Gemini, database or playback. Failed timings are partial.",
+      "device": "cpu",
+      "runtime_identity": "75dc18e8c5bb16aa39c0676d68e25127aa825c6f9f61ee83888168a06e31f1d1",
+      "packages": {
+        "torch": "2.8.0+cpu",
+        "transformers": "5.16.1",
+        "numpy": "2.5.3",
+        "librosa": "1.0.0",
+        "nagisa": "0.3.0",
+        "soynlp": "0.0.493",
+        "tokenizers": "0.23.2"
+      },
+      "setup_seconds": 3.8278675179972197,
+      "speech_seconds": 0.12243661599495681,
+      "elapsed_seconds": 4.02262134400371,
+      "retained_spans": 2,
+      "parts_sha256": "d4892a1f20ced98542e66c5b1d50f958eb6514ed4d4744fbc764b5a296d694aa"
+    }
+  },
+  "result_hashes_equal": true
+}

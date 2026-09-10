@@ -133,6 +133,41 @@ Provided foreign captions accepted through the companion endpoint can also be
 translated directly with Gemini. Their original text/times/bytes remain preserved;
 neither ASR nor an aligner runs. Korean provided tracks already avoid needless ASR.
 
+## Measure local speech cost
+
+After installing the existing runtime and models, an explicit offline probe can
+measure the actual speech path without translation or library jobs:
+
+```powershell
+.\.venv\Scripts\python scripts/probe_qwen_speech.py --input SAMPLE.mp4 --duration 35 --data-dir MODEL_DATA_DIR --output NEW_OUTPUT_DIR --threads 4
+```
+
+Use the source duration in seconds and `--audio-index` for a nondefault audio track.
+The output directory must be new and outside the checkout. `parts.json` contains
+raw recognized dialogue/evidence and stays private; `summary.json` contains only
+input/result hashes, runtime identity, package versions, counts and timings.
+The probe does not download models and blocks Python network access. Use the
+explicit setup command first. No Gemini, database, player or saved-track change.
+
+Each ASR and alignment call measures load (processor and weights through device
+transfer), input preparation, inference, result decoding/validation, and cleanup
+(reference release and existing garbage collection/cache cleanup). Normal app jobs
+leave timing disabled, with no clock calls or added CUDA synchronization. The probe
+synchronizes CUDA at model-work boundaries; cleanup adds no synchronization that
+could prevent reference release or mask the original failure. Failed phases are
+partial observations. The speech total also includes PCM decoding, segmentation and evidence
+validation. Setup/import/identity time is separate. These timings include observer
+overhead and filesystem cache state; they are not a cold-start or target-device claim.
+
+`--resume-from PREVIOUS_OUTPUT_DIR` verifies the prior summary's input hash, runtime
+identity, profile, duration, audio selection and canonical parts hash before using
+the production span validator. Saved spans and new spans are counted separately;
+a complete saved input should make zero ASR/alignment calls. `--reuse-spans N` selects
+a bounded prefix only after verification; it never modifies the prior evidence.
+Original input and model identity are checked again after processing. An error or
+unresolved span leaves `complete: false`; it is not a successful performance sample.
+Do not commit raw outputs or infer broad quality/speed from a single short clip.
+
 ## Verification boundaries
 
 Regression tests exercise the prefix split, zero-time preservation, strict Gemini
