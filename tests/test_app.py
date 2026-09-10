@@ -11,6 +11,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -178,9 +179,24 @@ s.save_position(sys.argv[2],3.25)
         source = Path(self.temp.name) / 'touched.mp4'
         source.write_bytes(self.video_bytes)
         before = source.stat()
+        with source.open('rb') as stream:
+            original_signature = file_signature(stream)
         def touch_and_restore():
-            os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns - 1_000_000_000))
-            os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+            # A creation and metadata update can share one native clock tick.
+            # Establish an observable metadata change before testing rejection;
+            # keep the content and restored mtime invariant throughout.
+            deadline = time.monotonic() + 1
+            while True:
+                os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns - 1_000_000_000))
+                os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+                with source.open('rb') as stream:
+                    changed = file_signature(stream)
+                self.assertEqual(changed[:4], original_signature[:4])
+                if changed[-1] != original_signature[-1]:
+                    return
+                self.assertLess(time.monotonic(), deadline,
+                                'fixture did not establish a native metadata change')
+                time.sleep(.02)
         self.assert_code('source_changed', self.store.import_path, source,
                          after_chunk=touch_and_restore)
         self.assertEqual(source.read_bytes(), self.video_bytes)

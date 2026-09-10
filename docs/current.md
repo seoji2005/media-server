@@ -72,6 +72,14 @@
   failure prompted the logging fix above, not a same-code rerun. The PR's final
   checks record validation of the corrected tree; require success before merge.
   CI browser media/inference are synthetic, separate from actual model quality.
+- The next [CI 34447348443](https://github.com/seoji2005/media-server/actions/runs/34447348443)
+  passed all 224 Python tests (one skip), seven DOM suites and browser/restart on
+  Ubuntu. Windows failed an existing metadata-only import fixture: its immediate
+  touch/restore could share the creation timestamp. The fixture now establishes
+  an observable native change time within one second while asserting unchanged
+  identity, size and restored mtime, then requires the same import rejection.
+  No production integrity check was relaxed; an unavailable change still fails
+  the fixture. Final PR checks must pass on the subsequent corrected tree.
 
 ## Remaining product work
 
