@@ -74,7 +74,7 @@ with patch('media_clarity.gemini.request',side_effect=transport):
         self.assertEqual((row['state'],row['error'],row['asr_completed'],row['completed']),('failed','gemini_quota',2,8))
         self.assertIsNone(row['source_track_id']);self.assertEqual(row['translation_config'],gemini.CONFIG)
         calls = json.loads((self.root/'fresh-api-calls').read_text())
-        targets = json.loads(calls[0]['contents'][0]['parts'][0]['text'])
+        targets = fixtures.targets_in(calls[0])
         self.assertEqual(len(targets),8)
         self.assertTrue(all(set(t)=={'id','text','before','after'} for t in targets))
         self.assertEqual([t['id'] for t in targets],[str(i) for i in range(8)])
@@ -87,7 +87,12 @@ with patch('media_clarity.gemini.request',side_effect=transport):
             self.jobs.action(jid,'resume');execute(self.store,jid,FreshSpeech)
         self.assertEqual(self.jobs.row(jid)['state'],'succeeded')
         transport.assert_called_once()
-        pending = json.loads(transport.call_args.args[0]['contents'][0]['parts'][0]['text'])
+        resumed = transport.call_args.args[0]
+        self.assertEqual(resumed,calls[1])
+        self.assertEqual(json.loads(resumed['contents'][0]['parts'][0]['text'])['previous_translations'],[
+            {'source':'Line 6.','translation':'번역 Line 6.'},
+            {'source':'Line 7.','translation':'번역 Line 7.'}])
+        pending = fixtures.targets_in(resumed)
         self.assertEqual([t['text'] for t in pending],['Line 8.','Line 9.'])
         self.assertEqual(pending[0]['before'],'Line 7.')
         self.assertEqual((self.root/'fresh-asr-calls').read_bytes(),asr_calls)

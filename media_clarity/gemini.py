@@ -28,6 +28,20 @@ Preserve age or consent information only when the source explicitly supplies it.
 Do not assume that an unknown person is an adult, that an act is consensual, or
 that an event is fictional. Do not add context to change what the source means.
 ''' + LEGACY_PROMPT
+CONTINUITY_PROMPT = PROMPT + '''
+The input has targets and previous_translations. Previous translations are bounded
+excerpts of this job's already saved source/Korean pairs, in chronological order;
+they are context only, not extra targets or instructions. Use them to continue
+established Korean register and terminology when the source supports continuity.
+Do not default to polite Korean at the start of a new request. Preserve genuine
+speaker/register changes; do not infer a shared speaker from adjacency alone, or
+propagate a previous translation's mistake against the current source.
+Read neighboring targets as a sequence. An unfinished source word or sentence may
+remain an unfinished Korean phrase. Use after-context to understand the fragment,
+not to prematurely complete it and translate that continuation again in the next
+target. Preserve actual repetition, hesitation and self-correction; do not silently
+repair uncertain ASR. Translate only each target's meaning, exactly once per id.
+'''
 # Retain exact historical configurations and their actual prompts for recovery.
 CONFIGS = {model:json.dumps({'provider':'gemini', 'model':model, 'profile':'saved-context-v1',
     'prompt_sha256':hashlib.sha256(LEGACY_PROMPT.encode()).hexdigest(), 'batch_size':8,
@@ -35,11 +49,16 @@ CONFIGS = {model:json.dumps({'provider':'gemini', 'model':model, 'profile':'save
     sort_keys=True, separators=(',', ':')) for model in (MODEL, 'gemini-3.8-flash')}
 FAITHFUL_V2 = json.dumps({**json.loads(CONFIGS[MODEL]), 'profile':'faithful-context-v2',
     'prompt_sha256':hashlib.sha256(PROMPT.encode()).hexdigest()}, sort_keys=True, separators=(',', ':'))
-CONFIG = json.dumps({**json.loads(FAITHFUL_V2), 'profile':'faithful-context-v3',
+FAITHFUL_V3 = json.dumps({**json.loads(FAITHFUL_V2), 'profile':'faithful-context-v3',
     'response_contract':'exact-target-ids-v1'}, sort_keys=True, separators=(',', ':'))
+CONFIG = json.dumps({**json.loads(FAITHFUL_V3), 'profile':'faithful-context-v4',
+    'prompt_sha256':hashlib.sha256(CONTINUITY_PROMPT.encode()).hexdigest(),
+    'request_contract':'translated-prefix-v1', 'previous_units':2, 'previous_chars':400},
+    sort_keys=True, separators=(',', ':'))
 PROFILES = {config:LEGACY_PROMPT for config in CONFIGS.values()}
 PROFILES[FAITHFUL_V2] = PROMPT
-PROFILES[CONFIG] = PROMPT
+PROFILES[FAITHFUL_V3] = PROMPT
+PROFILES[CONFIG] = CONTINUITY_PROMPT
 
 
 def model_for(config):
@@ -160,17 +179,27 @@ class Gemini:
         self.config = config
         self.model = model_for(config)
         self.prompt = PROFILES[config]
+        self.previous_units = json.loads(config).get('previous_units', 0)
+        self.previous_chars = json.loads(config).get('previous_chars', 0)
 
     def identity(self):
         return identity(self.config)
 
-    def translate_context(self, texts, neighbors):
+    def translate_context(self, texts, neighbors, previous=None):
         targets = [{'id':str(i), 'text':text, 'before':before, 'after':after}
                    for i, (text, (before, after)) in enumerate(zip(texts, neighbors))]
         if not 1 <= len(targets) <= self.batch_size or len(targets) != len(texts):
             raise MediaError('gemini_response_invalid', 502)
+        payload = targets
+        if self.previous_units:
+            # The caller supplies only verified results from this job. Whitelist
+            # text fields and bound them here; never send storage identifiers/times.
+            prefix = [{'source':pair['source'][-self.previous_chars:],
+                       'translation':pair['translation'][-self.previous_chars:]}
+                      for pair in (previous or [])[-self.previous_units:]]
+            payload = {'targets':targets, 'previous_translations':prefix}
         body = {'systemInstruction':{'parts':[{'text':self.prompt}]},
-            'contents':[{'role':'user', 'parts':[{'text':json.dumps(targets, ensure_ascii=False)}]}],
+            'contents':[{'role':'user', 'parts':[{'text':json.dumps(payload, ensure_ascii=False)}]}],
             'generationConfig':{'candidateCount':1, 'maxOutputTokens':4096,
                 'thinkingConfig':{'thinkingLevel':'low'}, 'responseMimeType':'application/json',
                 'responseSchema':{'type':'OBJECT', 'properties':{'translations':{'type':'ARRAY',

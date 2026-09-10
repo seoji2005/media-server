@@ -544,14 +544,16 @@ def execute(store, job_id, backend_factory=None):
         _execute(store, job_id, backend_factory)
 
 
-def translate_chunk(backend, units, neighbors=None):
+def translate_chunk(backend, units, neighbors=None, previous=None):
     """Only known content failures use marked source text; runtime/storage errors stop."""
     results = [None] * len(units)
     foreign = [i for i,cue in enumerate(units) if not korean_text(cue['text'])]
     if foreign:
         texts = [units[i]['text'] for i in foreign]
         if hasattr(backend, 'translate_context'):
-            values = backend.translate_context(texts, [neighbors[i] for i in foreign])
+            context = [neighbors[i] for i in foreign]
+            values = (backend.translate_context(texts, context, previous=previous)
+                      if previous is not None else backend.translate_context(texts, context))
         elif hasattr(backend, 'translate_many'):
             values = backend.translate_many(texts)
         else:
@@ -710,7 +712,12 @@ def _execute(store, job_id, backend_factory):
                 neighbors = [(units[i-1]['text'][-400:] if i else '',
                               units[i+1]['text'][:400] if i+1 < len(units) else '')
                              for i in range(start, min(start+batch_size, len(units)))] if cloud else None
-                part, codes = translate_chunk(backend, units[start:start+batch_size], neighbors)
+                # Rebuild continuity from the verified prefix, including after a
+                # process restart. No mutable backend conversation or other track.
+                previous = ([{'source':units[i]['text'], 'translation':translated[i]['text']}
+                             for i in range(max(0, start-backend.previous_units), start)]
+                            if cloud and backend.previous_units else None)
+                part, codes = translate_chunk(backend, units[start:start+batch_size], neighbors, previous)
                 part = validate_cues(part, media['duration'])
                 encoded_bytes += sum(len(document(c).encode())+1 for c in part)
                 if encoded_bytes + 2 > MAX_SUBTITLE_BYTES * 4:

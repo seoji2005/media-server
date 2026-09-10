@@ -61,11 +61,20 @@
   browser connected successfully, but opening the local app returned
   `net::ERR_BLOCKED_BY_CLIENT`. No app page, playback or screenshot was obtained.
   Actual saved Korean-caption display remains unverified in this Work runtime.
-- **Saved-output review:** text comparison confirms the return-home meaning repeats
-  across the 30-second source seam; the final Korean unit also switches from casual
-  speech to a polite ending. These are unresolved quality findings, not a UI defect
-  diagnosis. Original source/translation outputs were not edited and no additional
-  inference ran. A short cue's viewing comfort still needs playback/human review.
+- **Translation continuity follow-up:** new `faithful-context-v4` requests include
+  at most two preceding, verified source/Korean pairs from the same job (400
+  characters per field), rebuilt identically on resume. Historical profiles keep
+  their exact prompts and request shapes. On the same saved public sample, two
+  real Gemini calls translated 9/9 units in 30.524 seconds, yielding 10 display
+  cues. The last unit now uses casual Korean, matching the preceding dialogue;
+  the return-home meaning still repeats across the 30-second ASR seam. Prompt
+  guidance did not repair that source discontinuity. No original or older track
+  was edited; the new version was appended without ASR/alignment inference.
+  HTTP Korean/source VTT bytes matched the saved output before/after server restart.
+  Short-cue comfort and actual display still need playback/human review.
+  Independent code review approved `c7382844f20b4a39c56e948d449228e047f87a7b`;
+  46 focused tests passed on Linux, plus the reviewer verified corrupted-prefix
+  rejection before egress. The CI results above predate this continuity change.
 - **Existing functionality retained:** import/compatible copies; selected audio;
   playback/seek/restart; old supplied/generated caption versions; saved-source
   retranslation; speech/translation checkpoints; literal/visual scene search,
@@ -77,11 +86,12 @@
   Whole-audio decode remains on speech resume; only model work is bounded/reused.
   Pocket's repository/PR returned 404, so pack/events integration awaits its verified
   contract. iPhone/LAN synchronization is not implemented by these local APIs.
-- **Next:** this display-verification stage is blocked at local app access, not API
-  authentication. Reuse the saved Korean/source versions for browser verification
-  in a runtime that can reach the local app; do not repeat ASR or paid translation
-  for playback. The next code slice should address boundary context and Korean
-  register continuity while preserving source evidence and prior subtitle versions.
+- **Next:** continuity delivery/recovery is implemented and the short real sample's
+  register switch is resolved; this does not establish long-video translation quality.
+  Address the remaining forced-window word seam using speech/alignment evidence,
+  preserving the raw source and intentional repetitions; do not keep tuning prompts
+  against one sample. Actual saved-caption browser display requires a runtime that
+  can reach the local app; do not repeat ASR or paid translation merely for playback.
   Respect the owner's one-stage-per-turn instruction.
   Final merge remains an owner decision; long-video/RTX and enhancement gates stay
   separate. Preserve both failed and successful evidence.

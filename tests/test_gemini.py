@@ -24,12 +24,34 @@ def response(rows):
     return {'candidates':[{'finishReason':'STOP', 'content':{'parts':[{'text':json.dumps({'translations':rows})}]}}]}
 
 
+def targets_in(body):
+    payload = json.loads(body['contents'][0]['parts'][0]['text'])
+    return payload['targets'] if isinstance(payload, dict) else payload
+
+
 def reply(body, key, model=None):
-    targets = json.loads(body['contents'][0]['parts'][0]['text'])
+    targets = targets_in(body)
     return response([{'id':t['id'], 'text':'번역 '+t['text']} for t in targets])
 
 
 class GeminiTransportTests(unittest.TestCase):
+    def test_translation_prefix_is_bounded_text_only_and_not_a_target(self):
+        pairs = [{'source':'discard this old pair', 'translation':'discard too'},
+                 {'source':'s'*450, 'translation':'가'*450, 'path':'private-path', 'id':'private-id'},
+                 {'source':'last source', 'translation':'마지막 번역', 'start':7.0}]
+        with patch.dict(os.environ, {'GEMINI_API_KEY':'synthetic-key'}):
+            backend = gemini.Gemini(gemini.CONFIG)
+        with patch('media_clarity.gemini.request', side_effect=reply) as call:
+            self.assertEqual(backend.translate_context(['next'], [('last source','')], previous=pairs), ['번역 next'])
+        body = call.call_args.args[0]
+        payload = json.loads(body['contents'][0]['parts'][0]['text'])
+        self.assertEqual(payload, {'targets':[{'id':'0','text':'next','before':'last source','after':''}],
+            'previous_translations':[{'source':'s'*400,'translation':'가'*400},
+                                     {'source':'last source','translation':'마지막 번역'}]})
+        schema = body['generationConfig']['responseSchema']['properties']['translations']
+        self.assertEqual((schema['minItems'],schema['maxItems']), (1,1))
+        self.assertEqual(schema['items']['properties']['id']['enum'], ['0'])
+
     def test_system_https_opt_in_does_not_shadow_os_proxy_discovery(self):
         # A *_PROXY flag would become a fake proxy and suppress OS fallback on
         # Windows/macOS even when no ordinary proxy environment is configured.
@@ -172,11 +194,13 @@ class GeminiJobTests(unittest.TestCase):
             jid = self.queue(track);execute(self.store,jid)
         row = self.jobs.row(jid)
         self.assertEqual(row['state'],'succeeded');self.assertEqual(row['fallback_count'],0)
-        targets=json.loads(calls[0]['contents'][0]['parts'][0]['text'])
+        payload=json.loads(calls[0]['contents'][0]['parts'][0]['text'])
+        self.assertEqual(payload['previous_translations'],[])
+        targets=payload['targets']
         self.assertEqual(targets,[{'id':'0','text':'Before.','before':'','after':'한국어.'},
                                   {'id':'1','text':'After.','before':'한국어.','after':''}])
         self.assertEqual(set(calls[0]),{'systemInstruction','contents','generationConfig'})
-        self.assertEqual(calls[0]['systemInstruction']['parts'][0]['text'],gemini.PROMPT)
+        self.assertEqual(calls[0]['systemInstruction']['parts'][0]['text'],gemini.CONTINUITY_PROMPT)
         self.assertEqual(row['transcript'],original['transcript'])
         self.assertEqual(row['translation_config'],gemini.CONFIG)
         status=self.jobs.status(self.item['id'])
@@ -203,7 +227,10 @@ root=Path(sys.argv[1]); calls=0
 def transport(body,key,model):
     global calls
     calls+=1
-    if calls==2: raise MediaError('gemini_quota',503)
+    if calls==2:
+        import json
+        (root/'interrupted-request.json').write_text(json.dumps(body))
+        raise MediaError('gemini_quota',503)
     return reply(body,key)
 with patch('media_clarity.gemini.request',side_effect=transport):
     execute(Store(root),sys.argv[2])
@@ -217,7 +244,13 @@ with patch('media_clarity.gemini.request',side_effect=transport):
             self.jobs.action(jid,'resume');execute(self.store,jid)
         self.assertEqual(self.jobs.row(jid)['state'],'succeeded')
         self.assertEqual(transport.call_count,1)
-        targets=json.loads(transport.call_args.args[0]['contents'][0]['parts'][0]['text'])
+        body=transport.call_args.args[0]
+        self.assertEqual(body,json.loads((self.root/'interrupted-request.json').read_text()))
+        payload=json.loads(body['contents'][0]['parts'][0]['text'])
+        self.assertEqual(payload['previous_translations'],[
+            {'source':'Line 6.','translation':'번역 Line 6.'},
+            {'source':'Line 7.','translation':'번역 Line 7.'}])
+        targets=payload['targets']
         self.assertEqual([t['text'] for t in targets],['Line 8.','Line 9.'])
         self.assertEqual(targets[0]['before'],'Line 7.')
         self.assertEqual(self.jobs.row(jid)['config_sha'],row['config_sha'])
@@ -241,10 +274,16 @@ with patch('media_clarity.gemini.request',side_effect=transport):
     def test_legacy_38_job_resumes_and_restarts_with_original_prompt(self):
         self.check_legacy_recovery('gemini-3.8-flash')
 
-    def check_legacy_recovery(self, model):
+    def test_v2_job_keeps_original_request_and_prompt(self):
+        self.check_legacy_recovery(gemini.MODEL, gemini.FAITHFUL_V2, gemini.PROMPT)
+
+    def test_v3_job_keeps_original_request_and_prompt(self):
+        self.check_legacy_recovery(gemini.MODEL, gemini.FAITHFUL_V3, gemini.PROMPT)
+
+    def check_legacy_recovery(self, model, config=None, prompt=gemini.LEGACY_PROMPT):
         from media_clarity.jobs import saved_transcript
         _,track=self.seed_source()
-        legacy=gemini.CONFIGS[model]
+        legacy=config or gemini.CONFIGS[model]
         self.assertEqual(gemini.model_for(gemini.CONFIG),'gemini-3.1-flash-lite')
         media=self.store._row(self.item['id'])
         with self.store.db() as db:
@@ -257,7 +296,11 @@ with patch('media_clarity.gemini.request',side_effect=transport):
             execute(self.store,jid)
         self.assertEqual(self.jobs.row(jid)['state'],'succeeded')
         self.assertEqual(transport.call_args.args[2],model)
-        self.assertEqual(transport.call_args.args[0]['systemInstruction']['parts'][0]['text'],gemini.LEGACY_PROMPT)
+        body=transport.call_args.args[0]
+        self.assertEqual(body['systemInstruction']['parts'][0]['text'],prompt)
+        self.assertIsInstance(json.loads(body['contents'][0]['parts'][0]['text']),list)
+        schema=body['generationConfig']['responseSchema']['properties']['translations']
+        self.assertEqual('minItems' in schema,legacy == gemini.FAITHFUL_V3)
         self.assertEqual(self.jobs.row(jid)['config_sha'],before['config_sha'])
         # A paused historical job restarts with its saved model, not today's choice.
         with self.store.db() as db:
@@ -270,7 +313,7 @@ with patch('media_clarity.gemini.request',side_effect=transport):
         with patch('media_clarity.gemini.request',side_effect=reply) as transport:
             execute(self.store,successor['id'])
         self.assertEqual(transport.call_args.args[2],model)
-        self.assertEqual(transport.call_args.args[0]['systemInstruction']['parts'][0]['text'],gemini.LEGACY_PROMPT)
+        self.assertEqual(transport.call_args.args[0]['systemInstruction']['parts'][0]['text'],prompt)
 
 
     def test_tampering_and_refusal_never_send_or_publish(self):
