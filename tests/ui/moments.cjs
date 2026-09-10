@@ -26,7 +26,7 @@ module.exports = async function checkMoments(html, source) {
       } else if(url.endsWith('/moment-entry')) {
         assert.equal(options.headers['X-Media-Token'],'fixture');
         data={start_ms:3000,end_ms:null};
-      } else if(url.endsWith('/subtitles'))data={tracks:[],jobs:[]};
+      } else if(url.split('?')[0].endsWith('/subtitles'))data={tracks:[],jobs:[]};
       else if(url.endsWith('/preference'))data={included:true,preference:'neutral',revision:1};
       else if(url.endsWith('/position')) {writes.push(JSON.parse(options.body));if(holdSave)await save;}
       else data=item(url.split('/')[3]);

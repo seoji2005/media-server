@@ -8,13 +8,14 @@ let delayedPreferences=[],delayPreferences=true,preference={included:false,prefe
 let captions=[{id:'a-caption',source:'supplied',audio_index:0}],pending=null,requests=[],jobs=[];
 w.setTimeout=()=>1;w.clearTimeout=()=>{};
 w.fetch=async(url,opts={})=>{
+ if(url.endsWith('/caption-view'))return {ok:true,json:async()=>({...JSON.parse(opts.body),revision:JSON.parse(opts.body).revision+1})};
  requests.push({url,opts});let value;
  if(url==='/api/session')value={token:'test',diagnostics:{ffmpeg:true,ffprobe:true}};
  else if(url==='/api/library')value={items:[item]};
  else if(url==='/api/library/a')value={...item};
  else if(url.includes('/audio/'))return new Promise(resolve=>{pending=resolve;});
  else if(url.endsWith('/position'))value={position:JSON.parse(opts.body).position};
- else if(url.endsWith('/subtitles'))value={tracks:captions,jobs};
+ else if(url.split('?')[0].endsWith('/subtitles'))value={tracks:captions,jobs};
  else if(url.includes('/subtitle-jobs'))value={id:'job'};
  else if(url.endsWith('/preference')){if(opts.method==='PUT')return new Promise(resolve=>{pendingSave=resolve;});if(delayPreferences)return new Promise(resolve=>delayedPreferences.push(resolve));value=preference;}
  else throw Error(url);
@@ -45,7 +46,7 @@ function choose(index){d.getElementById('audio-select').value=String(index);d.ge
  assert.equal(d.getElementById('subtitle-select').value,'b-caption','first matching generated track is selected');
  jobs=[{id:'job',state:'paused',audio_index:0}];await w.qa.refreshSubtitles(w.qa.owner);
  assert.match(d.getElementById('subtitle-brief').textContent,/오디오 1/);
- d.getElementById('subtitle-select').value='a-caption';d.getElementById('subtitle-select').dispatchEvent(new w.Event('change'));
+ d.getElementById('subtitle-select').value='a-caption';d.getElementById('subtitle-select').dispatchEvent(new w.Event('change'));await settle();
  assert.match(d.getElementById('subtitle-notes').textContent,/현재 음성과 다를 수/);
  d.getElementById('preference-value').value='like';d.getElementById('preference-value').dispatchEvent(new w.Event('change'));await settle();
  choose(0);await settle();item.audio_index=0;pending({ok:true,json:async()=>({...item})});await settle();
