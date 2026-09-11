@@ -1,0 +1,7 @@
+# Optional scene search, compatible with the current Qwen environment.
+# Install the appropriate CPU/CUDA Torch wheel first; no model download here.
+torch==2.8.0
+transformers==5.16.1
+Pillow==12.3.0
+sentencepiece>=0.2,<0.3
+protobuf==7.36.1

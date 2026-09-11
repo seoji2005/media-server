@@ -160,7 +160,9 @@ class Encoder:
                 pictures.append(picture.convert('RGB'))
         with self.torch.inference_mode():
             inputs = self.processor(images=pictures,return_tensors='pt').to(self.device)
-            return self.torch.nn.functional.normalize(self.model.get_image_features(**inputs),dim=-1).cpu().tolist()
+            features = self.model.get_image_features(**inputs)
+            # Transformers 5 returns the model output; 4 returned the pooled tensor.
+            return self.torch.nn.functional.normalize(getattr(features, 'pooler_output', features),dim=-1).cpu().tolist()
 
     def text(self, query):
         tokens = self.processor(text=[query.lower()],padding='max_length',max_length=64,
@@ -168,7 +170,8 @@ class Encoder:
         if tokens['input_ids'].shape[-1] > 64:
             raise MediaError('scene_query_too_long',422)
         with self.torch.inference_mode():
-            return self.torch.nn.functional.normalize(self.model.get_text_features(**tokens.to(self.device)),dim=-1).cpu().tolist()[0]
+            features = self.model.get_text_features(**tokens.to(self.device))
+            return self.torch.nn.functional.normalize(getattr(features, 'pooler_output', features),dim=-1).cpu().tolist()[0]
 
 
 def execute(store, item_id, query=None, encoder_type=Encoder):

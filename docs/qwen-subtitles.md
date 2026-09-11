@@ -26,6 +26,9 @@ setup, diagnostics and application commands. Models use `models/qwen-asr` and
 `models/qwen-aligner`. `models/settings.json` still selects only `cpu` or `cuda`;
 Windows defaults to CUDA, other systems to CPU. CUDA is float16, CPU float32.
 Only one model is loaded at a time. No target 12 GB fit or Windows inference claim.
+Optional scene search uses `requirements-scene.txt` in this same environment.
+Its Torch/Transformers/Pillow pins match Qwen; do not install the legacy
+`requirements-models.txt` over it. See [scene setup](scene-search.md).
 
 Gemini connects directly by default. If the runtime requires a trusted system HTTPS
 proxy (including this Work environment), explicitly set `MEDIA_GEMINI_USE_SYSTEM_HTTPS=1`

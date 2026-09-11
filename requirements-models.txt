@@ -1,4 +1,5 @@
-# Optional local adapters. CPU has real inference evidence; target CUDA remains open.
+# Historical Whisper/MADLAD job recovery only; use a separate legacy environment.
+# Current Qwen/scene setup uses requirements-qwen.txt / requirements-scene.txt.
 # Install the appropriate CPU/CUDA torch wheel first (docs/subtitles.md).
 torch==2.8.0
 torchaudio==2.8.0
