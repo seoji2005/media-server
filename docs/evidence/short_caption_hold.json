@@ -1,0 +1,137 @@
+{
+  "source_evidence_sha256": "a63ab9e08cba556b2e8f5bd6c2ff5520243f3023234918436675fe59cd2723cc",
+  "duration_seconds": 605.35,
+  "source_units": 153,
+  "before": {
+    "cues": 214,
+    "flagged_cues": 50,
+    "codes": {
+      "short_duration": 46,
+      "reading_speed": 12,
+      "layout_limited": 2
+    }
+  },
+  "after": {
+    "cues": 214,
+    "flagged_cues": 40,
+    "codes": {
+      "short_duration": 34,
+      "reading_speed": 11,
+      "layout_limited": 2
+    }
+  },
+  "changed_display_ends": [
+    {
+      "cue": 2,
+      "unit": 2,
+      "start": 10.16,
+      "old_end": 10.72,
+      "new_end": 10.994
+    },
+    {
+      "cue": 62,
+      "unit": 34,
+      "start": 208.41,
+      "old_end": 208.97,
+      "new_end": 209.244
+    },
+    {
+      "cue": 65,
+      "unit": 37,
+      "start": 216.65,
+      "old_end": 217.45,
+      "new_end": 217.484
+    },
+    {
+      "cue": 66,
+      "unit": 38,
+      "start": 217.77,
+      "old_end": 218.25,
+      "new_end": 218.604
+    },
+    {
+      "cue": 92,
+      "unit": 52,
+      "start": 316.21,
+      "old_end": 316.93,
+      "new_end": 317.044
+    },
+    {
+      "cue": 116,
+      "unit": 73,
+      "start": 375.46,
+      "old_end": 376.02,
+      "new_end": 376.294
+    },
+    {
+      "cue": 118,
+      "unit": 75,
+      "start": 377.94,
+      "old_end": 378.42,
+      "new_end": 378.774
+    },
+    {
+      "cue": 153,
+      "unit": 104,
+      "start": 483.49,
+      "old_end": 483.89,
+      "new_end": 484.324
+    },
+    {
+      "cue": 154,
+      "unit": 105,
+      "start": 484.85,
+      "old_end": 485.41,
+      "new_end": 485.684
+    },
+    {
+      "cue": 173,
+      "unit": 115,
+      "start": 534.71,
+      "old_end": 535.03,
+      "new_end": 535.544
+    },
+    {
+      "cue": 176,
+      "unit": 118,
+      "start": 539.43,
+      "old_end": 539.83,
+      "new_end": 540.264
+    },
+    {
+      "cue": 204,
+      "unit": 144,
+      "start": 591.4,
+      "old_end": 592.12,
+      "new_end": 592.234
+    }
+  ],
+  "source_bytes_unchanged": true,
+  "canonical_units_unchanged": true,
+  "starts_text_mapping_unchanged": true,
+  "new_overlaps": 0,
+  "asr_calls": 0,
+  "align_calls": 0,
+  "translation_calls": 0,
+  "candidate_vtt_sha256": "c1bf36fec524bd8bfa34a7aa4c7596c3ff534ef3e19df588ffac7455feb12356",
+  "scope": "Offline layout comparison on previously saved real model output; no new inference, browser or human readability acceptance.",
+  "base_main": "c3995ac4e47d95a5c672ad8f15a416952eb99417",
+  "product_file_sha256": "6b8a237365c7bf321b16d3fc8d31ef09dcf39f3c95319f1c46ac7514fe8ddf81",
+  "profile": "ko-readable-v2",
+  "checks": {
+    "command": "python -m unittest tests.test_subtitle_layout tests.test_caption_view tests.test_subtitles -q",
+    "python": "3.12.14",
+    "machine": "Linux x86_64",
+    "tests": 56,
+    "seconds": 6.949,
+    "exit_code": 0,
+    "skips": 0,
+    "integration": "Real FFmpeg fixture, SQLite, interrupted synthetic translation/resume, two ASGI application lifespans; canonical units, stored v1/supplied/v2 output, +500ms view and position2.25 preserved. No browser or target hardware."
+  },
+  "limits": [
+    "Existing ready tracks are not reflowed. New generation or saved-source translation creates a new presentation; no new free reflow UI.",
+    "34 short-duration, 11 reading-speed and 2 layout-limit flags remain (nonexclusive); minimum remaining duration80ms.",
+    "No shot-boundary detection, new word alignment, speech recovery, translation correction or subjective adoption.",
+    "Same saved recording is a regression sample, not an independent quality holdout."
+  ]
+}

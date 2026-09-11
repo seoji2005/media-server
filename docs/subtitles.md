@@ -182,8 +182,10 @@ ASR source text/timing and Korean translations are stored separately. MADLAD use
 its `<2ko>` target prefix. Adjacent fragments join through sentence punctuation, capped
 at 12 seconds, 400 characters and a 0.8-second gap; existing longer cues remain intact.
 One translated sentence retains the combined original interval in storage. New tracks
-also store a separate two-line display presentation, with sequential timing bounded
-by that interval. Existing ready tracks are never reflowed during reads. This does not
+also store a separate two-line display presentation, with subdivision inside that
+interval. The current readability profile can hold isolated short cues into the next
+empty gap, within the [bounded 834 ms display rule](subtitle-readability.md); canonical
+intervals remain unchanged. Existing ready tracks are never reflowed during reads. This does not
 claim word alignment or exact within-sentence timing. Untouched ASR cues and translation
 checkpoints remain stored. [Readability rules, warnings and evidence](subtitle-readability.md).
 Hangul-only text, including explicit numeric units such as `15m`, passes through per

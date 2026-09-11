@@ -1,4 +1,4 @@
-# Korean subtitle readability · 2026-09-06
+# Korean subtitle readability · updated 2026-09-11
 
 New generated captions separate translation sentences from display cues. Existing
 ready versions, imported SRT bytes, ASR text and translation/checkpoint units stay
@@ -19,9 +19,15 @@ This is a local presentation profile, not Netflix delivery certification.
 - Split only at whitespace/nearby sentence punctuation; never slice an unbroken name
   or number into characters. Balance two lines and avoid a one-word trailing block
   when feasible. Preserve all non-whitespace translation content.
-- Allocate time proportionally within each original unit, respecting feasible duration
-  bounds. Never move text outside that unit or close original gaps. Sort overlapping
-  units' display cues chronologically, keeping source-unit and warning mappings.
+- Allocate split cues proportionally within each original unit, respecting feasible
+  duration bounds. Sort overlapping units' display cues chronologically, keeping
+  source-unit and warning mappings.
+- In **ko-readable-v2**, an isolated display cue shorter than 834 ms holds until
+  start + 834 ms only when the entire interval fits before the next display cue
+  (or video end). This can use some following silence beyond the canonical unit's
+  end. Never move the start, alter text/source timing, cross another cue, extend an
+  already overlapping turn, or partially stretch a cue when the full minimum will
+  not fit. Recheck duration and reading-speed flags, including the fallback label.
 - Count **[원문]** in fallback layout and show it on every relevant split cue. Reading
   speed, long lines, infeasible duration/count limits and overlaps remain visible QC
   findings; they do not discard content or permanently fail an otherwise valid job.
@@ -37,6 +43,25 @@ speech can still show concurrent cues. Imported subtitles retain their supplied 
 breaks; they are not run through generated layout.
 
 ## Verification
+
+The 2026-09-11 v2 change has an [offline saved-output comparison](evidence/short_caption_hold.json).
+On the previously processed 605.35-second dialogue, 12 of 214 display cues now reach
+834 ms without a new overlap. Short-duration findings fall from 46 to 34, reading-speed
+findings from 12 to 11 and flagged cues from 50 to 40 (codes overlap). All text, starts,
+source-unit mapping and original evidence bytes remain unchanged. No ASR, alignment
+or translation request was made. This is one previously studied recording, not new
+speech-quality evidence or human screen/readability acceptance. The shortest remaining
+cue is still 80 ms; insufficient gaps and existing overlaps retain their warnings.
+
+Linux/Python 3.12.14: `python -m unittest tests.test_subtitle_layout tests.test_caption_view
+tests.test_subtitles -q` passed **56 tests in 6.949 s**. Coverage includes exact and
+one-millisecond-insufficient gaps, video bounds, nested overlaps, fallback speed,
+interrupted translation/resume, unchanged canonical rows and two real application
+lifespans with ASGI/SQLite. A stored v1 track, supplied track, chosen v2 track, +500 ms
+offset and saved 2.25-second position survive reads/restart. Model outputs in the
+application test are synthetic; it is not network HTTP or browser playback.
+
+### Earlier v1 evidence (historical code and models)
 
 Local code checkpoint `9cb9882` on `app/readable-subtitles`, based directly on merged main
 `4e6e447`. Linux/Python 3.12.13; no target Windows/RTX access.
