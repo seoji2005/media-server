@@ -20,7 +20,12 @@ policy changes and [donor](docs/donor.md) for selective reuse. [Start prompt](do
   Preserve WIP/unmerged work. Recover from live Git/PR state and recheck HEAD before
   publishing; never overwrite another writer. Git is a checkpoint, not a message bus.
 - Stop for milestone/owner decisions or actual execution limits. After two same-cause
-  failures without new evidence, change approach. Continue safe unblocked work.
+  failures without new evidence, stop the affected task; do not retry through another
+  route. Owner instruction: stop work that hangs or loops. Before long commands,
+  set a finite elapsed-time limit, a meaningful progress check and a retry cap.
+  Bound CI polling too; do not keep rerunning a gate or waiting indefinitely.
+  On a limit/stall, terminate owned processes, preserve complete checkpoints and
+  originals, and report the stop and remaining work. Never relabel partial as complete.
   Handoff: milestone, branch/revision, behavior/evidence, blocker, next action.
   Keep history in Git, not growing task/review ledgers.
 
