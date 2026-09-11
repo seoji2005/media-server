@@ -9,6 +9,7 @@ import os
 import re
 import sqlite3
 import subprocess
+import signal
 import sys
 import threading
 import time
@@ -159,12 +160,17 @@ class Jobs:
 
     def _terminate(self):
         if self.process and self.process.poll() is None:
-            self.process.terminate()
+            if os.name == 'nt':
+                self.process.kill()  # Closing the guardian also closes its Windows Job.
+            else:
+                try:
+                    os.killpg(self.process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
             try:
                 self.process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait()
+                raise MediaError('processing_worker_active', 409) from None
 
     def _supervise(self):
         while not self.stop.wait(.25):
@@ -192,6 +198,7 @@ class Jobs:
                     self.process = subprocess.Popen(
                         [sys.executable, '-m', 'media_clarity.worker', str(self.store.root), self.active],
                         stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        start_new_session=os.name != 'nt',
                         env={**os.environ, 'HF_HUB_OFFLINE': '1', 'TRANSFORMERS_OFFLINE': '1',
                              'HF_HUB_DISABLE_TELEMETRY': '1', 'DO_NOT_TRACK': '1',
                              'ORT_DISABLE_TELEMETRY': '1'})

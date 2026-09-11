@@ -2,20 +2,16 @@
 import os
 from pathlib import Path
 import sys
-import threading
 
 
 def main():
     for name in ('HF_HUB_OFFLINE','TRANSFORMERS_OFFLINE','HF_HUB_DISABLE_TELEMETRY','DO_NOT_TRACK','ORT_DISABLE_TELEMETRY'):
         os.environ[name] = '1'
-    # EOF follows parent death, even on an abrupt Windows/Linux server exit.
-    # No private payload is passed through this liveness pipe.
-    def parent_gone():
-        # An unbuffered OS read avoids Python shutdown aborting while the daemon
-        # owns stdin's buffered-reader lock after otherwise successful processing.
-        os.read(sys.stdin.fileno(), 1)
-        os._exit(1)
-    threading.Thread(target=parent_gone, daemon=True).start()
+    if len(sys.argv) == 3:
+        from .worker_lifecycle import supervise
+        return supervise([sys.executable, '-m', 'media_clarity.worker', *sys.argv[1:], '--compute'])
+    if len(sys.argv) != 4 or sys.argv[3] != '--compute' or os.read(sys.stdin.fileno(), 1) != b'1':
+        return 1
     from .jobs import execute
     from .storage import Store
     execute(Store(Path(sys.argv[1])), sys.argv[2])
@@ -23,6 +19,6 @@ def main():
 
 if __name__ == '__main__':
     try:
-        main()
+        sys.exit(main())
     except Exception:
         sys.exit(1)

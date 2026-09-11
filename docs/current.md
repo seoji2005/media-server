@@ -1,68 +1,63 @@
 # Current work
 
-Milestone: `fix/qwen-setup-system-https`, based on live Server main
-`13e878a060bb6eef5e9cc75dc1eb28e6b2f2c5ce` (PR41 merged). Local restored
-base `eb11e960a6a8eda7dc09f207ac90294e0a8dd93c` has the same complete tree
-`0286766a32aa8c009553330176e9c57be0632299`; publish using actual remote ancestry.
-Fetch main remains `0d6aa28a4a0c6944c053e3d63e150908b44b9175`. No open PR at
-start. Owner implementation, network/API cost/allowed egress, independent review
-and passing development-merge approvals persist; release is separate.
+Milestone: `fix/subtitle-worker-cleanup`, based on live Server main
+`2002ac029d2d957e175800883f90274fe9283ec4` (PR42 merged), tree
+`ba7d8dda8f2aeb49b649a204e06f41e535448f54`. Local restored base
+`d12fa62545b35155ec63304689b7aefce8f96f5e` has that exact tree; publish
+with actual remote ancestry. Fetch main is `0d6aa28a4a0c6944c053e3d63e150908b44b9175`.
+Existing implementation, allowed API cost/egress, independent review and passing
+development-merge approvals persist. Release and target-device acceptance are separate.
 
-## Delivered and current fix
+## Current correction
 
-Gemini 3.8, foreign SRT/VTT translation, exact Fetch entry, shared installation pins,
-bounded preparation/status recovery, titles and complete caption search are merged.
-PR41 adds VP9 MP4/copied-video WebM playback with selected Opus audio when required;
-its independent review, Ubuntu/Windows CI34604412473 and four native playback screens
-passed. Originals, captions and viewing state are preserved. HEVC/10bit remains open.
+A real paced FFmpeg reproduction showed that pausing killed only the subtitle
+Python worker, leaving its decoder alive after the worker lease was released.
+The worker is now a small guardian with a separate compute child. It imports no
+models, so parent-EOF handling does not depend on model code releasing the GIL.
+On POSIX the supervisor owns a private process group and stops it together.
+On Windows a noninheritable kill-on-close Job Object contains the compute child
+and descendants; the child waits for a one-byte handshake before model imports.
+Failed containment never starts uncontained processing. Windows Job ownership
+follows [the native lifecycle](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects).
 
-Owner-supplied diagnosis distinguishes two setup failures. HTTPX initializes an
-unneeded SOCKS ALL_PROXY even when an HTTP/HTTPS proxy is configured for HTTPS;
-without socksio its default client fails locally before requests. Explicitly selecting
-the existing HTTPS route constructs HTTPX/Hugging Face clients without installing
-socksio. The execution tool's separate approval-cancellation error is not fixed by this.
+Pause waits at most five seconds for the guardian; timeout leaves the operation
+failed rather than marking the job paused. The original compute lease, span/batch
+transactions, model identities, prompts and PCM decoding are unchanged. A completed
+job remains complete if it finished just before stop. No media/credential logging,
+new model/dependency, UI, translation retry or automatic restart is introduced.
 
-The model preparation command gains explicit `--use-system-https-proxy`. It uses
-nonempty lowercase https_proxy before HTTPS_PROXY and requires a valid HTTP/HTTPS
-URL. Missing/invalid settings fail without echoing addresses or credentials; no
-ALL_PROXY/direct/mirror fallback. Only this setup process changes its HF client
-factory. System variables, model pins, product inference and dependencies are unchanged.
-TLS/certificate environment settings stay enabled, as does the installed HF request
-hook's offline guard. Missing factory/hook APIs stop; no blind package upgrade.
+## Verification and remaining work
 
-## Evidence and next action
+The three focused Linux tests use real paced FFmpeg and a real compute child:
+explicit pause, parent EOF, and parent EOF while compute holds the Python GIL.
+They require both children to stop, the compute lease to become available,
+temporary PCM to close and the original hash to remain unchanged. Initial test
+instrumentation using `/proc` could not inspect this execution environment's PIDs;
+the corrected test uses child PIDs, signal checks and Linux subreaping. Preserve
+that failed run separately. No Windows result is claimed before its CI completes.
+The combined lifecycle/subtitle/recovery/PCM run passed all 44 tests in 13.085 s
+on Linux CPU, with no skips. It does not measure model or perceptual quality.
 
-- Reproduced default socksio ImportError in HTTPX0.28.1/HF1.31.0. Explicit HTTPS
-  client and get_session creation passed with socket.connect/connect_ex blocked;
-  zero external requests. No assertion of HTTP/authentication/download success.
-- Focused tests use real HTTPX, TLS context and optional installed HF. They verify
-  SOCKS-free construction, certificate environment/verification, missing-CA failure,
-  proxy precedence/validation, safe CLI rejection and HF offline blocking.
-  Minimal dev/CI environments skip only the optional actual-HF check; the model
-  environment runs it. Preserve that skip distinction in the final PR evidence.
-- Freeze, obtain independent setup/privacy review, then inspect required model-free
-  Ubuntu/Windows CI before development merge. No UI changed; no new screenshot gate.
-  Observe CI at most10minutes/10polls, without rerunning unchanged failures. Final
-  fixed-HEAD review, test and merge results belong to the PR and verification archive.
+Freeze the implementation, obtain fresh independent lifecycle/privacy/recovery
+review and pass required Ubuntu/Windows product CI before development merge.
+CI observation is bounded to ten minutes/ten polls, without unchanged-failure reruns.
 
-## Execution restriction and remaining acceptance
+Pinned ASR and aligner assets were restored from previously saved archives and
+fully hashed. A separate unchanged-main product trial now processes public
+dialogue03 (762.048 s) through Qwen/aligner/Gemini 3.8. This is its first full
+Qwen product attempt, but its reference text already informed translation
+comparisons; it is not a pristine holdout or a completed quality claim. Bounds:
+speech 45 min / no span progress 5 min; translation 10 min / no batch progress
+2 min; no automatic job retry. Preserve its original, database and completed spans.
+That runtime trial does not run this lifecycle correction.
 
-Previous bounded pip and unchanged-HTTPS HEAD requests returned
-`network approval was cancelled before a decision was returned` after roughly10s.
-The tool did not establish whether user action, approval service or policy caused it.
-User consent exists. A later offline audit found no reusable socksio/model assets;
-those cache scans and prior successful Torch/Transformers installation logs do not
-prove current network recovery. No repeat install/download/read request in this fix.
+Fetch's existing two real HTTP/Native/FFmpeg integration cases passed against the
+exact current Server main tree: download/caption delivery, identified item entry,
+saved position/caption offset, receipt recovery and Server restart. The temporary
+fixture changed only the expected Server revision. Its first invocation used the
+wrong working directory and failed Native startup; the corrected run passed 2/2.
+This is synthetic short-media integration, not actual extension/browser playback.
 
-Do not retry blocked requests merely because this local initialization fix passes.
-Require evidence that execution access is restored, then supervise model preparation
-and new natural long-speech Qwen→aligner→Gemini3.8 with finite total/no-progress/retry
-bounds. HF per-request timeouts/retries are not a whole-download deadline. Terminate
-owned processes on limits or repeated approval cancellation; preserve assets and
-committed spans/batches. Never use direct/alternate proxy, mirror, browser/CDP/profile
-or CI inference to evade restrictions. Existing default Gemini routing is unchanged.
-
-New natural long-caption quality, actual Fetch extension, Windows11/RTX4070SUPER,
-useful enhancement and subjective search/recommendation acceptance remain incomplete.
-Previously held706.24s/762.048s speech informed comparisons and is not a pristine
-holdout. No new model/API calls or target-device acceptance in this setup-only fix.
+Actual new long-caption perceptual quality, real Fetch extension use, useful video
+enhancement, subjective search/recommendation quality and Windows 11/RTX 4070 SUPER
+remain open. Existing external-download/browser restrictions are not bypassed.

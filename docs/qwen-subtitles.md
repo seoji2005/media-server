@@ -97,7 +97,14 @@ runtime can still run. Speech language is automatically detected. The aligner su
   Allow about 440 MiB of temporary disk space for two hours, plus the existing
   32 MiB reserve. Low disk space, timeout, malformed output or exceeding the
   output cap stops the job without publishing a partial transcript. Normal close,
-  failure and worker exit release the temporary file. Resume still decodes the
+  failure and worker exit release the temporary file. Subtitle jobs run under a
+  lightweight guardian: explicit stop and parent-pipe closure terminate the compute
+  process and its decoders together, using a private POSIX group or a Windows
+  kill-on-close Job Object. The Windows compute handshake occurs only after
+  containment succeeds. The guardian does not import models; model code holding
+  the GIL cannot delay its EOF handling. This does not add a whole-job time budget;
+  long validation runs still need the finite bounds described above.
+  Resume still decodes the
   complete audio and verifies saved recognition hashes; this is a memory bound,
   not a persistent PCM cache or a claim of faster inference. Historical v1/v2
   profiles, sample bytes, time origins and evidence identities remain unchanged.
