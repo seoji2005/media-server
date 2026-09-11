@@ -1,5 +1,20 @@
 # Translation API comparison — 2026-09-07
 
+**September 11 current selection:** new jobs now use **Gemini 3.8 Flash**, with the
+evaluated v5 prompt/context, exact target IDs and low thinking. The completed later
+comparison used 851 matched source cues per finalist; the new blind text review
+covered 431 cues (391 Japanese, 40 English), including five authored dialogues.
+3.8 was narrowly preferred over Lite for current use; Large had clearer cue-placement
+and meaning errors. Cache-adjusted estimates were $0.18846825 (3.8), $0.12366425
+(Lite), and $0.08236080 (Large), not invoice totals or universal cost forecasts.
+The external review agreed conditionally and corrected the earlier missing Mistral
+cache discount. Graphic-content/no-refusal acceptance remains unverified. This is
+an operational choice, not statistical superiority. The owner holds the full
+`translation-final-selection-2026-09-11.zip` comparison/review archive.
+This product change reuses that decision; it makes no new paid comparison calls.
+Existing Lite/v1–v5 jobs retain their original profiles. The following September 7/8
+results and their counterevidence remain historical; they are not the new UI default.
+
 **September 8 update:** [Gemini is now the initial UI selection](cloud-speech-and-translation.md)
 under the owner's instruction, with a versioned fidelity prompt and labeled cloud action.
 The measurements below retain their original `saved-context-v1` prompt. The new policy

@@ -187,7 +187,7 @@ class GeminiJobTests(unittest.TestCase):
         def capture(body, key, model):
             calls.append(body)
             self.assertEqual(key, 'synthetic-key')
-            self.assertEqual(model, 'gemini-3.1-flash-lite')
+            self.assertEqual(model, 'gemini-3.8-flash')
             return reply(body,key)
         with (patch('media_clarity.models.LocalModels',side_effect=AssertionError('local runtime loaded')),
               patch('media_clarity.gemini.request',side_effect=capture)):
@@ -220,6 +220,11 @@ class GeminiJobTests(unittest.TestCase):
     def test_v4_checkpoint_keeps_original_prompt_context_and_resume_request(self):
         self.check_context_recovery(gemini.FAITHFUL_V4)
 
+    def test_lite_v5_checkpoint_keeps_original_model_context_and_identity(self):
+        self.assertEqual(gemini.identity(gemini.FAITHFUL_V5),
+                         '616bad567b358b54f2fbfa75e50febef6d9b66c3a490c4c6761619bd9637b27f')
+        self.check_context_recovery(gemini.FAITHFUL_V5)
+
     def check_context_recovery(self, profile):
         _,track=self.seed_source([f'Line {i}.' for i in range(10)])
         with patch('media_clarity.gemini.CONFIG',profile):jid=self.queue(track)
@@ -250,6 +255,7 @@ with patch('media_clarity.gemini.request',side_effect=transport):
             self.jobs.action(jid,'resume');execute(self.store,jid)
         self.assertEqual(self.jobs.row(jid)['state'],'succeeded')
         self.assertEqual(transport.call_count,1)
+        self.assertEqual(transport.call_args.args[2],gemini.model_for(profile))
         body=transport.call_args.args[0]
         self.assertEqual(body,json.loads((self.root/'interrupted-request.json').read_text()))
         self.assertEqual(body['systemInstruction']['parts'][0]['text'],gemini.PROFILES[profile])
@@ -282,16 +288,16 @@ with patch('media_clarity.gemini.request',side_effect=transport):
         self.check_legacy_recovery('gemini-3.8-flash')
 
     def test_v2_job_keeps_original_request_and_prompt(self):
-        self.check_legacy_recovery(gemini.MODEL, gemini.FAITHFUL_V2, gemini.PROMPT)
+        self.check_legacy_recovery(gemini.LEGACY_MODEL, gemini.FAITHFUL_V2, gemini.PROMPT)
 
     def test_v3_job_keeps_original_request_and_prompt(self):
-        self.check_legacy_recovery(gemini.MODEL, gemini.FAITHFUL_V3, gemini.PROMPT)
+        self.check_legacy_recovery(gemini.LEGACY_MODEL, gemini.FAITHFUL_V3, gemini.PROMPT)
 
     def check_legacy_recovery(self, model, config=None, prompt=gemini.LEGACY_PROMPT):
         from media_clarity.jobs import saved_transcript
         _,track=self.seed_source()
         legacy=config or gemini.CONFIGS[model]
-        self.assertEqual(gemini.model_for(gemini.CONFIG),'gemini-3.1-flash-lite')
+        self.assertEqual(gemini.model_for(gemini.CONFIG),'gemini-3.8-flash')
         media=self.store._row(self.item['id'])
         with self.store.db() as db:
             seed=saved_transcript(db,media,track)

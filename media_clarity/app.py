@@ -400,13 +400,15 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         return await run_in_threadpool(CaptionView(store).save, item_id, **body)
 
     @app.post("/api/library/{item_id}/subtitles")
-    async def import_subtitles(item_id: str, request: Request, audio_index: int | None = None):
+    async def import_subtitles(item_id: str, request: Request, audio_index: int | None = None,
+                               language: str = 'ko', format: str = 'srt'):
         data = bytearray()
         async for chunk in request.stream():
             if len(data) + len(chunk) > MAX_SUBTITLE_BYTES:
                 raise MediaError("subtitles_too_large", 413)
             data.extend(chunk)
-        track_id = await run_in_threadpool(jobs.import_srt, item_id, bytes(data), audio_index)
+        track_id = await run_in_threadpool(jobs.import_srt, item_id, bytes(data), audio_index,
+                                         language=language, format=format)
         return JSONResponse({"id":track_id}, status_code=201)
 
     @app.get("/api/library/{item_id}/subtitles/{track_id}.vtt")

@@ -5,6 +5,7 @@ const w=dom.window,d=w.document,video=d.getElementById('video'),dialog=d.getElem
 const items=['a','b'].map(id=>({id,title:id,duration:20,position:0,width:320,height:180,available:true,audio_index:0,thumbnail:false}));
 const views=new Map(),writes=[],native=new WeakMap();
 let pending=null,delay=false,loseResponse=false;
+let importDelay=null,importPending=null;
 const tracks=[{id:'first',source:'generated',has_transcript:true,audio_index:0},{id:'second',source:'supplied',audio_index:1}];
 w.setTimeout=()=>1;w.clearTimeout=()=>{};
 w.fetch=async(url,options={})=>{
@@ -18,7 +19,15 @@ w.fetch=async(url,options={})=>{
   if(body.revision!==current.revision)return {ok:false,json:async()=>({error:'caption_view_changed'})};
   value={selection:body.selection,offset_ms:body.offset_ms,revision:body.revision+1};views.set(key,value);
   if(loseResponse){loseResponse=false;throw Error('response lost');}
- }else if(uri.pathname.endsWith('/subtitles'))value={tracks,jobs:[],view:views.get(id+':'+(uri.searchParams.get('audio_index')||0))||{selection:null,offset_ms:0,revision:0}};
+ }else if(uri.pathname.endsWith('/subtitles')){
+  if(options.method==='POST'){
+   if(importDelay==='post'){importDelay=null;await new Promise(resolve=>importPending=resolve);}
+   value={id:'manual'};
+  }else{
+   value={tracks,jobs:[],view:views.get(id+':'+(uri.searchParams.get('audio_index')||0))||{selection:null,offset_ms:0,revision:0}};
+   if(importDelay==='read'){importDelay=null;await new Promise(resolve=>importPending=resolve);}
+  }
+ }
  else if(uri.pathname.endsWith('/preference'))value={included:false,preference:'neutral',revision:0};
  else value={...items.find(i=>i.id===id)};
  return {ok:true,json:async()=>JSON.parse(JSON.stringify(value))};
@@ -67,6 +76,24 @@ async function nativeMode(mode){video.querySelector('track').track.mode=mode;vid
  assert.equal(d.getElementById('caption-reset').disabled,true,'missing saved version cannot offer a timing action with no target');
  assert.equal(video.currentTime,7,'view settings never seek or reload the media source');
  assert(writes.every(r=>r.key==='a:0'||r.key==='a:1'));
+ // Import completion must not replace a newer audio owner or a newer sync choice,
+ // whether its POST response or its following subtitle refresh arrives late.
+ const input=d.getElementById('subtitle-input');
+ for(const stage of ['post','read'])for(const change of ['audio','sync']){
+  items[0].audio_index=0;await reopen();await choose('first');
+  d.getElementById('caption-later').click();await settle();
+  importDelay=stage;importPending=null;
+  Object.defineProperty(input,'files',{configurable:true,value:[new w.File(['captions'],'captions.srt')]});
+  input.dispatchEvent(new w.Event('change'));await settle();assert(importPending);
+  if(change==='audio'){items[0].audio_index=1;await reopen();}
+  else{d.getElementById('caption-later').click();await settle();}
+  const count=writes.length,chosen=select.value,src=video.querySelector('track').src;
+  const saved=JSON.stringify([...views]);
+  importPending();await settle();await settle();
+  assert.equal(writes.length,count,stage+'/'+change+' must not write stale import choice');
+  assert.equal(select.value,chosen);assert.equal(video.querySelector('track').src,src);
+  assert.equal(JSON.stringify([...views]),saved);
+ }
  console.log('PASS caption viewing DOM: audio-specific choice/offset, native Off/On, stale write isolation, reopen waits, lost response/conflict recovery, missing track, automatic reset (mocked HTTP/media).');
  dom.window.close();
 })().catch(e=>{console.error(e);process.exitCode=1;dom.window.close();});

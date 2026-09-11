@@ -8,7 +8,8 @@ import urllib.request
 
 from .storage import MediaError
 
-MODEL = 'gemini-3.1-flash-lite'
+MODEL = 'gemini-3.8-flash'
+LEGACY_MODEL = 'gemini-3.1-flash-lite'
 ENDPOINT = f'https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent'
 LEGACY_PROMPT = '''Translate the supplied dialogue into natural, concise Korean subtitles.
 Each target has an id, source text, and optional neighboring dialogue for context.
@@ -54,8 +55,8 @@ it with a generic holiday throughout the dialogue.
 CONFIGS = {model:json.dumps({'provider':'gemini', 'model':model, 'profile':'saved-context-v1',
     'prompt_sha256':hashlib.sha256(LEGACY_PROMPT.encode()).hexdigest(), 'batch_size':8,
     'context_units':1, 'context_chars':400, 'thinking':'low', 'max_output_tokens':4096},
-    sort_keys=True, separators=(',', ':')) for model in (MODEL, 'gemini-3.8-flash')}
-FAITHFUL_V2 = json.dumps({**json.loads(CONFIGS[MODEL]), 'profile':'faithful-context-v2',
+    sort_keys=True, separators=(',', ':')) for model in (LEGACY_MODEL, MODEL)}
+FAITHFUL_V2 = json.dumps({**json.loads(CONFIGS[LEGACY_MODEL]), 'profile':'faithful-context-v2',
     'prompt_sha256':hashlib.sha256(PROMPT.encode()).hexdigest()}, sort_keys=True, separators=(',', ':'))
 FAITHFUL_V3 = json.dumps({**json.loads(FAITHFUL_V2), 'profile':'faithful-context-v3',
     'response_contract':'exact-target-ids-v1'}, sort_keys=True, separators=(',', ':'))
@@ -63,12 +64,15 @@ FAITHFUL_V4 = json.dumps({**json.loads(FAITHFUL_V3), 'profile':'faithful-context
     'prompt_sha256':hashlib.sha256(CONTINUITY_PROMPT.encode()).hexdigest(),
     'request_contract':'translated-prefix-v1', 'previous_units':2, 'previous_chars':400},
     sort_keys=True, separators=(',', ':'))
-CONFIG = json.dumps({**json.loads(FAITHFUL_V4), 'profile':'faithful-context-v5',
+FAITHFUL_V5 = json.dumps({**json.loads(FAITHFUL_V4), 'profile':'faithful-context-v5',
     'prompt_sha256':hashlib.sha256(PROMPT_V5.encode()).hexdigest()}, sort_keys=True, separators=(',', ':'))
+CONFIG = json.dumps({**json.loads(FAITHFUL_V5), 'model':MODEL, 'profile':'faithful-context-v5-flash38'},
+    sort_keys=True, separators=(',', ':'))
 PROFILES = {config:LEGACY_PROMPT for config in CONFIGS.values()}
 PROFILES[FAITHFUL_V2] = PROMPT
 PROFILES[FAITHFUL_V3] = PROMPT
 PROFILES[FAITHFUL_V4] = CONTINUITY_PROMPT
+PROFILES[FAITHFUL_V5] = PROMPT_V5
 PROFILES[CONFIG] = PROMPT_V5
 
 

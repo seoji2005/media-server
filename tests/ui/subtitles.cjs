@@ -15,6 +15,11 @@ w.fetch=async (url,options={})=>{
  if(url==='/api/models/diagnostics')return {ok:!modelBusy,json:async()=>modelBusy?{error:'processing_worker_active'}:modelResult};
  if(url==='/api/library')return {ok:true,json:async()=>({items})};
  if(url.split('?')[0].endsWith('/subtitles')){
+  if(options.method==='POST'){
+   const q=new URL(url,w.location.origin).searchParams;
+   data={tracks:[{id:'manual',source:'supplied',language:q.get('language'),can_retranslate:q.get('language')!=='ko'}],jobs:[]};
+   return {ok:true,json:async()=>({id:'manual'})};
+  }
   if(delayA&&url.includes('/a/'))await new Promise(resolve=>pendingA=resolve);
   return {ok:true,json:async()=>JSON.parse(JSON.stringify(data))};
  }
@@ -40,15 +45,29 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  assert.equal(video.querySelectorAll('track').length,0);
  const engine=d.getElementById('subtitle-translator');
  assert.equal(d.getElementById('subtitle-translator-panel').hidden,false,'engine available before any saved transcript');
- assert.equal(engine.value,'gemini');
+ assert(engine.textContent.includes('Gemini 3.8 Flash'));
+ assert.equal(engine.tagName,'P');
  assert.equal(d.getElementById('subtitle-cloud-note').hidden,false);
  assert.equal(d.getElementById('subtitle-generate').textContent,'Gemini로 자막 만들기');
  assert(!posts.some(p=>p.includes('/subtitle-jobs')),'opening a video never queues cloud work');
  d.getElementById('subtitle-generate').click();await settle();
  assert.equal(JSON.parse(bodies[posts.lastIndexOf('/api/library/a/subtitle-jobs')]).provider,'gemini');
  assert(d.getElementById('subtitle-cloud-note').textContent.includes('음성 인식은 이 기기'));
- assert.equal(engine.options.length,1,'new work has one fixed translator');
+ assert.equal(d.querySelectorAll('select#subtitle-translator').length,0,'fixed translator needs no choice');
+ const input=d.getElementById('subtitle-input'),language=d.getElementById('subtitle-import-language');
+ assert.equal(input.accept,'.srt,.vtt');
+ for(const [name,lang,format] of [['captions.SRT','en','srt'],['captions.vtt','ja','webvtt']]){
+  language.value=lang;const raw=new w.File(['source captions'],name);
+  Object.defineProperty(input,'files',{configurable:true,value:[raw]});
+  const before=posts.length;input.dispatchEvent(new w.Event('change'));await settle();await settle();
+  const sent=new URL(posts[before],w.location.origin);
+  assert.equal(sent.pathname,'/api/library/a/subtitles');assert.equal(sent.searchParams.get('language'),lang);
+  assert.equal(sent.searchParams.get('format'),format);assert.equal(sent.searchParams.get('audio_index'),'0');
+  assert.equal(bodies[before],raw);assert.equal(posts.length,before+1,'import never starts ASR or translation');
+  assert.equal(input.value,'');assert.equal(d.getElementById('subtitle-retranslate').hidden,false);
+ }
  data={tracks:[{id:'first',source:'supplied',language:'ja',can_retranslate:true}],jobs:[]};await w.qa.refreshSubtitles(w.qa.owner());
+ d.getElementById('subtitle-select').value='first';d.getElementById('subtitle-select').dispatchEvent(new w.Event('change'));await settle();
  const generate=d.getElementById('subtitle-generate');assert.equal(generate.hidden,false);assert.equal(generate.textContent,'Gemini로 자막 만들기');
  generate.click();await settle();assert(posts.includes('/api/library/a/subtitle-jobs/regenerate'));
  assert.equal(JSON.parse(bodies[posts.lastIndexOf('/api/library/a/subtitle-jobs/regenerate')]).provider,'gemini');
@@ -92,8 +111,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  assert.equal(select.value,'second','Korean remains selected when source option appears');
  const retranslate=d.getElementById('subtitle-retranslate');assert.equal(retranslate.hidden,false);
  const provider=d.getElementById('subtitle-translator'),disclosure=d.getElementById('subtitle-cloud-note');
- assert.equal(provider.value,'gemini');assert.equal(disclosure.hidden,false);
- provider.value='gemini';provider.dispatchEvent(new w.Event('change'));
+ assert(provider.textContent.includes('Gemini 3.8 Flash'));assert.equal(disclosure.hidden,false);
  assert.equal(disclosure.hidden,false);assert(disclosure.textContent.includes('Google'));
  assert(disclosure.textContent.includes('영상·음성 파일은 보내지 않습니다'));
  assert(disclosure.textContent.includes('API 키 설정이 필요'));
@@ -121,7 +139,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  select.value='';select.dispatchEvent(new w.Event('change'));await settle();assert.equal(notes.hidden,true);
  select.value='first';select.dispatchEvent(new w.Event('change'));await settle();
  delayA=true;const old=w.qa.refreshSubtitles(w.qa.owner());await settle();await w.qa.closePlayer();await w.qa.openPlayer('b');await settle();
- assert.equal(provider.value,'gemini','opening another video restores the owner-selected default');
+ assert(provider.textContent.includes('Gemini 3.8 Flash'),'opening another video retains the fixed model label');
  const before=video.querySelector('track').getAttribute('src');pendingA();await old;
  assert.equal(video.querySelector('track').getAttribute('src'),before);assert(before.includes('/b/'));
  await w.qa.closePlayer();assert.equal(video.querySelectorAll('track').length,0);assert.equal([...timers.values()].filter(t=>t.ms===1500).length,0);

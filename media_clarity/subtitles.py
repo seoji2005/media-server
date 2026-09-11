@@ -144,6 +144,14 @@ def parse_webvtt(data, duration, *, report=False):
     return parse_srt('\n\n'.join(converted).encode('utf-8'), duration, report=report)
 
 
+def parse_caption(data, duration, format, language):
+    """Shared metadata and text validation for manual and companion imports."""
+    if (format not in ('srt', 'webvtt') or not isinstance(language, str)
+            or not re.fullmatch(r'[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,3}', language)):
+        raise MediaError('invalid_request', 422)
+    return (parse_srt if format == 'srt' else parse_webvtt)(data, duration, report=True)
+
+
 def translation_units(cues):
     """Join adjacent fragments, preserving source timing rather than inventing alignment."""
     units = []
