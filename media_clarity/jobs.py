@@ -7,7 +7,6 @@ import html
 import json
 import os
 import re
-from pathlib import Path
 import sqlite3
 import subprocess
 import sys
@@ -15,8 +14,8 @@ import threading
 import time
 import uuid
 
-from .storage import ID, MediaError, Store, no_symlink
-from .subtitles import MAX_SUBTITLE_BYTES, parse_srt, parse_webvtt, validate_cues, webvtt, translation_units, korean_text, korean_language
+from .storage import ID, MediaError, no_symlink
+from .subtitles import MAX_SUBTITLE_BYTES, parse_caption, validate_cues, webvtt, translation_units, korean_text, korean_language
 from .subtitle_layout import generated_layout
 from . import asr_checkpoints, gemini, qwen
 
@@ -419,21 +418,21 @@ class Jobs:
             else:
                 raise MediaError('invalid_request', 422)
 
-    def import_srt(self, item_id, data, audio_index=None):
+    def import_srt(self, item_id, data, audio_index=None, *, language='ko', format='srt'):
+        # Preserve the historical Korean/SRT defaults; explicit imports also accept VTT.
         row = self.store._row(item_id)
         if audio_index is not None:
             self.store.playback_row(item_id, audio_index)  # Must refer to a ready playback choice.
             row['audio_index'] = audio_index
-        cues, notes = parse_srt(data, row['duration'], report=True)
+        cues, notes = parse_caption(data, row['duration'], format, language)
         if not cues:
             raise MediaError('invalid_subtitles', 422)
         self.store.open_verified(row).close()
         return self.publish(row, cues, 'supplied', None, source_srt=data,
-                            presentation={'profile':'supplied-v1', 'import':notes})
+                            presentation={'profile':'supplied-v1', 'import':notes}, language=language)
 
     def import_provided(self, item_id, data, file_id, file_sha256, content_sha256, format, language, timebase):
-        if (format not in ('srt', 'webvtt') or timebase != 'original-file'
-                or not isinstance(language, str) or not re.fullmatch(r'[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,3}', language)
+        if (timebase != 'original-file'
                 or any(not isinstance(v, str) or not re.fullmatch('[0-9a-f]{64}', v)
                        for v in (file_sha256, content_sha256))):
             raise MediaError('invalid_request', 422)
@@ -450,7 +449,7 @@ class Jobs:
             raise MediaError('processing_input_changed', 409)
         row['audio_index'] = 0  # Explicit original-file timeline, not selected rendition.
         self.store.open_verified(row).close()
-        cues, notes = (parse_srt if format == 'srt' else parse_webvtt)(data, row['duration'], report=True)
+        cues, notes = parse_caption(data, row['duration'], format, language)
         metadata = {'file_id':file_id, 'file_sha256':file_sha256, 'content_sha256':content_sha256,
                     'format':format, 'language':language, 'timebase':timebase, 'audio_index':0}
         identity = hashlib.sha256(document(metadata).encode()).hexdigest()

@@ -161,7 +161,7 @@ try {
     await page.locator('#subtitle-preparation > summary').click();
     const provider = page.locator('#subtitle-translator');
     assert.equal(await provider.isVisible(), true);
-    assert.equal(await provider.inputValue(), 'gemini');
+    assert.match(await provider.textContent(), /Gemini 3\.8 Flash/);
     assert.equal(await page.locator('#subtitle-cloud-note').isVisible(), true);
     assert.equal(await page.locator('#subtitle-generate').textContent(), 'Gemini로 자막 만들기');
     assert.match(await page.locator('#subtitle-cloud-note').textContent(), /음성 인식은 이 기기/);
@@ -170,7 +170,7 @@ try {
     const blocked = await response;
     assert.equal(blocked.status(), 503);
     assert.equal((await blocked.json()).error, 'gemini_key_missing');
-    assert.equal(await provider.locator('option').count(), 1);
+    assert.equal(await provider.evaluate(e => e.tagName), 'P');
     await page.locator('#subtitle-preparation > summary').click();
     await page.locator('#subtitle-input').setInputFiles(subtitle);
   } else {
@@ -216,18 +216,17 @@ try {
     await page.locator('#subtitle-preparation > summary').click();
     assert.equal(await retranslate.isVisible(), true);
     const provider = page.locator('#subtitle-translator');
-    assert.equal(await provider.inputValue(), 'gemini');
-    assert.equal(await provider.locator('option').count(), 1);
+    assert.match(await provider.textContent(), /Gemini 3\.8 Flash/);
+    assert.equal(await provider.evaluate(e => e.tagName), 'P');
     const response = page.waitForResponse(r => r.url().endsWith(`/subtitles/${sourceId.split(':')[0]}/retranslate`) && r.request().method() === 'POST');
     await retranslate.click();
     const blocked = await response;
     assert.equal(blocked.status(), 503);
     assert.equal((await blocked.json()).error, 'gemini_key_missing');
     assert.equal(await selector.inputValue(), sourceId);
-    assert.equal(await provider.inputValue(), 'gemini');
+    assert.match(await provider.textContent(), /Gemini 3\.8 Flash/);
     const before = await video.evaluate(v => ({src:v.currentSrc, track:v.querySelector('track').getAttribute('src'), time:v.currentTime}));
     await video.evaluate(v => v.play());
-    await provider.selectOption('gemini');
     const disclosure = page.locator('#subtitle-cloud-note');
     assert.equal(await disclosure.isVisible(), true);
     assert.match(await disclosure.textContent(), /텍스트를 Google로/);

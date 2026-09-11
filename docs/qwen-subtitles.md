@@ -1,7 +1,9 @@
-# Current subtitle path · September 9, 2026
+# Current subtitle path · September 11, 2026
 
 The owner selected **Qwen3-ASR-1.7B → Qwen3-ForcedAligner-0.6B → Gemini
-3.1 Flash-Lite**. This is the product choice, not a claim that Qwen won an independent
+3.8 Flash** for new jobs. The v5 prompt/context, strict IDs and low thinking match
+the selected comparison configuration. Existing Lite v5 and earlier jobs keep their
+original model and configuration; a restart does not upgrade them. This is the product choice, not a claim that Qwen won an independent
 quality benchmark. Fresh HTTP jobs use this path even when the request body is empty.
 The only accepted new translation provider is `gemini`. No automatic fallback.
 Opening a video sends nothing; the labeled action still discloses text egress and cost.
@@ -101,7 +103,7 @@ runtime can still run. Speech language is automatically detected. The aligner su
   subwords. Korean display layout remains an explicit proportional display rule,
   not Korean word alignment. Long punctuation-free phrases can remain long and
   need reading/timing review; no general subtitle-quality completion claim.
-- New Gemini `faithful-context-v5` requests add the preceding two saved source/Korean
+- New Gemini `faithful-context-v5-flash38` requests (and preserved Lite v5 jobs) add the preceding two saved source/Korean
   pairs (each text capped at 400 characters) as context, never additional targets.
   The context is rebuilt from this job's verified checkpoints after interruption;
   it does not read another track's translations or user corrections. The prompt

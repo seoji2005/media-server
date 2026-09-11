@@ -1,83 +1,75 @@
 # Current work
 
-- **Milestone:** reduce isolated short-caption flashes in new generated versions.
-  Branch `fix/short-caption-hold`, based on main
-  `c3995ac4e47d95a5c672ad8f15a416952eb99417` (PR #33). Restored local base
-  `0e10f48b789076b200612a8c9759df01cc5dd067` has the exact main tree
-  `6886b3a24df61ff70ed181e68287780df70a5ae7`.
-- **Authorization:** continued product work and review/checks followed by merge are
-  owner-approved. No new cloud inference, spending or final release approval is used.
+- **Milestone:** selected Gemini 3.8 translation and language-aware manual captions.
+  Branch `feat/selected-translation-and-captions`, based on main
+  `4503550c3c59019c6b46da62d639ccaf305f0258` (PR #34).
+  Local restored base `339ba3b592fd93a627c1e3a1aec52aaccb585ffe` has the exact same
+  tree `11101fa3c913c728de593b3552c47ccc0b692a47`; remote publication preserves actual
+  main ancestry, not the local recovery ancestry.
+- **Authorization:** the owner approved the audit's next work and carried approval
+  for implementation, checks, independent review and merging passing development
+  changes. This is not final release approval. No new paid inference is needed here.
 
-## Bounded display hold
+## Behavior
 
-New **ko-readable-v2** presentations hold an isolated cue shorter than 834 ms to
-start + 834 ms only if that entire interval is free before the next cue/video end.
-Starts, text and canonical source/translation timing stay unchanged. Nested overlapping
-turns and insufficient gaps keep their original display and warnings. No cue is dropped
-or merged. Existing saved v1 and supplied tracks are not reflowed; no new free reflow
-action or subtitle editing UI is added. New generation/saved-source translation still
-has its existing model/API cost, so do not rerun a film solely to change its layout.
+New ASR/retranslation jobs use Gemini 3.8 Flash with the evaluated v5 prompt,
+strict target IDs, bounded source/translated context and low thinking. The new
+`faithful-context-v5-flash38` profile leaves all six historical config strings,
+prompts and identities unchanged, including Lite v5. Resume/restart uses a saved
+job's model. No silent upgrade, automatic retry or fallback. The fidelity prompt
+has not been revised to allow different euphemisms; the comparison's limitation
+still applies. See [selection and counterevidence](translation-api-selection.md).
 
-[Offline comparison](evidence/short_caption_hold.json) applied the product layout to
-the 153 previously translated Qwen units, with zero model/API calls:
+Manual subtitle import accepts an explicit language and SRT/WebVTT format, using
+the existing bounded parsers. Korean/SRT remain the HTTP and UI defaults; choose
+Japanese, English or unknown before opening a foreign caption file. Foreign/unknown
+tracks can reuse the existing saved-text translation action without audio decoding,
+ASR or alignment. Importing itself triggers no cloud work. Original uploaded bytes,
+previous tracks, audio selection and viewing state remain separate. Companion
+caption identity/deduplication and its original-file timebase remain unchanged.
 
-- All **214 display cues** and their text/start/unit mapping remain present.
-- **12 short cues** reach 834 ms without new overlap. Short-duration findings fall
-  **46 → 34**, reading-speed findings **12 → 11**, flagged cues **50 → 40**.
-- Canonical cues and original raw evidence bytes remain unchanged. The remaining
-  shortest cue is still 80 ms; this policy does not resolve crowded dialogue.
+The UI names the fixed model instead of offering a one-option model selector.
+Language choice, file selection, disclosure and the explicit translation action
+remain visible in subtitle preparation. This is a small form change, not a new player.
 
-Local Linux/Python 3.12.14 checks: **56 tests pass, 6.983 s, no skips** using
-`python -m unittest tests.test_subtitle_layout tests.test_caption_view tests.test_subtitles -q`.
-They exercise boundaries/overlaps/fallback flags and actual FFmpeg/SQLite/ASGI lifespans
-with synthetic model results. Interrupted translation resumes without redoing ASR or
-rewriting its saved prefix. Stored v1/supplied tracks, new v2 output, caption selection,
-+500 ms offset and position 2.25 survive two application lifespans unchanged.
-This is not a real browser or network HTTP playback test. Fresh independent review and
-the current PR's Ubuntu/Windows integration checks are recorded on that PR before merge.
+## Verification
 
-## Preserved execution evidence
+Targeted Python tests: 35 passed / 8.078 s after correcting one new test's audio-bound
+expectation (an unprepared in-range audio returns 409; the out-of-range case now uses
+128). Existing tests remain unchanged in their runtime rejection behavior.
+The first run was 34 pass / 1 failure, preserved in the Work log.
 
-[Saved-source Gemini translation](evidence/qwen_saved_translation.json), PR #33:
-153/153 Qwen units, 20 successful actual requests, 277.089 seconds, no ASR/alignment
-or source fallback. Independent replay matched every request/response contract, source
-interval and saved output. That was a product-function trial, not a whole application
-job or automatic paid-request resume test. PR #33 passed
-[CI 34545421407](https://github.com/seoji2005/media-server/actions/runs/34545421407):
-261 Python tests per OS (one Windows-only skip on Ubuntu), nine DOM PASS suites and
-synthetic Chrome startup/playback/restart.
+All npm DOM entry scripts pass after isolating the new manual-import fixture's
+selected track from the next pre-existing fixture. Their HTTP/media are mocked.
+The new import checks preserve language/format/audio and send only the import request.
+Actual FFmpeg/SQLite/ASGI lifespans confirm source bytes, old VTT, selected caption,
++500ms offset, position and language survive restart; explicit translation uses 3.8
+without constructing either ASR or local translation models. Translation is synthetic.
+All six pre-change profiles were independently compared byte-for-byte locally.
+Full Python integration: 268 tests / 61.850 s, 267 pass and one existing
+Windows-only skip on Linux. Fresh fixed-commit review and remote CI are recorded on
+the PR before development merge.
+Local syntax and documentation-link checks pass. No fresh real-browser acceptance.
 
-[Continuous speech](evidence/qwen_continuous_dialogue.json), PR #32:
-605.350 seconds, 22 actual Qwen spans. SIGKILL recovery reused six saved spans and
-computed sixteen; full saved replay loaded no models. Completed-span CPU speech time
-was 1,472.961 seconds, with 94.262 seconds (6.399%) in model loading. This does not
-include failed attempts or establish uninterrupted wall time/target GPU performance.
-Separate provided-caption ASGI/SQLite evidence translated 239 units with 30 actual
-requests, zero ASR, preserved originals/two tracks/choice/sync/position and no paid
-calls on reimport/restart.
+Independent review requested removal of one stale Playwright select operation and
+found a pre-existing import completion race. Both are fixed: import owns its player
+and caption-view version across the POST and refresh. Targeted subtitle/caption-view
+DOM checks pass, including delayed POST/GET with an audio switch or newer sync choice.
+Review of the corrected fixed commit and remote CI remain required before merge.
 
-The public raw archive `media-server-qwen-605s-2026-09-10.zip` preserves original inputs,
-outputs, failed attempts and approved results in `qwen-text-approved/`. The additional
-offline display comparison uses `short-caption-hold/`; it does not overwrite those
-source or v1 outputs. Model weights and credentials are excluded.
+## Next and retained limits
 
-## Remaining product gates
+Finish the current fixed-commit review/CI and development merge. Then reconcile the
+Qwen/scene-search installation paths and Fetch's exact item-entry adapter against the
+current Server API; no new Server entry API is needed. Fetch is a separate checkout
+and any modification must reconcile its live work before publication.
 
-- Short-cue display correction does not repair retained ASR omissions near 424 seconds
-  or translation findings: unsupported strengthening (unit 7), register drift
-  (24–40, 57–59), mixed source/translation uncertainty (72–73) and ambiguous sense
-  (124). These are selected AI text findings, not a listening-verified error rate.
-  Use new material and controls for subsequent quality changes; preserve this recording
-  as regression evidence. Do not remove acknowledgements or rewrite original timings
-  merely to eliminate warning counts.
-- Caption choice/Off/sync, provided-caption receiving, saved-source translation,
-  exact-item paused entry, bounded PCM storage, scene search and opt-in local
-  recommendations are integrated. Fetch remains separately owned; do not modify its
-  adapter here or infer extension-to-Server acceptance from these checks.
-- Natural long-video/multilingual content completeness, comfortable screen timing,
-  Windows 11 / RTX 4070 SUPER installation/VRAM/inference remain unaccepted.
-- Existing local Chrome EPERM and supplied-browser ERR_BLOCKED_BY_CLIENT limits
-  remain. Do not use another browser/CDP/profile/proxy or move blocked inference to CI.
-  Synthetic CI does not establish saved-caption screen quality.
-- Conservative enhancement needs visual comparison/adoption; search and recommendations
-  need actual viewing evaluation. No final release claim.
+Natural long-video/multilingual completeness, comfortable saved-caption screen timing,
+Windows 11/RTX installation/VRAM/inference and conservative enhancement adoption remain
+unaccepted. Existing short-caption hold, 605s Qwen recovery and provided-caption
+translation evidence remain in Git history and docs/evidence; no samples were rerun.
+Search/recommendations still need real viewing evaluation. No release claim.
+
+Existing local Chrome EPERM and supplied-browser ERR_BLOCKED_BY_CLIENT limits remain.
+Do not retry through other browsers, CDP, profiles or proxies, or move blocked model
+inference into CI. Approved model-free Ubuntu/Windows browser CI is separate evidence.

@@ -53,7 +53,9 @@ titles, paths, watch history or credentials enter prompts. Under the owner's Sep
 instruction, Gemini is the initial UI selection; starting it requires a labeled Gemini
 action with visible egress/billing disclosure. Merely opening a video sends nothing.
 The September 9 owner instruction fixes new ASR to Qwen3-ASR-1.7B plus
-Qwen3-ForcedAligner-0.6B and translation to Gemini 3.1 Flash-Lite. New API requests
+Qwen3-ForcedAligner-0.6B. The September 11 owner-approved continuation adopts
+Gemini 3.8 Flash for new jobs with the evaluated v5 prompt/context and low thinking.
+Historical Lite/v1–v5 jobs retain their exact saved configurations. New API requests
 omitting a provider use Gemini; explicit local requests are rejected. Existing jobs
 retain their saved settings. Minimal local companion caption and library APIs are
 authorized by the owner's integration feedback; cross-device synchronization remains

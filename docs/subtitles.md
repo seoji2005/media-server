@@ -1,7 +1,7 @@
 # Korean subtitle preparation
 
 **Current setup:** [Qwen ASR + separate alignment + Gemini](qwen-subtitles.md).
-The September 9 instruction supersedes the older Whisper/MADLAD setup and initial
+The September 9/11 instructions supersede the older Whisper/MADLAD setup and initial
 provider defaults below. Keep those historical sections for old-job recovery/evidence.
 [Provided foreign captions and companion APIs](companion-library.md) can avoid ASR.
 
@@ -11,18 +11,25 @@ NAS remain excluded. Public model-weight setup below is separate from video down
 
 ## Watching with existing subtitles
 
-Open a video → **자막 파일 열기** → choose its Korean SRT (UTF-8 or CP949/EUC-KR, ≤2 MiB).
+Open a video → **자막 준비 → 가져올 자막 언어 → 자막 파일 열기**. Choose Korean
+(the default), Japanese, English or unknown before selecting an SRT/VTT file (≤2 MiB).
+SRT supports UTF-8 or CP949/EUC-KR; VTT is UTF-8. Foreign/unknown-language tracks offer
+**Gemini로 다시 번역** without ASR. Importing alone makes no model or API call.
+The language is a user declaration, not automatic language verification.
 The app sorts cues by time, skips empty/outside cues and clips valid cues at the video
 end. One-digit hours and trailing positioning settings are accepted; positioning is
 ignored. Adjustment counts appear for the selected version. Invalid timing, controls,
 oversized text/files or excessive cue counts still fail; no usable cues is diagnosed.
 It stores a new version and serves escaped plain-text WebVTT. Previous versions remain
 selectable. Common SRT styling is removed for display; literal angle-bracket text and the
-original uploaded SRT bytes are preserved. Decoding is strict UTF-8 first, then CP949
+original uploaded caption bytes are preserved. Decoding is strict UTF-8 first, then CP949
 (including EUC-KR), with no replacement characters. SMI/SAMI, ASS/SSA, embedded subtitle extraction and automatic
 language verification are not implemented. Choose **자막 끄기** to hide captions.
-Source SRT files and source videos are never written. Imported text is treated as
-Korean because the user selected it for the Korean track; the app does not certify it.
+Source caption files and source videos are never written. The manual HTTP endpoint
+accepts `language` and `format=srt|webvtt`; omitted values keep historical Korean/SRT
+behavior. The currently selected, ready audio timeline is preserved. Existing imported
+tracks are not relabeled. VTT uses the same plain-text parser and normalization notices
+as companion imports; unsupported styles/regions/remapped timelines are rejected.
 
 Generated versions with a saved transcript offer **한국어 · 자동 번역** and
 **원문 · 자동 전사** in the same selector. Korean remains the initial choice; switching
@@ -68,21 +75,20 @@ does not change existing jobs' configuration identity or normal ASR resume behav
 
 ### Optional Gemini retranslation
 
-Open **자막 준비**. **번역 엔진 → Google Gemini · 3.1 Flash-Lite** is initially selected
-under the owner's September 8 instruction. Local MADLAD remains selectable. Choose:
+Open **자막 준비**. New jobs use the fixed **Google Gemini 3.8 Flash** profile;
+there is no model-choice dropdown. Historical jobs keep their recorded translator. Choose:
 
-- **Gemini로 자막 만들기:** local Whisper/VAD recognizes the selected
-  audio, then Gemini translates the validated transcript. ASR weights/runtime are
-  required; MADLAD weights and its direct translation dependencies are not. ASR uses
-  its existing CPU int8 / CUDA int8_float16 precision; translation's BF16 requirement
-  does not apply to this ASR-only path. Target Windows/RTX execution remains unverified.
-- **Gemini로 다시 번역:** reuse the selected generated version's saved transcript.
+- **Gemini로 자막 만들기:** local Qwen recognizes and separately aligns the selected
+  audio, then Gemini translates the validated transcript. Use the current Qwen setup;
+  no MADLAD installation is needed. Target Windows/RTX execution remains unverified.
+- **Gemini로 다시 번역:** reuse the selected generated version's saved transcript or
+  an imported foreign/unknown-language caption track.
   No local ASR or translation models are needed for this action.
 
-The selector alone never queues work or calls an API. Opening another video selects
-Gemini; visible disclosure and the labeled action precede a cloud job. Missing keys
+Opening a video or importing a caption never queues cloud work. Visible disclosure
+and the labeled translation action precede a cloud job. Missing keys
 produce an actionable error without sending text or choosing another engine. Empty API
-bodies remain local for backwards compatibility. Existing versions keep playing;
+bodies select the current Gemini profile; explicit new local-provider requests are rejected. Existing versions keep playing;
 completed cloud versions are labeled **한국어 · Gemini**.
 
 Set `GEMINI_API_KEY` in the environment of the process launching the app, then restart
