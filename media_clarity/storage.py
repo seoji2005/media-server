@@ -518,6 +518,22 @@ class Store:
             ids = [r[0] for r in db.execute("SELECT id FROM items ORDER BY created_at DESC, id DESC")]
         return [self.item(item_id) for item_id in ids]
 
+    def rename_item(self, item_id: str, title, expected_title) -> dict:
+        if (type(title) is not str or not 1 <= len(title.strip()) <= 180
+                or not title.isprintable() or type(expected_title) is not str
+                or len(expected_title) > 180):
+            raise MediaError('invalid_title', 422)
+        self._row(item_id)
+        # Compare the displayed text atomically. No file paths, content identities,
+        # watch history, caption settings or recommendation participation change.
+        with self.db() as db:
+            saved = db.execute('''UPDATE items SET title=? WHERE id=? AND title=?
+                RETURNING id,title''', (title.strip(), item_id, expected_title)).fetchone()
+            if saved is None:
+                raise MediaError('title_changed', 409)
+            db.commit()
+        return dict(saved)
+
     def save_position(self, item_id: str, position, audio_index=None) -> dict:
         row = self._row(item_id)
         try:

@@ -244,7 +244,7 @@ video::cue{font-family:system-ui,sans-serif;background:rgba(0,0,0,.8);color:whit
 .subtitle-search{margin-top:18px;border-top:1px solid #ffffff14;padding-top:14px}
 .subtitle-search summary{cursor:pointer;font-size:15px;color:#ded9f3;padding:4px 0}
 .subtitle-search label{display:block;font-size:14px;color:#b3b2c0;margin:8px 0 7px}
-.subtitle-search input{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #ffffff25;border-radius:10px;background:#16161d;color:#f3f3f3;font:inherit}
+.subtitle-search input,.title-panel input{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #ffffff25;border-radius:10px;background:#16161d;color:#f3f3f3;font:inherit}
 .subtitle-search input:focus-visible,.subtitle-search summary:focus-visible,.subtitle-result:focus-visible{outline:2px solid #ad9cff;outline-offset:3px}
 .subtitle-search ol{padding:0;margin:12px 0 0;list-style:none;max-height:300px;overflow:auto}
 .subtitle-result{display:flex;align-items:flex-start;gap:16px;width:100%;padding:12px 8px;text-align:left;border:0;border-bottom:1px solid #ffffff10;background:transparent;color:#e6e4ed;font:inherit;font-size:15px;line-height:1.6;cursor:pointer}
