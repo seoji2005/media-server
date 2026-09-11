@@ -17,4 +17,4 @@ for command in commands:
     result = subprocess.run(command, cwd=root)
     if result.returncode:
         sys.exit(result.returncode)
-print('PASS: Python, all eight DOM suites, real browser playback and server restart')
+print('PASS: Python, all DOM suites, real browser playback and server restart')

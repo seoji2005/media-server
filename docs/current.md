@@ -1,45 +1,71 @@
 # Current work
 
-Milestone: `fix/scene-qwen-runtime`, following merged [PR35](https://github.com/seoji2005/media-server/pull/35).
-Remote base `72722b02ac56a364aa1e791c488d7820529ba824`; local base
-`00b318db1adbb8f460e2422843b8e3a66fa3f880` has identical tree
-`28ed1ae40218afeba64491b6fa2a7ce70f42445f`. Preserve actual remote parents.
-Owner authority covers implementation, verification, independent review and merging
-passing development changes; not release or target-device acceptance.
+Milestone: `fix/bounded-scene-preparation`, based on live Server main
+`34b7984415b496bd8da3143acf9ad6aeee2825fe`. The local restored base
+`9cb4ec696a468a32278fbed67ed3cf02ef4af419` has tree
+`3cf41ed0cb679c110ec24e3e1e2f827d7187163d`; publish with actual remote ancestry.
+Fetch main remains `0d6aa28a4a0c6944c053e3d63e150908b44b9175`; no open PR
+in either repository at start. Owner approval continues for implementation, bounded
+checks, independent review and merging passing development changes, not release.
 
-PR35 adopted Gemini 3.8 for new jobs with unchanged evaluated v5 behavior, preserved
-all six old translation profiles, added explicit-language SRT/WebVTT imports and
-fixed stale import completion overwriting a newer caption/audio/sync selection.
-Independent review accepted; Product checks run 34573931996 passed on Ubuntu24.04
-and Windows2025, including the existing synthetic browser/restart tests.
+## Delivered and current change
 
-## Current change
+Server PR35/36 and Fetch PR22 are merged: Gemini3.8 for new jobs, foreign SRT/VTT
+import and explicit saved-text translation, shared Qwen/scene runtime compatibility,
+and exact verified Server item entry retaining viewing state. Prior evidence remains
+applicable; these steps are not pending implementation.
 
-Scene setup wrongly installed legacy Transformers4.57.1 over Qwen5.16.1. Its Encoder
-also expected a tensor from get_image_features/get_text_features, while5.16.1 returns
-a pooled-output object. New requirements-scene.txt matches current Qwen's core pins;
-legacy requirements-models.txt remains separate for old speech-job recovery. The
-Encoder normalizes the pooled tensor in either return form. Existing package-bound
-identities invalidate derived scene vectors on runtime change; no originals, captions,
-watch state, schema, query history or networking behavior changes.
+Preview generation and scene preparation could keep posting when successful responses
+repeated the same completed count. A focused DOM regression reproduced a fourth POST
+after two unchanged responses. Both preparation entry points now stop on two successive
+responses without a new high-water completed count, invalid counters, a request/body
+wait over150s, or10minutes/256requests per explicit action. Preview and analysis stages
+track progress separately. There are no automatic request retries. Existing completed
+tiles remain; a new explicit action reuses server checkpoints. Closing/switching the
+player cannot begin a later preparation stage. An aborted client wait does not claim
+to cancel server work; the UI says the current server batch may still finish.
 
-Installed Linux CPU runtime: tiny local random model/tokenizer through production
-Encoder; before-code failure reproduced and corrected test passed. Korean text/JPEG
-outputs are finite unit-length vectors; simulated old tensor return matches exactly.
-Shared Qwen+scene dependency dry-run resolves. This does not install/run every Qwen
-dependency or validate upstream SigLIP2 quality on the new runtime. Existing scene
-persistence/lifetime tests8 pass and DOM pass. See [exact evidence](scene-search.md).
-Fresh independent fixed-commit review and existing model-free CI gate the merge.
+This changes only browser-side preparation control and its tests. Server APIs,
+checkpoint formats, models, captions, original files, ranking and query egress are
+unchanged. Fresh independent fixed-HEAD review and existing model-free CI gate merge.
 
-## Next and retained limits
+## Verification
 
-Finish this review/CI/merge and Fetch's separate exact-item adapter review. Current
-Server #item/API already restores saved audio/caption/Off/sync/position; no new entry
-API is needed. New natural long/multilingual ASR/translation, comfortable caption
-screen timing, real Chrome extension discovery/save/navigation, Windows11/RTX setup,
-VRAM and recovery, conservative enhancement and search/recommendation usefulness
-remain acceptance work. No new paid translation or real-model comparison this slice.
+- New preparation DOM regression: original code failed (4POSTs instead of3); corrected
+  code passes. Checks cover both preview entry points, analysis-stage no-progress,
+  explicit resume, HTTP-header/body stalls, late timeout responses, elapsed limit,
+  malformed progress and closed-player isolation. HTTP/media are mocked.
+- All9DOM entry scripts pass, including existing caption, audio, recommendation,
+  preview and scene flows. Existing Python preview8 and scene8 tests pass
+  (7.611s and5.670s respectively); no new model inference.
+- A45-minute,160x90,1fps generated H.264 fixture ran through actual FFmpeg/SQLite and
+  production ASGI endpoints:120previews,0failed frames; restart after16 preserved
+  those results and made104remaining previews. All120JPEG endpoints succeeded.
+  Position1357.25s, selected caption/+500ms and original SHA remained unchanged.
+  The full probe took11.22s on Linux CPU; tiny synthetic input is not a speed forecast.
+  No real browser, model inference, natural footage or target-device acceptance.
 
-Existing Chrome EPERM/supplied-browser ERR_BLOCKED_BY_CLIENT and Fetch extension
-policy denials remain. No other browser/CDP/profile/proxy or model-inference CI
-workaround. Approved synthetic model-free Ubuntu/Windows CI is separate evidence.
+## Blocked acceptance and next work
+
+Fresh natural long-speech Qwen→aligner→Gemini3.8 acceptance is stopped. The prior
+`test/bounded-long-speech@f038f85` branch preserves the complete handoff: model
+setup failed before any weight download; socksio installation hit network approval
+cancellation twice. This session rechecked missing socksio/weights without repeating
+that installation or changing route. Two already-held public dialogue recordings
+(706.24s and762.048s) and their reference annotations passed offline hash/time checks.
+Some reference text was used in translation comparisons; these are not pristine
+holdouts. No new ASR/alignment/Gemini calls. Renewed general approval alone is not
+new evidence that the execution limit changed.
+
+Finish this bounded preparation review/CI/development merge. Then, only when an
+allowed environment has the dependencies and pinned model assets, run the fresh
+continuous-speech product path with saved span/batch reuse and finite limits.
+Natural long-caption viewing, actual Chrome Fetch discovery/save/item navigation,
+Windows11/RTX installation/VRAM/playback, useful enhancement and subjective search/
+recommendation acceptance remain open. SwinIR and the earlier filter experiment
+have no adopted enhancement preset; no new enhancement-quality claim is made.
+
+Stop on elapsed/no-progress limits or repeated same-cause failures, terminate owned
+processes and preserve originals/complete evidence. Existing browser/CDP/profile/proxy
+and model-inference CI workaround prohibitions remain. Do not convert missing target
+hardware or human viewing acceptance into synthetic completion claims.
