@@ -1,86 +1,71 @@
 # Current work
 
-Milestone: `fix/bounded-subtitle-status`, based on live Server main
-`42c435842b70918d1f29924f74f023c7736576ca` (PR38 merged). Restored local base
-`9ad3e25ca50cce5b48189d4e14ed798e7b81daaf` has the identical complete tree
-`d958a3ecdf5106bfcb77503467c6118c5096ebc3`; publish using actual remote ancestry.
-Fetch main stays `0d6aa28a4a0c6944c053e3d63e150908b44b9175`. No open PR in either
-repository at start. Owner implementation, bounded verification, independent review
+Milestone: `feat/subtitle-search-pages`, based on live Server main
+`487c210e5f504eda67c521abdc89f0758b1a4250` (PR39 merged). Restored local base
+`5df91c578b0b83f65a9c3bddc23848257dda2920` has complete tree
+`210cd57e69fdb90b1f31bba7508ef7c80d7b9661`; publish using actual remote ancestry.
+Fetch main stays `0d6aa28a4a0c6944c053e3d63e150908b44b9175`. Both repositories had
+no open PR at start. Owner implementation, finite verification, independent review
 and passing development merge approvals continue; release is separate.
 
 ## Delivered and current change
 
-Gemini3.8, foreign SRT/VTT import/retranslation, shared Qwen/scene installation pins,
-exact Fetch-to-Server item entry, bounded preview/scene preparation and local display
-labels/Unicode library search are merged. PR38 passed independent functional review,
-Ubuntu/Windows CI34591293873 and actual desktop/mobile screenshot inspection.
+Gemini 3.8, foreign SRT/VTT import/retranslation, shared Qwen/scene installation pins,
+exact Fetch item entry, bounded preview/scene preparation, local titles/Unicode library
+search and bounded subtitle status recovery are merged. PR39 passed independent
+review, Ubuntu/Windows CI34595475887 and desktop/mobile screenshot inspection.
 
-Subtitle status and job commands had no browser response deadline. A delayed generation
-button remained clickable; the new regression against base9ad3e25 sent2POSTs instead
-of1. The corrected client serializes commands per item, with30s response/body limits
-for commands, status reads and caption-setting writes. Status reads wait for already
-pending caption/command requests, each independently bounded. No automatic command
-retry, inference start, resume, server schema or worker/checkpoint change.
+Caption search showed only the first 50 matches, leaving later scenes inaccessible
+for common dialogue. It also treated cue line breaks/repeated whitespace literally.
+The new page controls expose every match in groups of 50, with total/range and keyboard
+focus. Normalization joins whitespace inside one cue for matching only; original
+caption text/timing/output is unchanged. It does not join separate cues or infer
+meaning. Selecting a result returns the video into view at the adjusted native time.
 
-Ambiguous command responses stay blocked until an explicit successful status reread;
-known missing-key/precondition rejection can be corrected directly. Pending/uncertain
-state survives same-page item/audio switching. A reread is a server snapshot, not an
-exactly-once command receipt; a delayed server request may still finish, and explicit
-new actions retain the existing billing disclosure/server guards. Page reload is not
-a durable operation journal.
-
-Automatic monitoring stops on a failed read,5minutes without a higher saved count/time,
-or10minutes/400reads per monitoring session. Limits are checked at completed status
-reads; individual response waits remain bounded. Progress/stage changes cannot extend
-the total budget. Explicit reread, a new command or player reopen starts a new session.
-Manual pause remains available after monitoring stops. The server worker may continue;
-no client timeout is presented as cancellation. Existing video/caption/Off/offset stay
-usable through read failures. Initial-load and stalled caption-save recovery are covered.
+Query edits invalidate old buttons immediately before debounce. Page, caption, Off,
+audio and item transitions cannot use retained buttons to seek a newer view. Paging
+only renders results; existing completed seeks save viewing position. Search remains
+memory-only, with no new endpoint, DB schema, ranking signal, inference or egress.
 
 ## Verification and next action
 
-- Linux CPU: all11DOM scripts pass. New status tests exercise delayed headers/body,
-  duplicate commands, timeout/late acknowledgements, read-only confirmation/failure,
-  first-read recovery, progress regression, elapsed/request caps, manual pause,
-  caption-save timeout, pending reopen and audio/item isolation. HTTP/media mocked.
-- The old-code duplicate-click regression exits1 (2POSTs); corrected tests exit0.
-  Syntax, diff and documentation-link checks pass. No Python product code changed;
-  avoid optional broad local repeats. Existing model-free CI supplies the full gate.
-- Fresh review at53c136a/tree3ab3d14 found no actionable issue and independently
-  passed status/caption/audio DOM plus item-switch uncertainty/stale-read probes.
-  Author follow-up reproduced the retry button disappearing before its response;
-  recovery now stays visible/disabled and holds commands until the read finishes.
-  Browser verification explicitly awaits the real successful status response.
-  This correction needs focused checks and narrow fixed-HEAD rereview.
-- Browser additions inject one503 status read while a real synthetic caption/video is
-  loaded, then use the real server through the visible recovery button. They assert
-  unchanged media/position/caption and zero job commands, and capture desktop/mobile
-  failure screens. This is fault injection, not a natural network/model failure test.
-- Freeze the source, obtain fresh independent recovery/privacy review, then inspect
-  exact-HEAD Ubuntu24.04/Windows Server2025 CI and screenshots before development merge.
-  CI jobs cap at10minutes; do not rerun unchanged failures without new evidence.
+- Old base reproduced the first-50 ceiling (fixture exit 1); new 115-result DOM
+  navigation, last-match seek, whitespace/literal text, keyboard focus, stale query/
+  page guards and existing Off/item/track cases pass. All 11 DOM scripts passed.
+- Chrome verification imports an actual 115-cue VTT into the existing synthetic
+  20-second video on the restart phase, shifts it +500 ms, pages to the final group
+  and seeks/saves its last native cue. Existing caption output must remain identical.
+  Desktop/mobile screenshots and no query/inference requests are checked.
+- Run syntax/diff/docs checks, freeze the source, obtain fresh independent review
+  of navigation/preservation, then inspect the fixed-HEAD Linux/Windows CI and screens
+  before development merge. CI observation is capped at 10 minutes/10 polls and each
+  CI job at 10 minutes; do not rerun an unchanged failure without new evidence.
+- DOM is mocked HTTP/media; Chrome's short synthetic captions test navigation, not
+  natural long-speech quality. No Python product or server behavior changed.
 
-For GitHub PNGs, export the artifact as a file reference and use the official file
-materialization service, then verify ZIP digest and inspect images. This worked without
-credential/proxy/policy changes after prior direct download URLs returned403 twice.
-Do not repeat those raw-URL requests or bypass browser/extension access restrictions.
+For GitHub PNGs, export artifacts as file references and use official materialization;
+verify ZIP SHA-256 digests before inspecting images. Prior raw download URLs returned
+403 twice. Do not repeat those requests or change credentials/proxy/browser/profile
+or CI model inference to bypass actual restrictions.
 
 ## Blocked acceptance
 
-Fresh natural long-speech Qwen→aligner→Gemini3.8 remains stopped. The preserved
+Fresh natural long-speech Qwen→aligner→Gemini 3.8 remains stopped. The preserved
 `test/bounded-long-speech@f038f85` handoff records no Qwen weights and socksio install
-network approval cancellation twice. No repeat installation/new model download here.
-Two held public dialogue recordings706.24s/762.048s passed hash/time checks earlier;
-some references informed translation comparisons, so they are not pristine holdouts.
-No new ASR/alignment/Gemini calls. General approval alone does not prove limits changed.
+network approval cancellation twice. No changed access/dependency evidence this turn;
+no repeat installation or model download. Existing general approval alone does not
+prove execution limits changed. No new ASR, alignment or Gemini calls.
 
-Only once an allowed environment has the dependencies and pinned assets, run the fresh
-speech product path with finite elapsed/no-progress/retry bounds and saved span/batch
-reuse. Natural long-caption viewing, actual Chrome Fetch discovery/save/item playback,
-Windows11/RTX4070SUPER installation/VRAM/playback and useful enhancement/subjective
-search/recommendation quality remain open. No enhancement preset has been adopted.
-Prior synthetic45-minute preview/restart checks are not natural long-speech evidence.
+Only when an allowed environment has dependencies and pinned assets, run new speech
+through the product with finite elapsed/no-progress/retry bounds and saved span/batch
+reuse. The held public dialogue recordings 706.24 s/762.048 s had prior hash/time checks
+but informed translation comparisons, so they are not pristine holdouts.
+
+Natural long-caption viewing, actual Chrome Fetch discovery/save/item playback,
+Windows 11/RTX4070SUPER installation/VRAM/playback and useful enhancement/subjective
+search/recommendation quality remain open. No enhancement preset is adopted. Earlier
+synthetic 45-minute preview/restart checks do not establish speech quality.
 
 Terminate owned processes on bounds/repeated same-cause failures, preserve originals
-and complete diagnostics, then stop that blocked task. Existing browser/CDP/profile/
-proxy and model-inference CI workaround prohibitions remain.
+and complete diagnostics, and stop that blocked task. Local Chrome EPERM, supplied
+browser ERR_BLOCKED_BY_CLIENT and extension-management denials remain unchanged.

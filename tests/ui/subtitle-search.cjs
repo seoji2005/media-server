@@ -5,7 +5,7 @@ const dom=new JSDOM(fs.readFileSync(path.join(repo,'media_clarity/static/index.h
 const w=dom.window,d=w.document,video=d.getElementById('video'),dialog=d.getElementById('player-dialog');
 const query=d.getElementById('subtitle-query'),results=d.getElementById('subtitle-results'),status=d.getElementById('subtitle-search-status');
 const items=['a','b'].map(id=>({id,title:id,duration:120,position:0,width:320,height:180,available:true,thumbnail:false}));
-const requests=[],timers=new Map();let counter=0,ready=1,plays=0;
+const requests=[],timers=new Map();let counter=0,ready=1,plays=0,scrolls=0;
 w.setTimeout=(fn,ms)=>{timers.set(++counter,{fn,ms});return counter;};w.clearTimeout=id=>timers.delete(id);
 w.fetch=async (url,options={})=>{
  if(url.endsWith('/caption-view'))return {ok:true,json:async()=>({...JSON.parse(options.body),revision:JSON.parse(options.body).revision+1})};
@@ -19,6 +19,7 @@ w.fetch=async (url,options={})=>{
 Object.defineProperty(video,'readyState',{get:()=>ready});Object.defineProperty(video,'duration',{get:()=>120});
 Object.defineProperty(video,'textTracks',{value:new w.EventTarget()});
 video.play=()=>{plays++;return Promise.resolve();};video.pause=()=>{};video.load=()=>{video.currentTime=0;};dialog.showModal=()=>dialog.open=true;dialog.close=()=>dialog.open=false;
+video.scrollIntoView=()=>{scrolls++;};w.HTMLElement.prototype.scrollIntoView=function(){};
 w.eval(fs.readFileSync(path.join(repo,'media_clarity/static/app.js'),'utf8')+'\nglobalThis.qa={openPlayer,closePlayer};');
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 function search(text){query.value=text;query.dispatchEvent(new w.Event('input'));for(const [id,t] of timers){if(t.ms===150){timers.delete(id);t.fn();}}}
@@ -49,15 +50,34 @@ function saves(){return requests.filter(r=>r.method==='PUT');}
  search('없는 문장');assert.equal(results.children.length,0);assert.match(status.textContent,/없습니다/);
  search('');assert.equal(results.children.length,0,'no unsolicited transcript on empty query');
  select('two');await settle();assert.equal(results.children.length,0);search('한글');
- const secondTrack=loaded(Array.from({length:55},(_,i)=>[i+1,`한글 ${i}`]));
- assert.equal(results.children.length,50);assert.match(status.textContent,/55개.*50개/);
+ const secondTrack=loaded(Array.from({length:115},(_,i)=>[i+1,`한글 ${i}`]));
+ assert.equal(results.children.length,50);assert.match(status.textContent,/115개.*1–50/);
+ const previous=d.getElementById('subtitle-page-previous'),next=d.getElementById('subtitle-page-next'),pages=d.getElementById('subtitle-pages');
+ const beforePaging={time:video.currentTime,plays,writes:saves().length};
+ assert.equal(previous.disabled,true);assert.equal(next.disabled,false);assert.equal(pages.hidden,false);
+ const pageOneButton=results.querySelector('button');results.scrollTop=200;next.click();
+ assert.equal(results.children.length,50);assert.match(status.textContent,/51–100/);assert.equal(results.scrollTop,0);
+ assert.equal(d.activeElement,results.querySelector('button'),'keyboard paging moves focus to the new result group');
+ pageOneButton.click();assert.equal(video.currentTime,beforePaging.time,'old pages cannot seek');
+ next.click();assert.equal(results.children.length,15);assert.match(status.textContent,/101–115/);assert.equal(next.disabled,true);
+ next.click();assert.equal(results.children.length,15,'last page cannot go out of bounds');
+ assert.deepEqual({time:video.currentTime,plays,writes:saves().length},beforePaging,'paging does not play or save');
+ results.querySelector('li:last-child button').click();assert.equal(video.currentTime,115,'last match is reachable');assert(scrolls>0,'selection returns the video into view');
+ previous.click();assert.match(status.textContent,/51–100/);previous.click();assert.match(status.textContent,/1–50/);
+ search('한글 114');assert.equal(results.children.length,1);assert.equal(pages.hidden,true);search('한글');assert.match(status.textContent,/1–50/);
+ const oldQueryButton=results.querySelector('button');query.value='다른 검색';query.dispatchEvent(new w.Event('input'));
+ oldQueryButton.click();assert.equal(video.currentTime,115,'a query edit invalidates clicks before debounce fires');
+ search('한글');video.currentTime=12.5;
  const staleButton=results.querySelector('button');
  select('');await settle();assert.equal(results.children.length,0);assert.match(status.textContent,/선택해/);
  staleButton.click();assert.equal(video.currentTime,12.5,'off invalidates old result callbacks');
  select('one');await settle();oldTrack.dispatchEvent(new w.Event('load'));oldTrack.dispatchEvent(new w.Event('error'));
  assert.match(status.textContent,/불러오는 중/,'detached same-id track cannot overwrite the new load');
  const failing=video.querySelector('track');failing.dispatchEvent(new w.Event('error'));assert.match(status.textContent,/못했습니다/);
- select('two');await settle();loaded([[9,'한글 새 버전']]);search('한글');const itemAButton=results.querySelector('button');
+ select('two');await settle();loaded([[9,'한글\n  새\t버전 <literal>']]);search('  한글 새　버전  ');
+ assert.equal(results.children.length,1,'line breaks, repeated whitespace and full-width spaces match a phrase');
+ assert.match(results.textContent,/한글\n  새\t버전 <literal>/,'display keeps the original text and line breaks');
+ assert.equal(results.querySelector('literal'),null);search('한글');const itemAButton=results.querySelector('button');
  d.getElementById('subtitle-search-panel').open=true;
  await w.qa.closePlayer();assert.equal(query.value,'');assert.equal(results.children.length,0);assert.equal(d.getElementById('subtitle-search-panel').open,false);
  await w.qa.openPlayer('b');await settle();loaded([[30,'다른 영상']]);search('다른');
@@ -72,5 +92,5 @@ function saves(){return requests.filter(r=>r.method==='PUT');}
  assert.equal(w.localStorage.length,0);assert.equal(w.sessionStorage.length,0);assert.equal(w.location.search,'');
  assert(!requests.some(r=>JSON.stringify(r).includes('한글')||JSON.stringify(r).includes('없는 문장')||JSON.stringify(r).includes('다른')),'search text never enters HTTP');
  await w.qa.closePlayer();assert.equal([...timers.values()].filter(t=>t.ms===150).length,0);
- console.log('PASS subtitle search DOM: Unicode/literal text, bounded results, seek completion persistence, off/version/item isolation, errors, no query egress/history (mocked media/HTTP).');dom.window.close();
+ console.log('PASS subtitle search DOM: Unicode/whitespace/literal text, 115 results in bounded pages, keyboard focus, stale query/page guards, seek persistence, Off/version/item isolation, no query egress/history (mocked media/HTTP).');dom.window.close();
 })().catch(e=>{console.error(e);process.exitCode=1;dom.window.close();});

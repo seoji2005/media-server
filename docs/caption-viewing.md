@@ -17,6 +17,34 @@ remnants rounding to zero length are omitted from that response. This global off
 cannot repair timing drift or inaccurate alignment. Canonical VTT/source responses,
 media, saved caption rows, jobs, checkpoints and evidence hashes remain unchanged.
 
+## Searching long caption tracks
+
+Search reads only the currently selected, loaded native caption track in this page.
+NFKC/case normalization and collapsing whitespace let a phrase match across a cue's
+line breaks, repeated spaces or tabs. Displayed text keeps its original line breaks
+and literal characters. This is substring matching within each cue; separate cues,
+synonyms, omitted spaces and other languages are not semantically joined or inferred.
+
+All matching cues are reachable in chronological pages of up to 50 buttons. The count
+and displayed range stay visible; previous/next controls move keyboard focus to the
+new group's first result. Paging does not seek, play or write viewing state. Selecting
+a result uses that native cue's adjusted timestamp and brings the video into view;
+the existing completed-seek handler saves the position. Query/page changes invalidate
+old buttons immediately, including the input debounce interval. New caption/audio/item
+selection resets pages, and Off hides results. No-match/empty queries hide the pager.
+
+Cue text, normalized text, current matches and query exist only in page memory for
+the selected track. There is no search endpoint, persistent index/history, model call
+or recommendation input. Rendering stays bounded to 50 results; matching still scans
+the selected loaded captions when the normalized query changes, not on each page.
+
+The DOM fixture covers 115 results, last-page seeking, whitespace/literal text,
+keyboard focus and stale query/page/caption/item callbacks. The Chrome integration
+imports 115 short VTT cues into its synthetic 20-second video, applies +500 ms, pages
+with keyboard/mobile controls and checks the last native cue's seek and server save.
+It restores the existing caption output byte-for-byte. This is navigation plumbing;
+neither fixture measures natural long-speech caption quality or target RTX hardware.
+
 ## Storage and API
 
 - Transactional schema v10 adds only `caption_views` with video/audio key, selection,

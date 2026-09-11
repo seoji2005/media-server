@@ -3,6 +3,7 @@ import {chromium} from 'playwright';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import checkItemEntry from './item-entry-browser.mjs';
+import checkSubtitleSearchPages from './subtitle-search-browser.mjs';
 
 const [base, source, subtitle, phase] = process.argv.slice(2);
 assert.match(base, /^http:\/\/127\.0\.0\.1:\d+$/);
@@ -315,6 +316,7 @@ try {
   await selector.selectOption(trackId);
   await page.waitForFunction(() => [...document.querySelector('#video').textTracks].some(t => t.mode === 'showing'));
   await checkCaptionViewing(trackId);
+  if(phase==='restart')await checkSubtitleSearchPages(page,trackId);
   await video.evaluate(v => { v.currentTime = 7; });
   await page.waitForFunction(() => !document.querySelector('#video').seeking);
   await page.locator('#player-close').click();
@@ -335,7 +337,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
-    statusRecoveryWithExistingCaption: true, displayTitleAndNormalizedSearch: true, nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
+    subtitleSearch115NativeCues:phase==='restart', statusRecoveryWithExistingCaption: true, displayTitleAndNormalizedSearch: true, nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   await browser.close();
 }
