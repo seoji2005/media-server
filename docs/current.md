@@ -41,6 +41,10 @@ it does not establish semantic recommendation or subjective viewing quality.
   Unicode search, no playback reset, conflicts, lost reply/reread, pending reopen and
   stale item isolation. Further audio-switch regression reproduced a stuck title save;
   fixed code passes title/audio cases with the pending editor rebound to the item.
+- Initial fresh review at9893664 found one validation defect: a surrogate character
+  in expected_title returned500. Both title strings now reject nonprintable/invalid
+  Unicode before SQLite binding; focused regression cases pass. The exact title
+  comparison stays unnormalized. Narrow rereview of this correction is required.
 - Existing model-free CI browser test now saves a literal Unicode title while paused,
   checks unchanged media position/source/caption, normalized search and persistence
   after actual server restart. It captures desktop/mobile title forms. CI/visual

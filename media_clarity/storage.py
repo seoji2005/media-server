@@ -521,7 +521,7 @@ class Store:
     def rename_item(self, item_id: str, title, expected_title) -> dict:
         if (type(title) is not str or not 1 <= len(title.strip()) <= 180
                 or not title.isprintable() or type(expected_title) is not str
-                or len(expected_title) > 180):
+                or not 1 <= len(expected_title) <= 180 or not expected_title.isprintable()):
             raise MediaError('invalid_title', 422)
         self._row(item_id)
         # Compare the displayed text atomically. No file paths, content identities,

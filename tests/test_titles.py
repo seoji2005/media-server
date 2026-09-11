@@ -108,6 +108,11 @@ class TitleTests(unittest.TestCase):
                 response = self.client.put(self.url+'/title', headers=self.headers,
                                           content=json.dumps({'title': title, 'expected_title': 'original'}))
                 self.assertEqual(response.status_code, 422)
+        for expected in ['', 'a'*181, 'line\nbreak', '\u202ehidden', '\ud800', None, 4, True]:
+            with self.subTest(expected=repr(expected)):
+                response = self.client.put(self.url+'/title', headers=self.headers,
+                                          content=json.dumps({'title': 'new', 'expected_title': expected}))
+                self.assertEqual(response.status_code, 422)
         for body in [[], {}, {'title': 'new'}, {'title': 'new', 'expected_title': None},
                      {'title': 'new', 'expected_title': 'original', 'file_id': 'x'}]:
             self.assertEqual(self.client.put(self.url+'/title', headers=self.headers, json=body).status_code, 422)
