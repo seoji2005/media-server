@@ -135,6 +135,10 @@
         <label for="subtitle-query">선택한 자막에서 검색</label>
         <input id="subtitle-query" type="search" maxlength="200" autocomplete="off" spellcheck="false" placeholder="찾고 싶은 대사나 단어" aria-describedby="subtitle-search-status">
         <p id="subtitle-search-status" role="status">자막을 선택해 주세요.</p>
+        <div class="subtitle-actions" id="subtitle-pages" role="group" aria-label="자막 검색 결과 페이지" hidden>
+          <button class="button button-quiet" id="subtitle-page-previous" type="button" aria-controls="subtitle-results" disabled>이전 50개</button>
+          <button class="button button-quiet" id="subtitle-page-next" type="button" aria-controls="subtitle-results" disabled>다음 50개</button>
+        </div>
         <ol id="subtitle-results" aria-label="일치하는 자막과 장면"></ol>
         <details id="scene-panel" class="time-previews">
           <summary>화면 내용으로 찾기</summary>

@@ -710,7 +710,9 @@ $("subtitle-retranslate").addEventListener("click",async()=>{
 });
 for(const action of ["pause","resume","restart"])$("subtitle-"+action).addEventListener("click",()=>{const owner=activeItem,job=subtitleJob;if(!owner||!job)return;subtitleCommand(owner,`/api/subtitle-jobs/${job.id}/${action}`,{method:"POST"},{pause:action==="pause"});});
 
-let subtitleSearch={state:"empty",cues:[]}, subtitleSearchTimer=null;
+let subtitleSearch={state:"empty",cues:[]}, subtitleSearchTimer=null,subtitleSearchRender=0;
+const SUBTITLE_PAGE_SIZE=50;
+function subtitleSearchText(value){return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/gu," ").trim();}
 function resetSubtitleSearch(clearQuery=false,state="empty"){
   clearTimeout(subtitleSearchTimer);subtitleSearchTimer=null;
   subtitleSearch={state,cues:[]};
@@ -718,42 +720,56 @@ function resetSubtitleSearch(clearQuery=false,state="empty"){
   renderSubtitleSearch();
 }
 function renderSubtitleSearch(){
-  const results=$("subtitle-results"),status=$("subtitle-search-status");results.replaceChildren();
+  const results=$("subtitle-results"),status=$("subtitle-search-status"),version=++subtitleSearchRender;results.replaceChildren();results.scrollTop=0;
+  $("subtitle-pages").hidden=true;$("subtitle-page-previous").disabled=true;$("subtitle-page-next").disabled=true;
   const notices={empty:"자막을 선택해 주세요.",loading:"자막을 불러오는 중입니다.",error:"자막을 불러오지 못했습니다. 자막을 다시 선택해 주세요."};
   if(subtitleSearch.state!=="ready"){status.textContent=notices[subtitleSearch.state];return;}
   if(subtitleSearch.owner!==activeItem||subtitleSearch.id!==subtitleLoaded)return;
-  if(subtitleSearch.track.mode!=="showing"){status.textContent="플레이어에서 선택한 자막을 켜 주세요.";return;}
+  if(subtitleSearch.track.mode!=="showing"){subtitleSearch.page=0;status.textContent="플레이어에서 선택한 자막을 켜 주세요.";return;}
   // Search only the selected, already-loaded text track. No query/history API.
-  const query=$("subtitle-query").value.trim().normalize("NFKC").toLocaleLowerCase();
-  if(!query){status.textContent="대사나 단어를 입력하면 해당 장면으로 이동할 수 있어요.";return;}
+  const query=subtitleSearchText($("subtitle-query").value);
+  if(!query){subtitleSearch.query=null;subtitleSearch.matches=[];subtitleSearch.page=0;status.textContent="대사나 단어를 입력하면 해당 장면으로 이동할 수 있어요.";return;}
   const selected=subtitleSearch;
   // Disabled native tracks expose null cues, including when loading finishes Off.
   // Read after the loaded track is showing; keep plain text only for this selection.
-  if(selected.cues===null)selected.cues=Array.from(selected.track.cues||[]).map(cue=>({start:cue.startTime,text:cue.getCueAsHTML().textContent}));
-  let count=0;
-  for(const cue of selected.cues){
-    if(!cue.text.normalize("NFKC").toLocaleLowerCase().includes(query))continue;
-    count++;
-    if(count>50)continue;
+  if(selected.cues===null)selected.cues=Array.from(selected.track.cues||[]).map(cue=>{
+    const text=cue.getCueAsHTML().textContent;return {start:cue.startTime,text,searchText:subtitleSearchText(text)};
+  });
+  if(selected.query!==query){selected.query=query;selected.matches=selected.cues.filter(cue=>cue.searchText.includes(query));selected.page=0;}
+  const count=selected.matches.length;
+  selected.page=Math.max(0,Math.min(selected.page||0,Math.ceil(count/SUBTITLE_PAGE_SIZE)-1));
+  const start=selected.page*SUBTITLE_PAGE_SIZE,end=Math.min(start+SUBTITLE_PAGE_SIZE,count);
+  $("subtitle-pages").hidden=count<=SUBTITLE_PAGE_SIZE;
+  $("subtitle-page-previous").disabled=start===0;$("subtitle-page-next").disabled=end===count;
+  for(const cue of selected.matches.slice(start,end)){
     const row=document.createElement("li"),button=document.createElement("button"),stamp=document.createElement("span"),text=document.createElement("span");
     button.type="button";button.className="subtitle-result";
     stamp.className="subtitle-result-time";stamp.textContent=time(cue.start);
     text.textContent=cue.text;button.append(stamp,text);
     button.setAttribute("aria-label",`${time(cue.start)} 장면으로 이동, ${cue.text}`);
     button.addEventListener("click",()=>{
-      if(subtitleSearch!==selected||activeItem!==selected.owner||subtitleLoaded!==selected.id||selected.track.mode!=="showing")return;
+      if(version!==subtitleSearchRender||subtitleSearch!==selected||activeItem!==selected.owner||subtitleLoaded!==selected.id||selected.track.mode!=="showing")return;
       if(video.readyState<1||!Number.isFinite(video.duration))return toast("영상이 준비된 뒤 다시 선택해 주세요.");
       if(!Number.isFinite(cue.start)||cue.start<0||cue.start>=video.duration)return toast("이 장면으로 이동할 수 없습니다.",true);
-      try{video.currentTime=cue.start;video.play().catch(()=>toast("장면을 찾았습니다. 재생 버튼을 눌러 주세요."));}
+      try{video.currentTime=cue.start;video.play().catch(()=>toast("장면을 찾았습니다. 재생 버튼을 눌러 주세요."));video.scrollIntoView({block:"center"});}
       catch{toast("장면으로 이동하지 못했습니다. 영상 상태를 확인해 주세요.",true);}
       // The existing seeked handler persists the completed seek, not a speculative position.
     });
     row.append(button);results.append(row);
   }
-  status.textContent=count>50?`${count}개 일치 · 앞의 50개를 표시합니다. 검색어를 더 입력해 범위를 좁혀 주세요.`:count?`${count}개 일치 · 선택하면 해당 장면을 재생합니다.`:"일치하는 자막이 없습니다.";
+  status.textContent=count?`${count}개 일치 · ${start+1}–${end}번째 · 선택하면 해당 장면을 재생합니다.`:"일치하는 자막이 없습니다.";
 }
+for(const [id,delta] of [["subtitle-page-previous",-1],["subtitle-page-next",1]])$(id).addEventListener("click",()=>{
+  if($(id).disabled||$("subtitle-pages").hidden)return;
+  subtitleSearch.page+=delta;renderSubtitleSearch();
+  const first=$("subtitle-results").querySelector("button");if(first){first.focus({preventScroll:true});first.scrollIntoView({block:"nearest"});}
+});
 $("subtitle-query").addEventListener("input",()=>{
   clearTimeout(subtitleSearchTimer);
+  // Invalidate retained buttons immediately, before the debounced replacement.
+  subtitleSearchRender++;$("subtitle-results").replaceChildren();$("subtitle-pages").hidden=true;
+  $("subtitle-page-previous").disabled=true;$("subtitle-page-next").disabled=true;
+  if(subtitleSearch.state==="ready")$("subtitle-search-status").textContent="자막에서 찾고 있어요.";
   subtitleSearchTimer=setTimeout(()=>{subtitleSearchTimer=null;renderSubtitleSearch();},150);
 });
 function syncNativeCaptionView(){
