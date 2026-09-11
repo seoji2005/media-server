@@ -36,6 +36,13 @@ before a decision was returned. The saved pip log also records proxy connection 
 during dependency resolution. The task was stopped; the second model download was
 never started. Read-only cleanup confirmed no owned pip process remained.
 
+The owner then explicitly renewed network approval. One targeted socksio1.0.0
+installation was attempted with the same45s/10s/zero-retry bounds, avoiding HTTP-client
+version changes. The tool again returned network approval cancelled before decision.
+The same execution-limit cause repeated; stop instruction applied, no further retry
+or alternative route. User authorization exists; execution approval handling/network
+availability is the unresolved boundary, not a missing blanket user permission.
+
 Model bytes0; actual ASR/alignment/translation calls0. No new product-code change or
 model-quality result. Setup failure and raw logs remain outside Git; source media and
 existing results were not overwritten. Only this handoff and the stop instruction
