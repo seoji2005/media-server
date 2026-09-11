@@ -50,7 +50,8 @@ async function checkSubtitleStatusRecovery(){
     await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`${phase}-status-recovery-mobile.png`)});
     await page.setViewportSize({width:1280,height:720});
   }
-  await retry.click();await retry.waitFor({state:'hidden'});
+  const recovered=page.waitForResponse(r=>r.request().method()==='GET'&&/\/api\/library\/[^/]+\/subtitles(?:\?.*)?$/.test(r.url())&&r.status()===200);
+  await retry.click();await recovered;await retry.waitFor({state:'hidden'});
   assert.equal(await page.locator('#subtitle-select').isEnabled(),true);
   assert.deepEqual(await snapshot(),before,'explicit status recovery preserves playback/caption state');
   assert.equal(commands.length,0,'status recovery never starts or resumes inference');

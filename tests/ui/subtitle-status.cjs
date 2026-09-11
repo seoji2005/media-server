@@ -66,6 +66,13 @@ async function fixture({initialReadError=false}={}){
     assert.equal(f.commands().length,1,'confirmation is read-only');
     f.commandMode='reject';f.el('subtitle-retranslate').click();await settle();assert(!f.el('subtitle-retranslate').disabled,'definite missing-key rejection permits explicit correction');
   }finally{f.close();}
+  f=await fixture();try{
+    f.getMode='error';await f.read();f.getMode='headers';f.el('subtitle-refresh').click();await settle();
+    const held=f.held.find(x=>x.kind==='read');assert(held);
+    assert(!f.el('subtitle-refresh').hidden,'recovery remains visible until the status response completes');
+    assert(f.el('subtitle-refresh').disabled);assert(f.el('subtitle-generate').disabled,'recovery cannot enable commands before a response');
+    held.resolve(held.value);await settle();assert(f.el('subtitle-refresh').hidden);assert(!f.el('subtitle-generate').disabled);
+  }finally{f.close();}
   f=await fixture({initialReadError:true});try{
     assert(f.el('subtitle-select').disabled);assert(f.el('subtitle-generate').disabled);
     f.getMode='normal';f.el('subtitle-refresh').click();await settle();

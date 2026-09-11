@@ -431,16 +431,17 @@ window.addEventListener("hashchange",async()=>{
 let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null, subtitleTracks=[], geminiConfigured=false;
 const subtitleCommands=new Map();
 let subtitleMonitor=null;
-function newSubtitleMonitor(){const now=performance.now();return {started:now,advanced:now,key:null,completed:0,until:0,reads:0,reading:false,stopped:false,error:""};}
+function newSubtitleMonitor(){const now=performance.now();return {started:now,advanced:now,key:null,completed:0,until:0,reads:0,reading:false,confirming:false,stopped:false,error:""};}
 function subtitleTaskControls(){
   const command=subtitleCommands.get(activeItem?.id),pending=!!command?.pending;
-  const blocked=!captionView||pending||!!command?.uncertain||!!subtitleMonitor?.stopped;
+  const blocked=!captionView||pending||!!command?.uncertain||!!subtitleMonitor?.stopped||!!subtitleMonitor?.confirming;
   for(const action of ["generate","retranslate","resume","restart"])$("subtitle-"+action).disabled=blocked;
   // Pausing remains available when automatic status checks have stopped.
   $("subtitle-pause").disabled=pending;
-  $("subtitle-refresh").hidden=!(command?.uncertain||subtitleMonitor?.stopped);
+  $("subtitle-refresh").hidden=!(command?.uncertain||subtitleMonitor?.stopped||subtitleMonitor?.confirming);
   $("subtitle-refresh").disabled=pending||!!subtitleMonitor?.reading;
-  const note=command?.pending?"요청을 확인하고 있습니다. 같은 작업을 다시 보내지 않습니다.":command?.error||subtitleMonitor?.error;
+  $("subtitle-refresh").textContent=subtitleMonitor?.confirming?"상태 확인 중…":"상태 다시 확인";
+  const note=command?.pending?"요청을 확인하고 있습니다. 같은 작업을 다시 보내지 않습니다.":subtitleMonitor?.confirming?"저장된 자막 상태를 다시 확인하고 있습니다. 기존 자막은 계속 감상할 수 있습니다.":command?.error||subtitleMonitor?.error;
   if(note)subtitleError(note);
 }
 function observeSubtitleProgress(monitor,job){
@@ -455,7 +456,7 @@ function observeSubtitleProgress(monitor,job){
 }
 async function subtitleCommand(owner,path,options,{pause=false}={}){
   const previous=subtitleCommands.get(owner.id);
-  if(activeItem!==owner||previous?.pending||(!pause&&(previous?.uncertain||subtitleMonitor?.stopped||!captionView)))return;
+  if(activeItem!==owner||previous?.pending||(!pause&&(previous?.uncertain||subtitleMonitor?.stopped||subtitleMonitor?.confirming||!captionView)))return;
   clearTimeout(subtitleTimer);subtitleReadVersion++;subtitleMonitor=newSubtitleMonitor();
   const command={pending:null,uncertain:false,error:""};subtitleCommands.set(owner.id,command);
   command.pending=boundedApi(path,options,30000,"요청 응답을 확인하지 못했습니다. 서버에서 처리됐을 수 있으니 상태를 다시 확인해 주세요.");
@@ -639,7 +640,7 @@ function loadSubtitle(id,force=false){
 async function refreshSubtitles(owner,{confirm=false}={}){
   clearTimeout(subtitleTimer);
   if(activeItem!==owner)return;
-  if(confirm)subtitleMonitor=newSubtitleMonitor();
+  if(confirm){subtitleMonitor=newSubtitleMonitor();subtitleMonitor.confirming=true;}
   const monitor=subtitleMonitor,version=captionViewVersion,readVersion=++subtitleReadVersion;
   monitor.reading=true;subtitleTaskControls();
   try{
@@ -684,7 +685,7 @@ async function refreshSubtitles(owner,{confirm=false}={}){
     if(j?.provider==="gemini")$("subtitle-state").textContent="Gemini · "+$("subtitle-state").textContent+(["queued","running","paused","failed"].includes(j.state)?" 완료한 구간은 재사용합니다. 처리 중이던 요청은 재개할 때 다시 전송되어 과금될 수 있습니다.":"");
     renderPreparationSummary();
   }catch(e){if(activeItem===owner&&version===captionViewVersion&&readVersion===subtitleReadVersion){monitor.stopped=true;monitor.error=e.message+" 상태 자동 확인을 멈췄습니다. 서버 작업은 계속 진행될 수 있습니다.";if(!captionView){captionSaveError=e.message;renderCaptionView();}}}
-  finally{if(activeItem===owner&&version===captionViewVersion&&readVersion===subtitleReadVersion){monitor.reading=false;subtitleTaskControls();}}
+  finally{if(activeItem===owner&&version===captionViewVersion&&readVersion===subtitleReadVersion){monitor.reading=false;monitor.confirming=false;subtitleTaskControls();}}
 }
 $("subtitle-refresh").addEventListener("click",()=>{if(activeItem&&!$("subtitle-refresh").disabled)refreshSubtitles(activeItem,{confirm:true});});
 $("subtitle-select").addEventListener("change",()=>saveCaptionView($("subtitle-select").value));

@@ -46,6 +46,12 @@ usable through read failures. Initial-load and stalled caption-save recovery are
 - The old-code duplicate-click regression exits1 (2POSTs); corrected tests exit0.
   Syntax, diff and documentation-link checks pass. No Python product code changed;
   avoid optional broad local repeats. Existing model-free CI supplies the full gate.
+- Fresh review at53c136a/tree3ab3d14 found no actionable issue and independently
+  passed status/caption/audio DOM plus item-switch uncertainty/stale-read probes.
+  Author follow-up reproduced the retry button disappearing before its response;
+  recovery now stays visible/disabled and holds commands until the read finishes.
+  Browser verification explicitly awaits the real successful status response.
+  This correction needs focused checks and narrow fixed-HEAD rereview.
 - Browser additions inject one503 status read while a real synthetic caption/video is
   loaded, then use the real server through the visible recovery button. They assert
   unchanged media/position/caption and zero job commands, and capture desktop/mobile
