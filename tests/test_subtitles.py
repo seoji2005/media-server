@@ -516,7 +516,7 @@ class SubtitleTests(unittest.TestCase):
             self.assertEqual(self.jobs.track(self.item['id'],row['id']),rendered)
         self.assertEqual(self.jobs.track(self.item['id'],old),old_vtt)
         info=next(t for t in self.jobs.status(self.item['id'])['tracks'] if t['id']==row['id'])
-        self.assertEqual(info['layout'],'ko-readable-v1')
+        self.assertEqual(info['layout'],'ko-readable-v2')
         self.assertGreater(info['fast_count'],0)
         # Removing the new column must not silently revert a ready track to old layout.
         with self.store.db() as db:

@@ -7,7 +7,7 @@ import unicodedata
 
 from .subtitles import MAX_CUES, validate_cues
 
-PROFILE = 'ko-readable-v1'
+PROFILE = 'ko-readable-v2'
 LINE_WIDTH = 16
 MIN_MS = 834  # At least 5/6 second after millisecond quantization.
 MAX_MS = 7000
@@ -176,10 +176,23 @@ def generated_layout(cues, duration, fallback_units=()):
     issues, latest_end = [], 0
     for index, old in enumerate(order):
         codes = original_codes.get(old, []).copy()
-        if display[old]['start'] < latest_end:
+        shown = display[old]
+        start, end = round(shown['start']*1000), round(shown['end']*1000)
+        limit = display[order[index+1]]['start'] if index+1 < len(order) else duration
+        # Hold only an isolated short cue with room for the full reading minimum.
+        # Starts/text and canonical source intervals stay unchanged. Do not borrow
+        # another cue's time or extend a cue inside an existing overlapping turn.
+        if end-start < MIN_MS and start >= latest_end and (start+MIN_MS)/1000 <= limit:
+            shown['end'] = (start+MIN_MS)/1000
+            codes = [code for code in codes if code != 'short_duration']
+            prefix = FALLBACK if units[old] in fallback_units else ''
+            weight = max(.5, width(prefix + shown['text'].replace('\n', ' ')))
+            if weight*1000/MIN_MS <= MAX_CPS:
+                codes = [code for code in codes if code != 'reading_speed']
+        if start < latest_end:
             codes.append('source_overlap')
         if codes:
             issues.append({'cue':index, 'codes':codes})
-        latest_end = max(latest_end, display[old]['end'])
+        latest_end = max(latest_end, round(shown['end']*1000))
     display, units = [display[i] for i in order], [units[i] for i in order]
     return {'profile':PROFILE, 'cues':validate_cues(display, duration), 'units':units, 'issues':issues}

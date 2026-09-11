@@ -113,6 +113,73 @@ class CaptionViewTests(unittest.TestCase):
         self.assertIn('[원문] next.', later)
         self.assertEqual(self.snapshot(), before)
 
+    def test_short_hold_publishes_after_resume_and_preserves_old_version_and_view(self):
+        item = self.item['id']
+        source = [{'start':.1,'end':.18,'text':'hello.'}, {'start':2,'end':3.5,'text':'next.'}]
+        canonical = [{**c,'text':t} for c,t in zip(source,['안녕하세요','다음 장면입니다.'])]
+        class Short(fixtures.FixtureModel):
+            def transcribe(inner,*args):return source
+        # A ready v1 track must retain its stored 80 ms presentation after upgrade.
+        old_layout = {'profile':'ko-readable-v1','cues':canonical,'units':[0,1],
+                      'issues':[{'cue':0,'codes':['short_duration','reading_speed']}]}
+        with patch('media_clarity.models.local_models'):
+            old_job = self.jobs.enqueue(item)
+        with patch('media_clarity.jobs.generated_layout',return_value=old_layout):
+            execute(self.store,old_job,Short)
+        old = self.jobs.status(item)['tracks'][0]['id']
+        old_vtt = self.jobs.track(item,old)
+        old_view = self.view().save(item,0,old,500,0)
+        self.store.save_position(item,2.25)
+        supplied = self.jobs.import_srt(item,b'1\n00:00:00,100 --> 00:00:00,180\nprovided\n')
+        supplied_vtt = self.jobs.track(item,supplied)
+        with patch('media_clarity.models.local_models'):
+            job = self.jobs.enqueue(item,force=True)
+        (self.root/'fail').touch()
+        execute(self.store,job,Short)
+        self.assertEqual(self.jobs.row(job)['completed'],1)
+        with self.store.db() as db:
+            prefix = [tuple(r) for r in db.execute('SELECT * FROM subtitle_batches WHERE job_id=?',(job,))]
+        class Resumed(Short):
+            def transcribe(inner,*args):raise AssertionError('completed ASR repeated')
+        (self.root/'fail').unlink()
+        with patch('media_clarity.models.local_models'):self.jobs.action(job,'resume')
+        execute(self.store,job,Resumed)
+        self.assertEqual(self.jobs.row(job)['state'],'succeeded')
+        self.assertEqual(self.view().read(item),old_view,'publication must not select the new version')
+        with self.store.db() as db:
+            row = dict(db.execute('SELECT * FROM subtitle_tracks WHERE job_id=?',(job,)).fetchone())
+            after = [tuple(r) for r in db.execute('SELECT * FROM subtitle_batches WHERE job_id=? ORDER BY first_index',(job,))]
+        self.assertEqual(after[:len(prefix)],prefix)
+        self.assertEqual(json.loads(row['cues']),canonical)
+        self.assertEqual(json.loads(self.jobs.row(job)['transcript']),source)
+        self.assertEqual(json.loads(row['presentation'])['cues'],[{**canonical[0],'end':.934},canonical[1]])
+        track = row['id']
+        chosen = self.view().save(item,0,track,500,old_view['revision'])
+        before = self.snapshot()
+        rendered = self.jobs.track(item,track)
+        self.jobs.close();self.store.close()
+        try:
+            # Two actual application lifespans over the saved SQLite store; no models.
+            with patch('media_clarity.jobs.generated_layout',side_effect=AssertionError('saved layout regenerated')):
+                for _ in range(2):
+                    with TestClient(create_app(self.root),base_url='http://127.0.0.1:8765') as client:
+                        url = f'/api/library/{item}/subtitles'
+                        status = client.get(url).json()
+                        self.assertEqual(status['view'],chosen)
+                        self.assertEqual(len(status['tracks']),3)
+                        self.assertEqual(next(t for t in status['tracks'] if t['id']==track)['layout'],'ko-readable-v2')
+                        self.assertEqual(next(t for t in status['tracks'] if t['id']==old)['layout'],'ko-readable-v1')
+                        self.assertEqual(client.get(url+'/'+old+'.vtt').text,old_vtt)
+                        self.assertEqual(client.get(url+'/'+supplied+'.vtt').text,supplied_vtt)
+                        self.assertEqual(client.get(url+'/'+track+'.vtt').text,rendered)
+                        shifted = client.get(url+'/'+track+'.vtt?offset_ms=500')
+                        self.assertEqual(shifted.status_code,200)
+                        self.assertIn('00:00:00.600 --> 00:00:01.434',shifted.text)
+        finally:
+            self.store.start()
+        self.assertEqual(self.snapshot(),before,'reads/restart must preserve rows and saved position')
+        self.assertEqual(hashlib.sha256(self.source.read_bytes()).hexdigest(),self.item['sha256'])
+
     def test_v9_upgrade_and_failed_migration_preserve_existing_data(self):
         self.supplied(); before = self.snapshot()
         with self.store.db() as db:

@@ -61,13 +61,14 @@ class LayoutTests(unittest.TestCase):
                 {'start':2,'end':17,'text':'이름'},
                 {'start':16,'end':20,'text':'겹친 원래 발화.'}]
         result=generated_layout(source,20)
-        self.assertEqual(result['cues'],source)
+        self.assertEqual(result['cues'],[{**source[0],'end':.834},*source[1:]])
         codes={c for issue in result['issues'] for c in issue['codes']}
-        self.assertTrue({'short_duration','long_duration','source_overlap'}<=codes)
+        self.assertTrue({'long_duration','source_overlap'}<=codes)
+        self.assertNotIn('short_duration',codes)
         # Many differently sized words must never collapse or exceed outer bounds.
         for duration in (.001,.833,.834,1.668,7,11.999):
             with self.subTest(duration=duration):
-                p=generated_layout([{'start':.001,'end':duration+.001,'text':PARAGRAPH}],20)
+                p=generated_layout([{'start':.001,'end':duration+.001,'text':PARAGRAPH}],duration+.001)
                 self.assertEqual(p['cues'][0]['start'],.001)
                 self.assertEqual(p['cues'][-1]['end'],round(duration+.001,3))
                 self.assertTrue(all(c['start']<c['end'] for c in p['cues']))
@@ -107,6 +108,56 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(set(p['units']),set(range(8)))
         for index in range(8):
             self.assertEqual(' '.join(c['text'] for c,u in zip(p['cues'],p['units']) if u==index).split(),PARAGRAPH.split())
+
+    def test_short_cue_uses_only_a_full_available_reading_interval(self):
+        source=[{'start':1,'end':1.08,'text':'응.'},
+                {'start':1.834,'end':2.1,'text':'맞아.'},
+                {'start':2.667,'end':3.667,'text':'출발하자.'}]
+        before=copy.deepcopy(source)
+        result=generated_layout(source,4)
+        self.assertEqual(source,before)
+        self.assertEqual(result['profile'],'ko-readable-v2')
+        self.assertEqual(result['units'],[0,1,2])
+        self.assertEqual(result['cues'],[{**source[0],'end':1.834},*source[1:]])
+        # A gap one millisecond short of the minimum is left alone, not partially
+        # stretched or hidden by removing the short-duration finding.
+        issues={i['cue']:i['codes'] for i in result['issues']}
+        self.assertNotIn(0,issues)
+        self.assertIn('short_duration',issues[1])
+
+    def test_video_boundary_and_overlapping_turns_block_short_cue_hold(self):
+        # 1.001 * 1000 is 1000.9999999999999: do not floor an exact video end.
+        exact=generated_layout([{'start':.167,'end':.247,'text':'끝.'}],1.001)
+        self.assertEqual(exact['cues'][0]['end'],1.001)
+        self.assertEqual(exact['issues'],[])
+        for duration, expected in [(1.834,1.834),(1.8339,1.1)]:
+            with self.subTest(duration=duration):
+                p=generated_layout([{'start':1,'end':1.1,'text':'끝.'}],duration)
+                self.assertEqual(p['cues'][0]['end'],expected)
+        source=[{'start':0,'end':4,'text':'계속 이야기하는 중.'},
+                {'start':1,'end':1.1,'text':'응.'},
+                {'start':2,'end':2.2,'text':'네.'},
+                {'start':3,'end':5,'text':'이어서 말해.'}]
+        p=generated_layout(source,6)
+        self.assertEqual(p['cues'],source)
+        # The active interval is not just the immediately preceding short cue.
+        issues={i['cue']:i['codes'] for i in p['issues']}
+        for i in (1,2):
+            self.assertIn('short_duration',issues[i])
+            self.assertIn('source_overlap',issues[i])
+        same_start=[{'start':1,'end':1.1,'text':'가.'},
+                    {'start':1,'end':1.2,'text':'나.'}]
+        self.assertEqual(generated_layout(same_start,3)['cues'],same_start)
+
+    def test_held_cue_rechecks_speed_including_fallback_label(self):
+        source=[{'start':0,'end':.1,'text':'반드시기억할내용'}]
+        normal=generated_layout(source,2)
+        fallback=generated_layout(source,2,{0})
+        self.assertEqual(normal['cues'],fallback['cues'])
+        self.assertEqual(normal['cues'][0]['end'],.834)
+        self.assertEqual(normal['issues'],[])
+        self.assertEqual(fallback['issues'],[{'cue':0,'codes':['reading_speed']}])
+        self.assertIn('[원문] 반드시기억할내용',webvtt(fallback['cues'],{0}))
 
 
 class CompatibleSrtTests(unittest.TestCase):
