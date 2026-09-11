@@ -40,6 +40,31 @@ media, saved caption rows, jobs, checkpoints and evidence hashes remain unchange
 - Existing loopback/origin/session boundaries apply. No inference, cloud request,
   browser storage, telemetry or credential handling is added.
 
+## Bounded status and command recovery
+
+Status reads, generation/retranslation/job commands and caption-setting saves now
+have a30-second response/body deadline. A status read waits for already-pending
+caption/command requests (each independently bounded) before starting its own deadline.
+Duplicate clicks while a command is pending send only one request. Pending/uncertain
+command state is retained across item/audio switches in this page's memory. Ambiguous
+responses block another start/resume/restart until an explicit successful status read;
+known precondition rejection such as a missing Gemini key remains correctable directly.
+Neither timeout nor successful reread automatically resubmits a command.
+
+Polling stops on a read failure,5minutes without a higher saved ASR/translation count
+or later saved ASR time, or10minutes/400reads per monitoring session. Stage/job changes
+can count as progress but cannot extend the total session budget. An explicit status
+refresh, new command or reopening the player starts a new monitoring session. Previously
+loaded captions, Off, offset and playback stay intact during read failure/recovery;
+initial-load failures can also recover. Manual pause remains available after a polling
+stop. A client timeout/monitor stop does not cancel or diagnose the server worker.
+
+The UI guards are not durable command IDs or an exactly-once server contract. A reread
+shows the current server snapshot, not proof that a delayed request can no longer commit.
+An explicitly requested new operation, another page or a page reload remains subject
+to the existing server job/state guards and per-request Gemini billing disclosure.
+No new server schema, jobs, checkpoint format or model retry policy is introduced.
+
 ## Evidence and limits
 
 `PYTHONPATH=tests python -m unittest -q test_caption_view` covers SQLite restart,

@@ -28,6 +28,35 @@ await page.route('**/*', route => {
   return route.continue();
 });
 const video = page.locator('#video');
+async function checkSubtitleStatusRecovery(){
+  const snapshot=()=>video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused,track:v.querySelector('track').src}));
+  const before=await snapshot(),commands=[];
+  const observe=request=>{if(request.method()==='POST'&&(/\/subtitle-jobs(?:\/|\?|$)/.test(request.url())||request.url().endsWith('/retranslate')))commands.push(true);};
+  page.on('request',observe);
+  // Inject one failed status read; recovery uses the real server and loaded captions.
+  await page.route(/\/api\/library\/[^/]+\/subtitles(?:\?.*)?$/,route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'storage_unavailable'})}),{times:1});
+  await page.evaluate(()=>refreshSubtitles(activeItem));
+  await page.locator('#subtitle-preparation').evaluate(el=>el.open=true);
+  const retry=page.locator('#subtitle-refresh');
+  assert.equal(await retry.isVisible(),true);assert.equal(await retry.isEnabled(),true);
+  assert.deepEqual(await snapshot(),before,'a status failure keeps the loaded caption and paused playback');
+  assert.equal(await page.locator('#subtitle-generate').isEnabled(),false);
+  if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
+    await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
+    await retry.scrollIntoViewIfNeeded();
+    await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`${phase}-status-recovery-desktop.png`)});
+    await page.setViewportSize({width:390,height:844});await retry.scrollIntoViewIfNeeded();
+    assert(await page.locator('#player-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+    await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`${phase}-status-recovery-mobile.png`)});
+    await page.setViewportSize({width:1280,height:720});
+  }
+  const recovered=page.waitForResponse(r=>r.request().method()==='GET'&&/\/api\/library\/[^/]+\/subtitles(?:\?.*)?$/.test(r.url())&&r.status()===200);
+  await retry.click();await recovered;await retry.waitFor({state:'hidden'});
+  assert.equal(await page.locator('#subtitle-select').isEnabled(),true);
+  assert.deepEqual(await snapshot(),before,'explicit status recovery preserves playback/caption state');
+  assert.equal(commands.length,0,'status recovery never starts or resumes inference');
+  page.off('request',observe);await page.locator('#subtitle-preparation').evaluate(el=>el.open=false);
+}
 async function checkCaptionViewing(trackId){
   const selector=page.locator('#subtitle-select');
   await selector.selectOption(trackId);
@@ -204,6 +233,7 @@ try {
   assert(observed.frames > 0, 'decoded video frames required');
   assert.equal(observed.error, null);
   assert(observed.cues.includes('한국어 자막 재생 확인'), 'active native Korean cue required');
+  await checkSubtitleStatusRecovery();
   const displayTitle='ＣＩ 한글 <literal>';
   if(phase==='restart')assert.equal(await page.locator('#player-title').textContent(),displayTitle,'display title survives server restart');
   await page.locator('#title-panel > summary').click();
@@ -305,7 +335,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
-    displayTitleAndNormalizedSearch: true, nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
+    statusRecoveryWithExistingCaption: true, displayTitleAndNormalizedSearch: true, nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   await browser.close();
 }
