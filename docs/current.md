@@ -1,71 +1,67 @@
 # Current work
 
-Milestone: `feat/subtitle-search-pages`, based on live Server main
-`487c210e5f504eda67c521abdc89f0758b1a4250` (PR39 merged). Restored local base
-`5df91c578b0b83f65a9c3bddc23848257dda2920` has complete tree
-`210cd57e69fdb90b1f31bba7508ef7c80d7b9661`; publish using actual remote ancestry.
-Fetch main stays `0d6aa28a4a0c6944c053e3d63e150908b44b9175`. Both repositories had
-no open PR at start. Owner implementation, finite verification, independent review
-and passing development merge approvals continue; release is separate.
+Milestone: `feat/vp9-playback-compat`, based on live Server main
+`8a82077ec2c2f73c6e478d1f3d6f72299a3d69ae` (PR40 merged). Restored local base
+`d3d4b2b1dc6cabb7e708e884f13fc592a4bad195` has complete tree
+`0827cbab1260f08459d9886cdb1c5f604c7ba3a6`; publish using actual remote ancestry.
+Fetch main stays `0d6aa28a4a0c6944c053e3d63e150908b44b9175`; no open PR in either
+repository at start. Owner implementation, bounded checks, independent review and
+passing development merge approvals persist; release is separate.
 
 ## Delivered and current change
 
-Gemini 3.8, foreign SRT/VTT import/retranslation, shared Qwen/scene installation pins,
-exact Fetch item entry, bounded preview/scene preparation, local titles/Unicode library
-search and bounded subtitle status recovery are merged. PR39 passed independent
-review, Ubuntu/Windows CI34595475887 and desktop/mobile screenshot inspection.
+Gemini 3.8, foreign SRT/VTT translation, shared model installation pins, exact Fetch
+item entry, bounded preparation/status recovery, local titles and complete caption
+search paging are merged. PR40 passed independent review, both OS CI34597508759
+and desktop/mobile visuals. Model/extension execution restrictions are unchanged.
 
-Caption search showed only the first 50 matches, leaving later scenes inaccessible
-for common dialogue. It also treated cue line breaks/repeated whitespace literally.
-The new page controls expose every match in groups of 50, with total/range and keyboard
-focus. Normalization joins whitespace inside one cue for matching only; original
-caption text/timing/output is unchanged. It does not join separate cues or infer
-meaning. Selecting a result returns the video into view at the adjusted native time.
+The next unblocked slice addresses playback compatibility. A real VP9/AAC MP4 failed
+on base d3d4b2b with unsupported_codec even though Fetch can save such files. VP9 MP4
+now prepares WebM with copied video. VP8/VP9 with supported non-WebM audio converts
+the selected voice to Opus 192 kbit/s CBR stereo; compatible Opus/Vorbis is copied.
+Silent VP9 remux stays silent. Source bytes/all tracks remain intact. New audio_webm
+uses existing per-audio rendition publication, reuse, limits and error handling.
+FFmpeg libopus is needed; no Python/model/network/schema change. HEVC/10bit support,
+video transcoding and enhancement adoption are still open.
 
-Query edits invalidate old buttons immediately before debounce. Page, caption, Off,
-audio and item transitions cannot use retained buttons to seek a newer view. Paging
-only renders results; existing completed seeks save viewing position. Search remains
-memory-only, with no new endpoint, DB schema, ranking signal, inference or egress.
+## Evidence and next action
 
-## Verification and next action
+- Linux CPU real four-second VP9 fixtures: six new tests passed in 5.281 s, including
+  copied packet/decoded-frame identity, audio selection, captions/position/Range,
+  disk/timeout/tamper failures and actual process death before commit.
+- Existing rendition tests: 10 passed / 7.302 s; audio tests: 6 passed / 5.240 s.
+  A separate fresh process reused the committed audio_webm without conversion and
+  verified original bytes. Focused audio/item-entry DOM uses mocked HTTP/media.
+- Chrome integration adds actual VP9 import + companion caption + item-entry:
+  opening never prepares automatically; the explicit button prepares WebM, native
+  caption/video decode, seek/save and paused reopen are checked. Source preservation
+  and desktop/mobile screenshots are mandatory. It does not run the Fetch extension.
+- Freeze source, obtain fresh independent original/recovery review, inspect final
+  Linux/Windows CI and four new screenshots, then merge under continued approval.
+  Observe CI for at most 10 minutes/10 polls, each job capped at 10 minutes. Do not
+  rerun unchanged failures without new evidence. Final results belong to that PR.
+- Synthetic short video is not long-film performance, audible/subjective quality,
+  HDR/HEVC support or target Windows 11/RTX4070SUPER acceptance.
 
-- Old base reproduced the first-50 ceiling (fixture exit 1); new 115-result DOM
-  navigation, last-match seek, whitespace/literal text, keyboard focus, stale query/
-  page guards and existing Off/item/track cases pass. All 11 DOM scripts passed.
-- Chrome verification imports an actual 115-cue VTT into the existing synthetic
-  20-second video on the restart phase, shifts it +500 ms, pages to the final group
-  and seeks/saves its last native cue. Existing caption output must remain identical.
-  Desktop/mobile screenshots and no query/inference requests are checked.
-- Run syntax/diff/docs checks, freeze the source, obtain fresh independent review
-  of navigation/preservation, then inspect the fixed-HEAD Linux/Windows CI and screens
-  before development merge. CI observation is capped at 10 minutes/10 polls and each
-  CI job at 10 minutes; do not rerun an unchanged failure without new evidence.
-- DOM is mocked HTTP/media; Chrome's short synthetic captions test navigation, not
-  natural long-speech quality. No Python product or server behavior changed.
+For GitHub screenshots, export a file reference, use official materialization and
+verify ZIP SHA-256. Prior direct URLs failed403 twice; do not repeat them or change
+proxy/credentials/browser/profile/CDP or run CI inference to bypass restrictions.
 
-For GitHub PNGs, export artifacts as file references and use official materialization;
-verify ZIP SHA-256 digests before inspecting images. Prior raw download URLs returned
-403 twice. Do not repeat those requests or change credentials/proxy/browser/profile
-or CI model inference to bypass actual restrictions.
+## Blocked acceptance and roadmap
 
-## Blocked acceptance
+Fresh natural long-speech Qwen→aligner→Gemini 3.8 is stopped: no Qwen weights and
+socksio installation hit cancelled network approval twice. Read-only cache inspection
+found no new assets; no repeat installation/download/new ASR/alignment/Gemini calls.
+The preserved `test/bounded-long-speech@f038f85` handoff keeps the failed attempt.
+Previously held 706.24 s/762.048 s recordings informed translation comparisons and
+are not pristine holdouts.
 
-Fresh natural long-speech Qwen→aligner→Gemini 3.8 remains stopped. The preserved
-`test/bounded-long-speech@f038f85` handoff records no Qwen weights and socksio install
-network approval cancellation twice. No changed access/dependency evidence this turn;
-no repeat installation or model download. Existing general approval alone does not
-prove execution limits changed. No new ASR, alignment or Gemini calls.
+When an allowed environment has pinned assets/dependencies, run a new long speech
+input through the actual product with elapsed/no-progress/retry limits and saved
+span/batch reuse. Actual Fetch discovery/save/item playback, extension-only reception,
+Windows 11/RTX setup/VRAM/long playback, useful enhancement and subjective search/
+recommendation quality remain open. No enhancement preset is adopted.
 
-Only when an allowed environment has dependencies and pinned assets, run new speech
-through the product with finite elapsed/no-progress/retry bounds and saved span/batch
-reuse. The held public dialogue recordings 706.24 s/762.048 s had prior hash/time checks
-but informed translation comparisons, so they are not pristine holdouts.
-
-Natural long-caption viewing, actual Chrome Fetch discovery/save/item playback,
-Windows 11/RTX4070SUPER installation/VRAM/playback and useful enhancement/subjective
-search/recommendation quality remain open. No enhancement preset is adopted. Earlier
-synthetic 45-minute preview/restart checks do not establish speech quality.
-
-Terminate owned processes on bounds/repeated same-cause failures, preserve originals
-and complete diagnostics, and stop that blocked task. Local Chrome EPERM, supplied
-browser ERR_BLOCKED_BY_CLIENT and extension-management denials remain unchanged.
+Terminate owned processes at limits/repeated same-cause failures, preserve originals
+and diagnostics, then stop that blocked task. Local Chrome EPERM, supplied browser
+ERR_BLOCKED_BY_CLIENT and extension-management denials remain unchanged.

@@ -8,6 +8,9 @@ import uuid
 
 from .storage import CHUNK, MediaError, no_symlink, run_media, safe_io
 
+TRANSCODABLE_AUDIO = {'aac', 'mp3', 'ac3', 'eac3', 'dts', 'flac', 'opus', 'vorbis',
+                     'pcm_s16le', 'pcm_s24le', 'pcm_s32le', 'pcm_f32le'}
+
 
 def selected_duration(video, audio, start):
     """MP4 stream durations or Matroska's end-time DURATION tags, when present."""
@@ -37,13 +40,17 @@ def playback_plan(video, audio, is_mp4, multiple=False):
     if codec == 'h264':
         first = audio[0].get('codec_name') if audio else None
         if first not in {None, 'aac', 'mp3'}:
-            if first not in {'ac3', 'eac3', 'dts', 'flac', 'opus', 'vorbis',
-                             'pcm_s16le', 'pcm_s24le', 'pcm_s32le', 'pcm_f32le'}:
+            if first not in TRANSCODABLE_AUDIO:
                 raise MediaError('unsupported_audio_codec', 422)
             return 'audio_mp4'
         return 'original' if is_mp4 and len(audio) <= 1 and not multiple else 'remux_mp4'
-    if not is_mp4 and codec in {'vp8', 'vp9'} and all(a.get('codec_name') in {'opus', 'vorbis'} for a in audio):
-        return 'original' if len(audio) <= 1 and not multiple else 'remux_webm'
+    if codec in {'vp8', 'vp9'}:
+        first = audio[0].get('codec_name') if audio else None
+        if first not in {None, 'opus', 'vorbis'}:
+            if first not in TRANSCODABLE_AUDIO:
+                raise MediaError('unsupported_audio_codec', 422)
+            return 'audio_webm'
+        return 'original' if not is_mp4 and len(audio) <= 1 and not multiple else 'remux_webm'
     raise MediaError('unsupported_codec', 422)
 
 
@@ -89,7 +96,7 @@ def prepare(store, item_id, audio_index=None):
             return store.item(item_id)
         if index == 0 and plan['preparation'] != source['preparation']:
             raise MediaError('managed_file_changed', 409)
-        # Allow copied video/container overhead plus 192 kbit/s AAC. -fs also
+        # Allow copied video/container overhead plus 192 kbit/s audio. -fs also
         # bounds output if unexpected timestamps/metadata inflate the result.
         budget = source['size'] + math.ceil(source['duration'] * 24000) + 8 * CHUNK
         store.ensure_space(budget)
@@ -101,9 +108,13 @@ def prepare(store, item_id, audio_index=None):
         except FileExistsError:
             destination = None
             raise MediaError('destination_collision', 409) from None
-        extension = 'webm' if plan['preparation'] == 'remux_webm' else 'mp4'
+        extension = 'webm' if plan['preparation'] in {'remux_webm', 'audio_webm'} else 'mp4'
         target = destination / ('original.' + extension)
-        audio_options = ['-c:a', 'aac', '-b:a', '192k', '-ac', '2'] if plan['preparation'] == 'audio_mp4' else ['-c:a', 'copy']
+        audio_options = ['-c:a', 'copy']
+        if plan['preparation'] == 'audio_mp4':
+            audio_options = ['-c:a', 'aac', '-b:a', '192k', '-ac', '2']
+        elif plan['preparation'] == 'audio_webm':
+            audio_options = ['-c:a', 'libopus', '-b:a', '192k', '-vbr', 'off', '-ac', '2']
         run_media(['ffmpeg', '-v', 'error', '-nostdin', '-xerror',
                    '-protocol_whitelist', 'file,pipe', '-format_whitelist', 'mov,matroska,webm',
                    '-i', str(store.file_path(source)), '-map', '0:V:0', '-map', f'0:a:{index}'+('?' if not plan['audio_tracks'] else ''),

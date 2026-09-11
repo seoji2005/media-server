@@ -4,6 +4,7 @@ import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import checkItemEntry from './item-entry-browser.mjs';
 import checkSubtitleSearchPages from './subtitle-search-browser.mjs';
+import checkVP9Playback from './vp9-playback-browser.mjs';
 
 const [base, source, subtitle, phase] = process.argv.slice(2);
 assert.match(base, /^http:\/\/127\.0\.0\.1:\d+$/);
@@ -333,6 +334,7 @@ try {
   await page.waitForFunction(() => !document.querySelector('#player-dialog').open);
   await checkMomentEntry();
   await checkItemEntry(page,base,phase,trackId,source);
+  if(phase==='restart')await checkVP9Playback(page,base,source);
   assert(ranges.includes(206), 'real browser Range response required');
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
