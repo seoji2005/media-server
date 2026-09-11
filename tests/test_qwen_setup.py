@@ -74,6 +74,7 @@ class SetupProxyTests(unittest.TestCase):
     def test_invalid_cli_proxy_stops_before_model_setup_without_disclosure(self):
         os.environ['HTTPS_PROXY'] = 'socks5h://user:secret@127.0.0.1:19192'
         with patch.object(sys, 'argv', ['prepare_qwen_models.py', '--use-system-https-proxy']), \
+                patch.object(setup, 'default_data_dir', return_value=Path('unused-test-data')), \
                 patch('sys.stderr', new_callable=io.StringIO) as stderr, \
                 patch.object(setup, 'no_symlink') as storage:
             with self.assertRaises(SystemExit) as error:
