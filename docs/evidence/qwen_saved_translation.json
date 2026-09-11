@@ -1,0 +1,176 @@
+{
+  "started_utc": "2026-09-10T23:56:44.305396+00:00",
+  "finished_utc": "2026-09-11T00:01:21.394487+00:00",
+  "status": "actual_translation_completed; textual_quality_findings_remain",
+  "code_head": "7cf758ac1780d5f0b3cb2a70eda6d2e0131c29ce",
+  "code_tree": "6bf0ba2adba1a96b7ca584367ae554f301a31876",
+  "remote_main": "e14f762ec912a7cf0a2e15fe22aa85909c11840c",
+  "source_parts_sha256": "f68853173423eb79c1fbc610bfd783702dce832b7c7ba2be942aded8068ae6e2",
+  "source_units_sha256": "38f901e79ff9835779ddfc3b59d2d05b1ad3e46dbfa5c33bc557ff0e3bcc0522",
+  "checkpoint_file_sha256": "6c97e9a33e194b565a98fbe3f782d5bfbf0207ed84fb5722f6bfa4087e0f3214",
+  "authorization": {
+    "destination": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+    "license": "CC BY-NC 4.0",
+    "payload": "Approved public source dialogue, bounded neighboring dialogue and already translated Korean context, using the unchanged product prompt.",
+    "scope": "The immediately preceding question named 153 Qwen transcript units from the verified public IngCrowd recording and Google Gemini translation. The owner explicitly approved that transfer after the earlier automatic-review rejection.",
+    "source_dataset": "https://huggingface.co/datasets/IngCrowd/japanese-themed-dialogue",
+    "source_revision": "e2eed8769400269f20821deb0e47e68b40012e8b",
+    "source_units_sha256": "38f901e79ff9835779ddfc3b59d2d05b1ad3e46dbfa5c33bc557ff0e3bcc0522",
+    "user_response": "승인할게."
+  },
+  "config": {
+    "batch_size": 8,
+    "context_chars": 400,
+    "context_units": 1,
+    "max_output_tokens": 4096,
+    "model": "gemini-3.1-flash-lite",
+    "previous_chars": 400,
+    "previous_units": 2,
+    "profile": "faithful-context-v5",
+    "prompt_sha256": "2644e1186669f247a5f9453d84b21e67ffce2771ef5578ec384e1f3af42b1e87",
+    "provider": "gemini",
+    "request_contract": "translated-prefix-v1",
+    "response_contract": "exact-target-ids-v1",
+    "thinking": "low"
+  },
+  "source_units": 153,
+  "translated_units": 153,
+  "actual_requests": 20,
+  "actual_responses": 20,
+  "successful_requests": 20,
+  "failed_requests": 0,
+  "asr_calls": 0,
+  "align_calls": 0,
+  "fallback_units": 0,
+  "elapsed_seconds": 277.08892409300097,
+  "request_seconds_sum": 277.03321372599385,
+  "usage_sum": {
+    "candidatesTokenCount": 3407,
+    "promptTokenCount": 21137,
+    "thoughtsTokenCount": 12510,
+    "totalTokenCount": 37054
+  },
+  "canonical_source_times_preserved": true,
+  "source_file_bytes_preserved": true,
+  "response_count_order_ids_revalidated": true,
+  "raw_translation_equals_product_validated_cues": true,
+  "display": {
+    "cues": 214,
+    "represented_source_units": 153,
+    "review_flagged_cues": 50,
+    "issue_code_counts_nonexclusive": {
+      "short_duration": 46,
+      "reading_speed": 12,
+      "layout_limited": 2
+    },
+    "maximum_duration_seconds": 6.885999999999996,
+    "minimum_duration_seconds": 0.07999999999992724,
+    "layout_recomputed_equal": true,
+    "saved_vtt_recomputed_equal": true
+  },
+  "scope": "Unchanged product source_units, translate_chunk, Gemini and generated_layout functions with actual provider requests. No whole application job, DB, browser or target-device acceptance.",
+  "setup_failure": {
+    "type": "AttributeError",
+    "before_requests": true,
+    "retained": "qwen-text-approved/setup-failed.json",
+    "product_code_changed": false
+  },
+  "limits": [
+    "Same previously studied public recording; not a new holdout or broad language-quality comparison.",
+    "Prior source omissions near424 seconds persist; translation cannot restore all missing dialogue.",
+    "Textual reviewer findings are separate from reference-audio completeness or subjective screen/readability acceptance.",
+    "Display subdivision is proportional within unchanged source-unit intervals, not new word-level alignment.",
+    "Started requests, raw responses and completed batches were checkpointed; this helper does not implement or test automatic paid-job resume.",
+    "No whole application job, database integration, Fetch/browser playback, Windows/RTX or release acceptance from this helper.",
+    "Provider token usage is retained; no dollar price is estimated or claimed."
+  ],
+  "raw_evidence_sha256": {
+    "translation.json": "a63ab9e08cba556b2e8f5bd6c2ff5520243f3023234918436675fe59cd2723cc",
+    "source.vtt": "ba4eb6d704feb74b4f4e634cad9ed0919a45f79be6a05a73f714b44db4847644",
+    "korean.vtt": "314f36e08e59076b0a76ef4c192e593238dec4bb590cb396341d117cb7c0ec7b",
+    "setup-failed.json": "d282f4c3bfd4a2d44b7628fa5745b84b4fde116d8869f97f6672bcf3a1db7019"
+  },
+  "helper_sha256": "25a3c5367c2180f2a4bdce50fc720e717c45898beca27eaf36037090b78a9d0d",
+  "independent_review": {
+    "reviewer": "review_qwen_translation",
+    "scope": "Fixed code/helper, public-input binding, actual saved response/request reconstruction, source preservation and selected textual quality review. No new network/inference/listening.",
+    "verdict": "accept_execution_and_evidence; broader_caption_quality_not_accepted",
+    "code_head": "7cf758ac1780d5f0b3cb2a70eda6d2e0131c29ce",
+    "code_tree": "6bf0ba2adba1a96b7ca584367ae554f301a31876",
+    "checks": [
+      "All 20 saved responses replayed through unchanged Gemini and translate_chunk with network/speech tripwires",
+      "Every reconstructed request hash, exact target count/order/IDs and bounded prior context matched",
+      "All 153 translated units, canonical source times and checkpoint bytes matched",
+      "Product layout and both VTT files reconstructed exactly",
+      "Usage sums, elapsed time and display flags independently recomputed"
+    ]
+  },
+  "selected_textual_findings": [
+    {
+      "source_indices_zero_based": [
+        7
+      ],
+      "type": "unsupported_strengthening",
+      "finding": "Adds a superlative judgment to an uncertain, unfinished source phrase; nearby context does not justify the added strength."
+    },
+    {
+      "source_ranges_zero_based": [
+        [
+          24,
+          40
+        ],
+        [
+          57,
+          59
+        ]
+      ],
+      "type": "register_drift",
+      "finding": "Multiple Korean polite forms appear in otherwise casual source dialogue; unit39 is part of a wider run."
+    },
+    {
+      "source_indices_zero_based": [
+        72,
+        73
+      ],
+      "type": "mixed_source_and_translation_uncertainty",
+      "finding": "Malformed or uncertain source becomes explicit meat references within a green-tea discussion. Do not classify as a clean translation-only error or a listening-verified correction."
+    },
+    {
+      "source_indices_zero_based": [
+        124
+      ],
+      "type": "ambiguous_fragment_sense",
+      "finding": "An isolated ambiguous source fragment becomes a rejection; contextual fit is doubtful but attribution is uncertain."
+    }
+  ],
+  "selected_textual_controls": {
+    "cultural_reference_indices_zero_based": [
+      1,
+      5,
+      13
+    ],
+    "finding": "Original cultural holiday name retained; unfinished continuation7–9 and selected ordinary meaning controls generally preserved. These selected controls are not an accuracy rate.",
+    "ordinary_meaning_indices_zero_based": [
+      3,
+      16,
+      17,
+      89,
+      90,
+      91,
+      136,
+      137,
+      149,
+      150,
+      151
+    ]
+  },
+  "attribution_limit": {
+    "source_indices_zero_based": [
+      113,
+      117,
+      131,
+      134
+    ],
+    "finding": "Source text is malformed or ambiguous. In unit117 the duration already exists in the source and must not be described as newly invented by Gemini. No audio-listening correction is claimed."
+  }
+}
