@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "node player.cjs && node subtitles.cjs && node subtitle-search.cjs && node caption-view.cjs && node audio.cjs && node previews.cjs && node scenes.cjs && node recommendations.cjs"
+    "test": "node player.cjs && node subtitles.cjs && node subtitle-search.cjs && node caption-view.cjs && node audio.cjs && node previews.cjs && node scenes.cjs && node preparation.cjs && node recommendations.cjs"
   },
   "devDependencies": {
     "jsdom": "30.0.1",

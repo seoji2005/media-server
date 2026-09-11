@@ -654,6 +654,43 @@ video.textTracks?.addEventListener?.("change",()=>{
   syncNativeCaptionView();
 });
 
+function preparationRun(current){
+  const started=performance.now(),progress=new Map();let requests=0;
+  function remaining(){
+    if(!current())throw new Error("준비를 멈췄습니다. 완료한 내용은 보존됩니다.");
+    const left=600000-(performance.now()-started);
+    if(left<=0||requests>=256)throw new Error("한 번의 준비가 10분 또는 요청 한도에 도달해 멈췄습니다. 완료한 내용은 보존되며 다시 준비하면 이어집니다.");
+    return left;
+  }
+  return {
+    async request(path,options={}){
+      const wait=Math.min(150000,remaining()),controller=new AbortController();let timer;
+      requests++;
+      try{
+        return await Promise.race([
+          api(path,{...options,signal:controller.signal}),
+          new Promise((_,reject)=>{timer=setTimeout(()=>{
+            reject(new Error("응답 대기 시간을 넘겨 멈췄습니다. 서버의 현재 묶음은 마무리될 수 있습니다. 상태를 확인한 뒤 다시 준비해 주세요."));
+            controller.abort();
+          },wait);})
+        ]);
+      }finally{clearTimeout(timer);}
+    },
+    observe(stage,data,initial=false){
+      if(!data||!['empty','partial','ready'].includes(data.state)||
+          !Number.isSafeInteger(data.completed)||!Number.isSafeInteger(data.total)||
+          data.completed<0||data.total<0||data.total>120||data.completed>data.total||
+          (data.state==='ready'&&(data.total===0||data.completed!==data.total)))
+        throw new Error("준비 진행 상태를 확인할 수 없어 멈췄습니다. 저장된 내용은 보존됩니다.");
+      const before=progress.get(stage)||{completed:0,stalled:0};
+      const stalled=initial||data.completed>before.completed?0:before.stalled+1;
+      progress.set(stage,{completed:Math.max(before.completed,data.completed),stalled});
+      if(data.state!=='ready'&&stalled>=2)
+        throw new Error("두 번 연속 준비가 진행되지 않아 멈췄습니다. 완료한 내용은 보존됩니다. 상태를 확인한 뒤 다시 준비해 주세요.");
+    }
+  };
+}
+
 let previewView={version:0,data:null,building:false,paused:false,owner:null,readVersion:0};
 function resetPreviews(){
   resetScenes();
@@ -703,13 +740,16 @@ $("preview-panel").addEventListener("toggle",async()=>{
 });
 async function buildPreviews(retry=null){
   const view=previewView;if(!activeItem||view.building)return;view.owner=activeItem.id;view.building=true;view.paused=false;
+  const run=preparationRun(()=>previewCurrent(view)&&!view.paused);
   view.readVersion++;
   const hadFocus=$("preview-build")===document.activeElement||document.activeElement?.classList.contains("preview-retry");renderPreviews(view);
   try{
+    if(view.data)run.observe('previews',view.data,true);
     do{
       const suffix=retry===null?"":`/${retry}/retry`;
-      const data=await api(`/api/library/${view.owner}/previews${suffix}`,{method:"POST"});
+      const data=await run.request(`/api/library/${view.owner}/previews${suffix}`,{method:"POST"});
       if(!previewCurrent(view))return;
+      run.observe('previews',data,retry!==null);
       if(retry!==null){const row=$("preview-grid").querySelector(`[data-ordinal="${retry}"]`);if(row)row.dataset.available="refresh";}
       view.data=data;renderPreviews(view);
     }while(retry===null&&view.data.state!=="ready"&&!view.paused&&$("preview-panel").open&&$("subtitle-search-panel").open);
@@ -748,19 +788,23 @@ $("scene-panel").addEventListener("toggle",async()=>{
 $("scene-prepare").addEventListener("click",async()=>{
   const view=sceneView;if(!sceneCurrent(view)||view.busy)return;
   view.busy=true;view.building=true;view.paused=false;view.version++;view.readVersion=(view.readVersion||0)+1;sceneControls(view);
+  const run=preparationRun(()=>sceneCurrent(view)&&!view.paused);
   $("scene-results").replaceChildren();$("scene-state").textContent="저장된 미리보기부터 확인하고 있어요.";
   try{
     // Detect missing models before spending time making a new preview grid.
-    try{await api(`/api/library/${view.owner}/scenes`);}catch(e){if(e.code!=="scene_previews_required")throw e;}
-    let grid=await api(`/api/library/${view.owner}/previews`);
+    try{const data=await run.request(`/api/library/${view.owner}/scenes`);run.observe('scenes',data,true);}catch(e){if(e.code!=="scene_previews_required")throw e;}
+    let grid=await run.request(`/api/library/${view.owner}/previews`);run.observe('previews',grid,true);
     while(sceneCurrent(view)&&!view.paused&&grid.state!=="ready"){
-      grid=await api(`/api/library/${view.owner}/previews`,{method:"POST"});
+      grid=await run.request(`/api/library/${view.owner}/previews`,{method:"POST"});
+      if(!sceneCurrent(view))return;
+      run.observe('previews',grid);
       if(sceneCurrent(view))$("scene-state").textContent=`미리보기 ${grid.completed}/${grid.total}개 저장됨 · 닫거나 멈추면 현재 묶음까지 저장합니다.`;
     }
     while(sceneCurrent(view)&&!view.paused){
       $("scene-state").textContent="화면을 분석하고 있어요. 영상은 계속 감상할 수 있습니다.";
-      const data=await api(`/api/library/${view.owner}/scenes/prepare`,{method:"POST"});
+      const data=await run.request(`/api/library/${view.owner}/scenes/prepare`,{method:"POST"});
       if(!sceneCurrent(view))return;
+      run.observe('scenes',data);
       view.ready=data.state==="ready";$("scene-state").textContent=`${data.completed}/${data.total}개 화면 분석 저장됨`;
       if(view.ready){$("scene-state").textContent+=` · 준비됐어요. 찾고 싶은 화면을 적어 주세요.`;break;}
     }
