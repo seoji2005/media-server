@@ -30,6 +30,35 @@ Optional scene search uses `requirements-scene.txt` in this same environment.
 Its Torch/Transformers/Pillow pins match Qwen; do not install the legacy
 `requirements-models.txt` over it. See [scene setup](scene-search.md).
 
+If HTTPX fails while constructing its client with a missing `socksio` error, and
+this environment already supplies an approved HTTP/HTTPS proxy in `https_proxy`
+or `HTTPS_PROXY`, the explicit setup-only option is:
+
+```powershell
+.\.venv\Scripts\python scripts/prepare_qwen_models.py --use-system-https-proxy
+```
+
+Lowercase `https_proxy` takes precedence when nonempty. This selects that existing
+HTTPS route without initializing an unrelated SOCKS `ALL_PROXY`; it does not set
+or change any environment variable, proxy address, model revision, dependency or
+application runtime. No direct, alternate proxy or mirror fallback is introduced.
+The default command remains unchanged. Custom libraries still need `--data-dir`.
+TLS verification and certificate environment settings stay enabled (`trust_env=True`),
+and the installed Hugging Face request hook retains its offline guard. Missing client
+factory/hook APIs stop setup with an environment error; do not upgrade blindly.
+Initialization is checked with HTTPX 0.28.1 / huggingface_hub 1.31.0 without sockets;
+that is not authentication, download or internet-connectivity evidence.
+
+This does not fix `network approval was cancelled before a decision was returned`.
+The cause of that separate execution-tool error is unverified; existing user consent
+is not proof that the execution service can complete a request. A local client fix,
+cache rescan or new conversation alone is not grounds to repeat a blocked request.
+When execution access is demonstrably restored, supervise setup with finite total
+time, asset-progress and retry limits. Client defaults (10 s connect / 30 s other
+I/O) are not a whole-download deadline; Hugging Face can supply per-request timeouts
+and retries. Preserve partial assets/checkpoints and terminate owned processes if
+limits or the repeated approval-cancellation condition are reached.
+
 Gemini connects directly by default. If the runtime requires a trusted system HTTPS
 proxy (including this Work environment), explicitly set `MEDIA_GEMINI_USE_SYSTEM_HTTPS=1`
 before launching the server or resuming a job. This uses the platform's configured

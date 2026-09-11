@@ -1,67 +1,68 @@
 # Current work
 
-Milestone: `feat/vp9-playback-compat`, based on live Server main
-`8a82077ec2c2f73c6e478d1f3d6f72299a3d69ae` (PR40 merged). Restored local base
-`d3d4b2b1dc6cabb7e708e884f13fc592a4bad195` has complete tree
-`0827cbab1260f08459d9886cdb1c5f604c7ba3a6`; publish using actual remote ancestry.
-Fetch main stays `0d6aa28a4a0c6944c053e3d63e150908b44b9175`; no open PR in either
-repository at start. Owner implementation, bounded checks, independent review and
-passing development merge approvals persist; release is separate.
+Milestone: `fix/qwen-setup-system-https`, based on live Server main
+`13e878a060bb6eef5e9cc75dc1eb28e6b2f2c5ce` (PR41 merged). Local restored
+base `eb11e960a6a8eda7dc09f207ac90294e0a8dd93c` has the same complete tree
+`0286766a32aa8c009553330176e9c57be0632299`; publish using actual remote ancestry.
+Fetch main remains `0d6aa28a4a0c6944c053e3d63e150908b44b9175`. No open PR at
+start. Owner implementation, network/API cost/allowed egress, independent review
+and passing development-merge approvals persist; release is separate.
 
-## Delivered and current change
+## Delivered and current fix
 
-Gemini 3.8, foreign SRT/VTT translation, shared model installation pins, exact Fetch
-item entry, bounded preparation/status recovery, local titles and complete caption
-search paging are merged. PR40 passed independent review, both OS CI34597508759
-and desktop/mobile visuals. Model/extension execution restrictions are unchanged.
+Gemini 3.8, foreign SRT/VTT translation, exact Fetch entry, shared installation pins,
+bounded preparation/status recovery, titles and complete caption search are merged.
+PR41 adds VP9 MP4/copied-video WebM playback with selected Opus audio when required;
+its independent review, Ubuntu/Windows CI34604412473 and four native playback screens
+passed. Originals, captions and viewing state are preserved. HEVC/10bit remains open.
 
-The next unblocked slice addresses playback compatibility. A real VP9/AAC MP4 failed
-on base d3d4b2b with unsupported_codec even though Fetch can save such files. VP9 MP4
-now prepares WebM with copied video. VP8/VP9 with supported non-WebM audio converts
-the selected voice to Opus 192 kbit/s CBR stereo; compatible Opus/Vorbis is copied.
-Silent VP9 remux stays silent. Source bytes/all tracks remain intact. New audio_webm
-uses existing per-audio rendition publication, reuse, limits and error handling.
-FFmpeg libopus is needed; no Python/model/network/schema change. HEVC/10bit support,
-video transcoding and enhancement adoption are still open.
+Owner-supplied diagnosis distinguishes two setup failures. HTTPX initializes an
+unneeded SOCKS ALL_PROXY even when an HTTP/HTTPS proxy is configured for HTTPS;
+without socksio its default client fails locally before requests. Explicitly selecting
+the existing HTTPS route constructs HTTPX/Hugging Face clients without installing
+socksio. The execution tool's separate approval-cancellation error is not fixed by this.
+
+The model preparation command gains explicit `--use-system-https-proxy`. It uses
+nonempty lowercase https_proxy before HTTPS_PROXY and requires a valid HTTP/HTTPS
+URL. Missing/invalid settings fail without echoing addresses or credentials; no
+ALL_PROXY/direct/mirror fallback. Only this setup process changes its HF client
+factory. System variables, model pins, product inference and dependencies are unchanged.
+TLS/certificate environment settings stay enabled, as does the installed HF request
+hook's offline guard. Missing factory/hook APIs stop; no blind package upgrade.
 
 ## Evidence and next action
 
-- Linux CPU real four-second VP9 fixtures: six new tests passed in 5.281 s, including
-  copied packet/decoded-frame identity, audio selection, captions/position/Range,
-  disk/timeout/tamper failures and actual process death before commit.
-- Existing rendition tests: 10 passed / 7.302 s; audio tests: 6 passed / 5.240 s.
-  A separate fresh process reused the committed audio_webm without conversion and
-  verified original bytes. Focused audio/item-entry DOM uses mocked HTTP/media.
-- Chrome integration adds actual VP9 import + companion caption + item-entry:
-  opening never prepares automatically; the explicit button prepares WebM, native
-  caption/video decode, seek/save and paused reopen are checked. Source preservation
-  and desktop/mobile screenshots are mandatory. It does not run the Fetch extension.
-- Freeze source, obtain fresh independent original/recovery review, inspect final
-  Linux/Windows CI and four new screenshots, then merge under continued approval.
-  Observe CI for at most 10 minutes/10 polls, each job capped at 10 minutes. Do not
-  rerun unchanged failures without new evidence. Final results belong to that PR.
-- Synthetic short video is not long-film performance, audible/subjective quality,
-  HDR/HEVC support or target Windows 11/RTX4070SUPER acceptance.
+- Reproduced default socksio ImportError in HTTPX0.28.1/HF1.31.0. Explicit HTTPS
+  client and get_session creation passed with socket.connect/connect_ex blocked;
+  zero external requests. No assertion of HTTP/authentication/download success.
+- Focused tests use real HTTPX, TLS context and optional installed HF. They verify
+  SOCKS-free construction, certificate environment/verification, missing-CA failure,
+  proxy precedence/validation, safe CLI rejection and HF offline blocking.
+  Minimal dev/CI environments skip only the optional actual-HF check; the model
+  environment runs it. Preserve that skip distinction in the final PR evidence.
+- Freeze, obtain independent setup/privacy review, then inspect required model-free
+  Ubuntu/Windows CI before development merge. No UI changed; no new screenshot gate.
+  Observe CI at most10minutes/10polls, without rerunning unchanged failures. Final
+  fixed-HEAD review, test and merge results belong to the PR and verification archive.
 
-For GitHub screenshots, export a file reference, use official materialization and
-verify ZIP SHA-256. Prior direct URLs failed403 twice; do not repeat them or change
-proxy/credentials/browser/profile/CDP or run CI inference to bypass restrictions.
+## Execution restriction and remaining acceptance
 
-## Blocked acceptance and roadmap
+Previous bounded pip and unchanged-HTTPS HEAD requests returned
+`network approval was cancelled before a decision was returned` after roughly10s.
+The tool did not establish whether user action, approval service or policy caused it.
+User consent exists. A later offline audit found no reusable socksio/model assets;
+those cache scans and prior successful Torch/Transformers installation logs do not
+prove current network recovery. No repeat install/download/read request in this fix.
 
-Fresh natural long-speech Qwen→aligner→Gemini 3.8 is stopped: no Qwen weights and
-socksio installation hit cancelled network approval twice. Read-only cache inspection
-found no new assets; no repeat installation/download/new ASR/alignment/Gemini calls.
-The preserved `test/bounded-long-speech@f038f85` handoff keeps the failed attempt.
-Previously held 706.24 s/762.048 s recordings informed translation comparisons and
-are not pristine holdouts.
+Do not retry blocked requests merely because this local initialization fix passes.
+Require evidence that execution access is restored, then supervise model preparation
+and new natural long-speech Qwen→aligner→Gemini3.8 with finite total/no-progress/retry
+bounds. HF per-request timeouts/retries are not a whole-download deadline. Terminate
+owned processes on limits or repeated approval cancellation; preserve assets and
+committed spans/batches. Never use direct/alternate proxy, mirror, browser/CDP/profile
+or CI inference to evade restrictions. Existing default Gemini routing is unchanged.
 
-When an allowed environment has pinned assets/dependencies, run a new long speech
-input through the actual product with elapsed/no-progress/retry limits and saved
-span/batch reuse. Actual Fetch discovery/save/item playback, extension-only reception,
-Windows 11/RTX setup/VRAM/long playback, useful enhancement and subjective search/
-recommendation quality remain open. No enhancement preset is adopted.
-
-Terminate owned processes at limits/repeated same-cause failures, preserve originals
-and diagnostics, then stop that blocked task. Local Chrome EPERM, supplied browser
-ERR_BLOCKED_BY_CLIENT and extension-management denials remain unchanged.
+New natural long-caption quality, actual Fetch extension, Windows11/RTX4070SUPER,
+useful enhancement and subjective search/recommendation acceptance remain incomplete.
+Previously held706.24s/762.048s speech informed comparisons and is not a pristine
+holdout. No new model/API calls or target-device acceptance in this setup-only fix.
