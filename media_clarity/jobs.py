@@ -185,7 +185,7 @@ class Jobs:
                         if code is None:
                             continue
                         with self.store.db() as db:
-                            db.execute("UPDATE subtitle_jobs SET state='failed',error='worker_stopped' WHERE id=? AND state='running'", (self.active,))
+                            db.execute("UPDATE subtitle_jobs SET state='failed',error='worker_stopped' WHERE id=? AND state IN ('queued','running')", (self.active,))
                             db.commit()
                         self.process.stdin.close()
                         self.process, self.active = None, None
@@ -403,6 +403,9 @@ class Jobs:
                     return
                 if self.active == job_id:
                     self._terminate()
+                    # Reap this attempt before a quick resume can queue a new one.
+                    self.process.stdin.close()
+                    self.process, self.active = None, None
                 # A worker may have committed success before termination; retain it.
                 with self.store.db() as db:
                     db.execute("UPDATE subtitle_jobs SET state='paused',error=NULL WHERE id=? AND state IN ('running','queued')", (job_id,))

@@ -211,12 +211,13 @@ with patch("media_clarity.qwen.QwenSpeech",side_effect=noisy):m.main()
         self.assertTrue(children[0].stdin.closed and children[0].stdout.closed)
 
     def test_normal_worker_exit_does_not_abort_with_open_parent_pipe(self):
-        code='''import time
-from unittest.mock import patch
-from media_clarity.worker import main
-with patch("media_clarity.jobs.execute",side_effect=lambda *args:time.sleep(.05)):main()
+        code='''import sys
+from media_clarity.worker_lifecycle import supervise
+compute = "import os,sys,time;assert os.read(sys.stdin.fileno(),1)==b'1';time.sleep(.05)"
+sys.exit(supervise([sys.executable,"-c",compute]))
 '''
-        child=subprocess.Popen([sys.executable,'-c',code,str(self.root),'unused'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        child=subprocess.Popen([sys.executable,'-c',code],stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,start_new_session=os.name != 'nt')
         try:
             child.wait(timeout=5)
             self.assertEqual(child.returncode,0)
