@@ -4,6 +4,8 @@ let sessionToken = "", items = [], filter = "all", activeItem = null, upload = n
 let recommendedItems = [], recommendationState = "idle", recommendationError = "", recommendationVersion = 0;
 let preferenceVersion = 0, savedPreference = null;
 const pendingPreferences = new Map();
+const pendingTitles = new Map();
+let titleView=null;
 const preparingPlayback = new Set();
 let playerRequest = 0, entryAwaitingPlay = false;
 let pendingItemEntry = null;
@@ -12,6 +14,8 @@ const video = $("video"), dialog = $("player-dialog");
 $("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
 const errors = {
+  invalid_title:"제목을 180자 이내로 입력해 주세요. 줄바꿈과 제어 문자는 사용할 수 없습니다.",
+  title_changed:"다른 창에서 제목이 바뀌었습니다. 저장된 제목을 불러와 확인해 주세요.",
   invalid_item_entry:"영상 연결 정보를 확인할 수 없습니다. 보낸 앱에서 다시 열어 주세요.",
   item_reference_changed:"다른 보관함이거나 원본 정보가 바뀌었습니다. 보낸 앱에서 연결을 다시 확인해 주세요.",
   invalid_caption_view:"자막 시간은 10초까지 앞당기거나 늦출 수 있습니다.",
@@ -70,13 +74,22 @@ async function api(path, options = {}) {
   if (!response.ok) throw Object.assign(new Error(subtitleMessages[result.error] || message(result.error)), {code:result.error});
   return result;
 }
+async function boundedApi(path,options,wait,timeoutMessage){
+  const controller=new AbortController();let timer;
+  try{
+    return await Promise.race([
+      api(path,{...options,signal:controller.signal}),
+      new Promise((_,reject)=>{timer=setTimeout(()=>{reject(new Error(timeoutMessage));controller.abort();},wait);})
+    ]);
+  }finally{clearTimeout(timer);}
+}
 function time(seconds) { seconds = Math.max(0, Math.floor(seconds || 0)); const h = Math.floor(seconds / 3600), m = Math.floor(seconds % 3600 / 60), s = seconds % 60; return h ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${m}:${String(s).padStart(2,"0")}`; }
 function continuing(item) { return item.position > 0 && item.position < Math.max(1, item.duration - 2); }
 function render() {
   $("nav-count").textContent = String(items.length);
-  const query = $("search").value.trim().toLocaleLowerCase();
+  const query = $("search").value.trim().normalize("NFKC").toLocaleLowerCase();
   const recommended = filter === "recommended";
-  const visible = (recommended ? recommendedItems : items).filter(i => (filter !== "continue" || continuing(i)) && i.title.toLocaleLowerCase().includes(query));
+  const visible = (recommended ? recommendedItems : items).filter(i => (filter !== "continue" || continuing(i)) && i.title.normalize("NFKC").toLocaleLowerCase().includes(query));
   if (filter === "continue") visible.sort((a,b) => (b.watched_at || "").localeCompare(a.watched_at || ""));
   const heading = recommended ? "추천" : filter === "all" ? "보관함" : "이어보기";
   $("library-heading").firstChild.textContent = heading + " ";
@@ -198,6 +211,8 @@ async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false
   pendingItemEntry=null;
   $("item-entry-notice").hidden=true; $("item-entry-prepare").onclick=null;
   try {
+    const pending=pendingTitles.get(id);if(pending)await pending.catch(()=>{});
+    if(request!==playerRequest)return;
     const itemEntry=entry&&entryKind==="item";
     let item, moment=null;
     if(itemEntry){
@@ -243,7 +258,7 @@ async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false
     }
     for(const panel of ["audio-panel","subtitle-preparation","subtitle-search-panel","preference-panel"])$(panel).open=false;
     resetPreviews();
-    entryAwaitingPlay=Boolean(entry); activeItem=item; lastQueuedPosition=null; $("player-title").textContent=item.title; renderAudio(item);
+    entryAwaitingPlay=Boolean(entry); activeItem=item; lastQueuedPosition=null; $("player-title").textContent=item.title; renderAudio(item);resetTitle(item);
     $("video-error").hidden=true; $("save-state").textContent=continuing(item) ? `${time(item.position)}에서 이어보기` : "준비 중";
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
     resetSubtitles(); video.src=`/api/media/${id}/content${audioQuery(item)}`; dialog.showModal(); dialog.scrollTop=0; refreshSubtitles(item);
@@ -260,6 +275,53 @@ async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false
   }
 }
 function audioQuery(item){return Number.isInteger(item.audio_index)?`?audio_index=${item.audio_index}`:"";}
+function resetTitle(owner=null){
+  titleView=owner?{owner,expected:owner.title,busy:false,uncertain:false}:null;
+  $("title-panel").open=false;$("title-input").value=owner?.title||"";$("title-state").textContent="";
+  titleControls();
+}
+function titleCurrent(view){return titleView===view&&activeItem===view.owner;}
+function titleControls(){
+  $("title-input").disabled=!titleView||titleView.busy;
+  $("title-save").disabled=!titleView||titleView.busy||titleView.uncertain;
+  $("title-reload").disabled=!titleView||titleView.busy;
+}
+function applyTitle(id,title){
+  for(const item of items)if(item.id===id)item.title=title;
+  invalidateRecommendations();render();
+}
+$("title-form").addEventListener("submit",async event=>{
+  event.preventDefault();const view=titleView;
+  if(!view||!titleCurrent(view)||view.busy||view.uncertain)return;
+  const title=$("title-input").value.trim();if(!title){$("title-state").textContent=errors.invalid_title;return;}
+  view.busy=true;titleControls();$("title-state").textContent="제목 저장 중…";
+  const pending=boundedApi(`/api/library/${view.owner.id}/title`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,expected_title:view.expected})},30000,"저장 응답을 확인하지 못했습니다. 저장됐을 수 있으니 현재 제목을 다시 확인해 주세요.");
+  pendingTitles.set(view.owner.id,pending);
+  try{
+    const saved=await pending;applyTitle(view.owner.id,saved.title);
+    if(!titleCurrent(view))return;
+    view.owner.title=view.expected=saved.title;$("player-title").textContent=saved.title;$("title-input").value=saved.title;$("title-state").textContent="제목을 저장했습니다.";
+  }catch(e){
+    if(titleCurrent(view)){view.uncertain=e.code!=="invalid_title";$("title-state").textContent=e.message+" 입력한 제목은 남겨 두었습니다.";}
+  }finally{
+    if(pendingTitles.get(view.owner.id)===pending)pendingTitles.delete(view.owner.id);
+    if(titleCurrent(view)){view.busy=false;titleControls();}
+    if(filter==="recommended")refreshRecommendations();
+  }
+});
+$("title-reload").addEventListener("click",async()=>{
+  const view=titleView;if(!view||!titleCurrent(view)||view.busy)return;
+  view.busy=true;titleControls();
+  try{
+    const saved=await boundedApi(`/api/library/${view.owner.id}`,{},30000,"저장된 제목을 확인하지 못했습니다. 서버 연결을 확인한 뒤 다시 눌러 주세요.");
+    if(!titleCurrent(view))return;
+    view.owner.title=view.expected=saved.title;$("player-title").textContent=saved.title;
+    // Keep an unsaved draft after an uncertain write; only its expected title changes.
+    if(!view.uncertain)$("title-input").value=saved.title;
+    view.uncertain=false;$("title-state").textContent="저장된 제목을 확인했습니다. 입력한 제목을 확인한 뒤 저장해 주세요.";applyTitle(view.owner.id,saved.title);
+  }catch(e){if(titleCurrent(view))$("title-state").textContent=e.message;}
+  finally{if(titleCurrent(view)){view.busy=false;titleControls();if(filter==="recommended")refreshRecommendations();}}
+});
 function audioLabel(track){const language={jpn:"일본어",ja:"일본어",eng:"영어",en:"영어",kor:"한국어",ko:"한국어"}[track.language]||track.language;return [`오디오 ${track.index+1}`,language,track.title,track.codec?.toUpperCase(),track.channels?`${track.channels}채널`:"",track.error?"지원되지 않음":""].filter(Boolean).join(" · ");}
 function renderAudio(item){
   const tracks=item.audio_tracks||[],select=$("audio-select"),index=item.audio_index||0;
@@ -277,6 +339,8 @@ $("audio-apply").addEventListener("click",async()=>{
   try{
     const ready=await api(`/api/library/${owner.id}/audio/${index}`,{method:"POST"});if(activeItem!==owner)return;
     const position=video.currentTime,playing=!video.paused;video.pause();await savePosition();if(activeItem!==owner)return;
+    // The editor belongs to the library item, including while its audio changes.
+    ready.title=owner.title;if(titleView?.owner===owner)titleView.owner=ready;
     activeItem=ready;lastQueuedPosition=null;renderAudio(ready);resetSubtitles();refreshPreference(ready);$("video-error").hidden=true;
     video.addEventListener("loadedmetadata",()=>{if(activeItem!==ready)return;video.currentTime=Math.min(position,ready.duration);savePosition();if(playing)video.play().catch(()=>{});},{once:true});
     video.src=`/api/media/${owner.id}/content${audioQuery(ready)}`;video.load();refreshSubtitles(ready);
@@ -296,7 +360,7 @@ function savePosition(keepalive=false) {
   }).catch(e=>{lastQueuedPosition=null;if(activeItem?.id===id) $("save-state").textContent="저장 실패 · 연결 확인";toast(e.message,true);});
   return saveChain;
 }
-async function closePlayer() { playerRequest++; resetPreviews(); video.pause(); clearTimeout(saveTimer); saveTimer=null; await savePosition(); activeItem=null; resetSubtitles(); resetPreference(); video.removeAttribute("src"); video.load(); dialog.close(); if(filter === "recommended") refreshRecommendations(); else render(); }
+async function closePlayer() { playerRequest++; resetPreviews(); video.pause(); clearTimeout(saveTimer); saveTimer=null; await savePosition(); activeItem=null; resetSubtitles(); resetPreference(); resetTitle(); video.removeAttribute("src"); video.load(); dialog.close(); if(filter === "recommended") refreshRecommendations(); else render(); }
 $("player-close").addEventListener("click",closePlayer);
 dialog.addEventListener("cancel",e=>{e.preventDefault();closePlayer();});
 $("restart-video").addEventListener("click",()=>{video.currentTime=0;savePosition();video.play().catch(()=>{});});
@@ -664,17 +728,9 @@ function preparationRun(current){
   }
   return {
     async request(path,options={}){
-      const wait=Math.min(150000,remaining()),controller=new AbortController();let timer;
+      const wait=Math.min(150000,remaining());
       requests++;
-      try{
-        return await Promise.race([
-          api(path,{...options,signal:controller.signal}),
-          new Promise((_,reject)=>{timer=setTimeout(()=>{
-            reject(new Error("응답 대기 시간을 넘겨 멈췄습니다. 서버의 현재 묶음은 마무리될 수 있습니다. 상태를 확인한 뒤 다시 준비해 주세요."));
-            controller.abort();
-          },wait);})
-        ]);
-      }finally{clearTimeout(timer);}
+      return boundedApi(path,options,wait,"응답 대기 시간을 넘겨 멈췄습니다. 서버의 현재 묶음은 마무리될 수 있습니다. 상태를 확인한 뒤 다시 준비해 주세요.");
     },
     observe(stage,data,initial=false){
       if(!data||!['empty','partial','ready'].includes(data.state)||

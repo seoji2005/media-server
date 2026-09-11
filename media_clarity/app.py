@@ -172,6 +172,21 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     def item(item_id: str):
         return store.item(item_id)
 
+    @app.put('/api/library/{item_id}/title')
+    async def rename_item(item_id: str, request: Request):
+        payload = bytearray()
+        async for chunk in request.stream():
+            if len(payload) + len(chunk) > 4096:
+                raise MediaError('invalid_title', 422)
+            payload.extend(chunk)
+        try:
+            body = json.loads(payload)
+        except (ValueError, UnicodeError):
+            raise MediaError('invalid_title', 422) from None
+        if type(body) is not dict or set(body) != {'title', 'expected_title'}:
+            raise MediaError('invalid_title', 422)
+        return await run_in_threadpool(store.rename_item, item_id, body['title'], body['expected_title'])
+
     @app.get('/api/library/{item_id}/previews')
     def preview_status(item_id: str):
         return previews.status(item_id)

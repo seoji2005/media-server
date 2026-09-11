@@ -14,6 +14,20 @@ its saved position and subtitle selection flow. No unsolicited subtitle summarie
 
 ## What the first implementation uses
 
+The player's **보관함 제목 바꾸기** edits the local display title (1–180 printable
+characters), without renaming files or changing item identity, viewing state or
+recommendation participation. Included items use the new title on the next ranking
+read; the current recommendation view refreshes after a save or explicit title reread.
+The library search also applies NFKC normalization, so full-width letters and decomposed
+Hangul can find the same title. This provides useful labels for opaque filenames;
+it adds no metadata retrieval, inferred preference or content understanding.
+
+Title saves compare the last-read title text atomically, not a revision counter.
+A different current title rejects the save with 409. A lost/failed response requires
+an explicit reread before another save and keeps the draft. Each title request has
+a 30-second response/body deadline, with no automatic retries. An aborted wait does
+not cancel a server commit. Other windows retain their snapshot until refreshed.
+
 Only included titles and explicit preferences are read. NFKC/case-normalized title
 words exclude single characters, standalone numbers and a small common-word list.
 Each matching liked word contributes +1; disliked words -1; less-of-this words -0.5.

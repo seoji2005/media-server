@@ -204,6 +204,30 @@ try {
   assert(observed.frames > 0, 'decoded video frames required');
   assert.equal(observed.error, null);
   assert(observed.cues.includes('한국어 자막 재생 확인'), 'active native Korean cue required');
+  const displayTitle='ＣＩ 한글 <literal>';
+  if(phase==='restart')assert.equal(await page.locator('#player-title').textContent(),displayTitle,'display title survives server restart');
+  await page.locator('#title-panel > summary').click();
+  const beforeTitle=await video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused,track:v.querySelector('track').src}));
+  if(phase==='first'){
+    await page.locator('#title-input').fill(displayTitle);
+    await page.locator('#title-save').click();
+    await page.waitForFunction(()=>document.querySelector('#title-state').textContent==='제목을 저장했습니다.');
+  }
+  assert.equal(await page.locator('#title-input').inputValue(),displayTitle);
+  assert.equal(await page.locator('#player-title').textContent(),displayTitle);
+  assert.equal(await page.locator('#player-title').evaluate(el=>el.children.length),0,'title is literal text');
+  assert.deepEqual(await video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused,track:v.querySelector('track').src})),beforeTitle,'rename preserves loaded playback and caption');
+  if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
+    await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
+    await page.locator('#title-input').scrollIntoViewIfNeeded();
+    await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`${phase}-title-desktop.png`)});
+    await page.setViewportSize({width:390,height:844});
+    await page.locator('#title-input').scrollIntoViewIfNeeded();
+    assert(await page.locator('#player-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+    await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`${phase}-title-mobile.png`)});
+    await page.setViewportSize({width:1280,height:720});
+  }
+  await page.locator('#title-panel > summary').click();
   if (phase === 'restart') {
     const sourceId = await selector.locator('option').filter({hasText: '원문 · 자동 전사'}).getAttribute('value');
     const position = await video.evaluate(v => v.currentTime);
@@ -265,6 +289,9 @@ try {
   await page.waitForFunction(() => !document.querySelector('#video').seeking);
   await page.locator('#player-close').click();
   await page.waitForFunction(() => !document.querySelector('#player-dialog').open);
+  await page.locator('#search').fill('ci 한글');
+  assert.equal(await page.locator('.card-button').count(),1,'NFKC title search handles width and Hangul composition');
+  await page.locator('#search').fill('');
   await page.locator('.card-button').click();
   await page.waitForFunction(() => {
     const v = document.querySelector('#video');
@@ -278,7 +305,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
-    nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
+    displayTitleAndNormalizedSearch: true, nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   await browser.close();
 }
