@@ -86,6 +86,11 @@ def run():
         subprocess.run(['ffmpeg', '-v', 'error', '-i', str(source), '-c', 'copy', str(pending)],
                        check=True, timeout=30)
         pending_digest = hashlib.sha256(pending.read_bytes()).hexdigest()
+        vp9 = work / 'vp9.mp4'
+        subprocess.run(['ffmpeg', '-v', 'error', '-i', str(source), '-t', '4',
+            '-c:v', 'libvpx-vp9', '-threads', '2', '-deadline', 'realtime', '-cpu-used', '8',
+            '-c:a', 'copy', str(vp9)], check=True, timeout=30)
+        vp9_digest = hashlib.sha256(vp9.read_bytes()).hexdigest()
         data = work / 'library'
         for phase in ('first', 'restart'):
             if phase == 'restart':
@@ -163,8 +168,10 @@ def run():
                 )
         assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
         originals = list((data / 'files').glob('*/original.mp4'))
-        assert len(originals) == 2  # Imported MP4 plus the explicitly requested MKV rendition.
+        assert len(originals) == 3  # H.264 MP4, requested MKV rendition, VP9 MP4 original.
         assert sum(hashlib.sha256(p.read_bytes()).hexdigest() == digest for p in originals) == 1
+        assert sum(hashlib.sha256(p.read_bytes()).hexdigest() == vp9_digest for p in originals) == 1
+        assert hashlib.sha256(vp9.read_bytes()).hexdigest() == vp9_digest
         pending_copies = list((data / 'files').glob('*/original.mkv'))
         assert len(pending_copies) == 1 and hashlib.sha256(pending_copies[0].read_bytes()).hexdigest() == pending_digest
         assert hashlib.sha256(pending.read_bytes()).hexdigest() == pending_digest

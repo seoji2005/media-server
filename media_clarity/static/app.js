@@ -329,7 +329,7 @@ function renderAudio(item){
   select.value=String(index);select.disabled=false;$("audio-apply").disabled=true;
   $("audio-panel").hidden=tracks.length<2;$("audio-brief").textContent=tracks[index]?audioLabel(tracks[index]):"";
   $("audio-state").textContent="선택한 음성으로 재생하고 새 자막을 만듭니다. 처음 선택할 때 재생용 사본을 준비하며 추가 저장 공간을 사용합니다.";
-  const kind={remux_mp4:"재생용 MP4 · 영상 그대로",audio_mp4:"재생용 MP4 · 영상 그대로 · AAC 스테레오",remux_webm:"재생용 WebM · 영상 그대로"}[item.preparation]||"원본 사본";
+  const kind={remux_mp4:"재생용 MP4 · 영상 그대로",audio_mp4:"재생용 MP4 · 영상 그대로 · AAC 스테레오",remux_webm:"재생용 WebM · 영상 그대로",audio_webm:"재생용 WebM · 영상 그대로 · Opus 스테레오"}[item.preparation]||"원본 사본";
   $("player-meta").textContent=`${item.width} × ${item.height} · ${time(item.duration)} · ${kind}${tracks.length?` · 오디오 ${index+1}`:""}`;
 }
 $("audio-select").addEventListener("change",()=>{$("audio-apply").disabled=!activeItem||Number($("audio-select").value)===(activeItem.audio_index||0);});

@@ -362,7 +362,7 @@ class Store:
                            'title':label(tags.get('title',''),120),
                            'codec':label(stream.get('codec_name',''),32),
                            'channels':stream.get('channels'), 'error':error})
-        extension = 'mp4' if is_mp4 else 'mkv' if track.get('codec_name') == 'h264' else 'webm'
+        extension = 'mp4' if is_mp4 else 'mkv' if track.get('codec_name') == 'h264' or preparation == 'audio_webm' else 'webm'
         return {"duration": duration, "width": width, "height": height,
                 "extension": extension, "mime": {'mp4':'video/mp4', 'mkv':'video/x-matroska', 'webm':'video/webm'}[extension],
                 "preparation": preparation, 'selected_duration':selected_duration(track,selected,start),
@@ -508,7 +508,7 @@ class Store:
             ready = db.execute('SELECT * FROM renditions WHERE item_id=? AND audio_index=?', (item_id,index)).fetchone()
         if ready is None:
             raise MediaError('rendition_required', 409)
-        if (ready['input_sha'] != source['sha256'] or ready['kind'] not in {'remux_mp4','audio_mp4','remux_webm'}
+        if (ready['input_sha'] != source['sha256'] or ready['kind'] not in {'remux_mp4','audio_mp4','remux_webm','audio_webm'}
                 or (index == 0 and ready['kind'] != source['preparation'])):
             raise MediaError('managed_file_changed', 409)
         return source | {k:ready[k] for k in ('sha256','size','extension','mime')} | {'file_id':ready['id'], 'duration':ready['duration'] or source['duration'], 'audio_index':index, 'preparation':ready['kind']}

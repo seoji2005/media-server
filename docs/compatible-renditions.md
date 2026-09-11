@@ -11,6 +11,32 @@ failure; each selected audio can require another copy's disk space. No originals
 earlier copies are removed. New ASR jobs use that voice; existing jobs keep theirs.
 HEVC and unsupported depth/chroma get distinct fixed messages; no video encoding.
 
+VP9 in MP4 now prepares a WebM derivative instead of failing codec classification.
+VP8/VP9 with supported non-WebM audio (AAC/MP3, AC3/EAC3/DTS/FLAC and the existing
+PCM list) converts only that selected audio to Opus 192 kbit/s constant-bitrate
+stereo through FFmpeg's `libopus` encoder. Opus/Vorbis is stream-copied, and silent
+VP9 MP4 remuxes without inventing an audio track. Original audio/channels and all
+streams remain in the managed source. A VP9 Matroska source requiring conversion
+keeps a Matroska filename/MIME; the playable result is WebM. No new Python dependency,
+video encoder, model, permission or schema version is added.
+
+The new `audio_webm` rendition uses existing verified publication, per-audio reuse,
+space/output/time limits and recovery. UI identifies the copied video and Opus stereo.
+Existing H.264/AAC and WebM handling remains. Preparation itself is not frame-resumable;
+interrupted work keeps the original and retries from the start, while ready copies
+are reused. The usual rendition duration tolerance includes Opus delay/container
+rounding; no arbitrary per-caption adjustment or original timestamp rewrite is added.
+
+The real four-second VP9/AAC MP4 was rejected by base d3d4b2b with unsupported_codec.
+The corrected pipeline passes six actual SQLite/HTTP/FFmpeg tests for packet/decoded
+video identity, Opus/silent remux, selected audio, caption/history preservation, Range,
+space/timeout/tamper failures and process death before commit. A separate fresh-process
+restart reused its committed audio_webm without conversion and preserved the source.
+Chrome CI additionally exercises explicit item-entry preparation, native caption,
+decoded WebM playback and paused resume, capturing desktop/mobile views. Its result
+must be checked on the final PR HEAD; this is not actual Fetch extension execution,
+long-video throughput, audible human acceptance or target Windows 11/RTX evidence.
+
 [FFmpeg stream selection and streamcopy](https://ffmpeg.org/ffmpeg.html#Stream-selection)
 provide this behavior. Explicit `0:V:0` excludes cover art; `0:a:0?` allows silent
 video. Subtitle/data/attachment/chapter streams are excluded from the derivative;
