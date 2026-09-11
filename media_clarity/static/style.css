@@ -287,6 +287,9 @@ video::cue{font-family:system-ui,sans-serif;background:rgba(0,0,0,.8);color:whit
 .watch-option>summary::marker{color:#a8b7d4}
 .watch-option>summary span{font-size:13px;color:#abb9ce;margin-left:12px;overflow-wrap:anywhere}
 .option-content{padding:6px 0 18px}
+.title-panel{margin:0 28px}
+.title-panel label{display:block;margin-bottom:8px;font-size:14px}
+.title-panel p{font-size:14px;line-height:1.65;color:#b9c3d5}
 .preference-panel{margin:0 28px 24px}
 .preference-panel legend{font-size:14px;color:#b9c3d5}
 .preference-panel label,.preference-panel p{font-size:14px}
@@ -305,6 +308,7 @@ video::cue{font-family:system-ui,sans-serif;background:rgba(0,0,0,.8);color:whit
 .settings-dialog summary{min-height:44px}
 @media(max-width:600px){
   .subtitle-panel{margin:18px 16px 0}
+  .title-panel{margin:0 16px}
   .preference-panel{margin:0 16px 18px}
   .watch-option>summary span{display:block;margin:3px 0 0 18px}
   .subtitle-heading select{width:100%;min-width:0}

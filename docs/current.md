@@ -44,12 +44,21 @@ it does not establish semantic recommendation or subjective viewing quality.
 - Initial fresh review at9893664 found one validation defect: a surrogate character
   in expected_title returned500. Both title strings now reject nonprintable/invalid
   Unicode before SQLite binding; focused regression cases pass. The exact title
-  comparison stays unnormalized. Narrow rereview of this correction is required.
+  comparison stays unnormalized. Fresh reviewer independently checked the complete
+  correction at local43d1f44/tree8b9e7c4 and passed5tests in1.258s with no remaining
+  actionable findings. Remote c9b2933 has the identical tree.
 - Existing model-free CI browser test now saves a literal Unicode title while paused,
   checks unchanged media position/source/caption, normalized search and persistence
-  after actual server restart. It captures desktop/mobile title forms. CI/visual
-  results and fresh fixed-HEAD independent review are pending at this checkpoint;
-  check the PR before claiming acceptance or merging.
+  after actual server restart. CI34587786497 passed both Ubuntu24.04 and Windows
+  Server2025;274Python tests each (Linux2skips, Windows1skip), all DOM/browser/restart
+  gates, no external page requests. Desktop/mobile PNGs were retrieved through the
+  official file-reference materialization service and visually inspected on both OSes.
+  ZIP hashes match CI artifacts. Prior direct URL downloads returned403 twice;
+  no proxy, credential, policy or browser workaround was used to retrieve the files.
+- Visual follow-up only: title form now shares the player's28px desktop/16px mobile
+  inset and readable label/help spacing. This CSS/documentation delta changes no
+  persistence or JavaScript; the prior independent functional review still applies.
+  Updated CI/screenshots and final PR38 state must be checked before merge.
 - Prior45-minute160x90,1fps H.264 fixture: actual FFmpeg/SQLite/ASGI generated120
   previews and resumed104after restart at16. Position1357.25s, caption/+500ms and
   original hash stayed unchanged. This11.22s tiny-input probe is not a speed forecast
@@ -67,7 +76,7 @@ Some reference text was used in translation comparisons; these are not pristine
 holdouts. No new ASR/alignment/Gemini calls. Renewed general approval alone is not
 new evidence that the execution limit changed.
 
-Finish title review, existing CI/visual checks and passing development merge. Then,
+Finish title spacing CI/visual checks and passing PR38 development merge. Then,
 only when an allowed environment has the dependencies and pinned model assets, run
 the fresh continuous-speech product path with saved span/batch reuse and finite limits.
 Natural long-caption viewing, actual Chrome Fetch discovery/save/item navigation,
