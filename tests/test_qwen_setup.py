@@ -51,7 +51,12 @@ class SetupProxyTests(unittest.TestCase):
         os.environ['https_proxy'] = 'https://127.0.0.1:19193'
         self.assertEqual(setup.system_https_proxy(), os.environ['https_proxy'])
         os.environ['https_proxy'] = ''
-        self.assertEqual(setup.system_https_proxy(), os.environ['HTTPS_PROXY'])
+        if os.name == 'nt':
+            # Windows aliases differently cased environment keys: both are empty.
+            with self.assertRaises(ValueError):
+                setup.system_https_proxy()
+        else:
+            self.assertEqual(setup.system_https_proxy(), os.environ['HTTPS_PROXY'])
 
     def test_missing_or_invalid_https_never_falls_back_or_echoes_secrets(self):
         for value in ('', 'socks5h://user:secret@127.0.0.1:19192',
