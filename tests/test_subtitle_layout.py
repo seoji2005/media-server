@@ -126,6 +126,10 @@ class LayoutTests(unittest.TestCase):
         self.assertIn('short_duration',issues[1])
 
     def test_video_boundary_and_overlapping_turns_block_short_cue_hold(self):
+        # 1.001 * 1000 is 1000.9999999999999: do not floor an exact video end.
+        exact=generated_layout([{'start':.167,'end':.247,'text':'끝.'}],1.001)
+        self.assertEqual(exact['cues'][0]['end'],1.001)
+        self.assertEqual(exact['issues'],[])
         for duration, expected in [(1.834,1.834),(1.8339,1.1)]:
             with self.subTest(duration=duration):
                 p=generated_layout([{'start':1,'end':1.1,'text':'끝.'}],duration)

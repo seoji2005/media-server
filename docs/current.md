@@ -27,7 +27,7 @@ the 153 previously translated Qwen units, with zero model/API calls:
 - Canonical cues and original raw evidence bytes remain unchanged. The remaining
   shortest cue is still 80 ms; this policy does not resolve crowded dialogue.
 
-Local Linux/Python 3.12.14 checks: **56 tests pass, 6.949 s, no skips** using
+Local Linux/Python 3.12.14 checks: **56 tests pass, 6.983 s, no skips** using
 `python -m unittest tests.test_subtitle_layout tests.test_caption_view tests.test_subtitles -q`.
 They exercise boundaries/overlaps/fallback flags and actual FFmpeg/SQLite/ASGI lifespans
 with synthetic model results. Interrupted translation resumes without redoing ASR or

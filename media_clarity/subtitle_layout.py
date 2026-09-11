@@ -178,12 +178,11 @@ def generated_layout(cues, duration, fallback_units=()):
         codes = original_codes.get(old, []).copy()
         shown = display[old]
         start, end = round(shown['start']*1000), round(shown['end']*1000)
-        limit = (round(display[order[index+1]]['start']*1000) if index+1 < len(order)
-                 else math.floor(duration*1000))
+        limit = display[order[index+1]]['start'] if index+1 < len(order) else duration
         # Hold only an isolated short cue with room for the full reading minimum.
         # Starts/text and canonical source intervals stay unchanged. Do not borrow
         # another cue's time or extend a cue inside an existing overlapping turn.
-        if end-start < MIN_MS and start >= latest_end and start+MIN_MS <= limit:
+        if end-start < MIN_MS and start >= latest_end and (start+MIN_MS)/1000 <= limit:
             shown['end'] = (start+MIN_MS)/1000
             codes = [code for code in codes if code != 'short_duration']
             prefix = FALLBACK if units[old] in fallback_units else ''

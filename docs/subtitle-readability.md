@@ -54,7 +54,7 @@ speech-quality evidence or human screen/readability acceptance. The shortest rem
 cue is still 80 ms; insufficient gaps and existing overlaps retain their warnings.
 
 Linux/Python 3.12.14: `python -m unittest tests.test_subtitle_layout tests.test_caption_view
-tests.test_subtitles -q` passed **56 tests in 6.949 s**. Coverage includes exact and
+tests.test_subtitles -q` passed **56 tests in 6.983 s**. Coverage includes exact and
 one-millisecond-insufficient gaps, video bounds, nested overlaps, fallback speed,
 interrupted translation/resume, unchanged canonical rows and two real application
 lifespans with ASGI/SQLite. A stored v1 track, supplied track, chosen v2 track, +500 ms

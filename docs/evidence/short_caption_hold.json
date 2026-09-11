@@ -116,14 +116,14 @@
   "candidate_vtt_sha256": "c1bf36fec524bd8bfa34a7aa4c7596c3ff534ef3e19df588ffac7455feb12356",
   "scope": "Offline layout comparison on previously saved real model output; no new inference, browser or human readability acceptance.",
   "base_main": "c3995ac4e47d95a5c672ad8f15a416952eb99417",
-  "product_file_sha256": "6b8a237365c7bf321b16d3fc8d31ef09dcf39f3c95319f1c46ac7514fe8ddf81",
+  "product_file_sha256": "cabd52ad4a2ee95e66eacfb6596abff798ec3fb5b489740b41afd766d393ac16",
   "profile": "ko-readable-v2",
   "checks": {
     "command": "python -m unittest tests.test_subtitle_layout tests.test_caption_view tests.test_subtitles -q",
     "python": "3.12.14",
     "machine": "Linux x86_64",
     "tests": 56,
-    "seconds": 6.949,
+    "seconds": 6.983,
     "exit_code": 0,
     "skips": 0,
     "integration": "Real FFmpeg fixture, SQLite, interrupted synthetic translation/resume, two ASGI application lifespans; canonical units, stored v1/supplied/v2 output, +500ms view and position2.25 preserved. No browser or target hardware."
@@ -133,5 +133,11 @@
     "34 short-duration, 11 reading-speed and 2 layout-limit flags remain (nonexclusive); minimum remaining duration80ms.",
     "No shot-boundary detection, new word alignment, speech recovery, translation correction or subjective adoption.",
     "Same saved recording is a regression sample, not an independent quality holdout."
-  ]
+  ],
+  "review_correction": {
+    "reviewed_head": "5396bdf5f294c4aa6eef651de10ee3f992ba8f7e",
+    "finding": "floor(duration*1000) skipped exact video-end holds for some binary floats, including1.001 seconds.",
+    "correction": "Compare candidate end in seconds directly with next cue start or actual duration; add exact1.001-second regression and retain truly insufficient1.8339-second boundary.",
+    "initial_independent_checks": "56 tests pass;500 deterministic cases/8550 display cues preserve canonical/text/start/unit mapping and create no overlaps. Saved-output comparison reproduced. Final bounded rereview is recorded on the PR."
+  }
 }
