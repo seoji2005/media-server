@@ -18,8 +18,20 @@ this integration test; neither establishes held-out quality or October completio
 ## Local model setup
 
 Use the same Python environment that runs the app. The optional
-`requirements-models.txt` supplies Torch/Transformers/SentencePiece and Pillow;
-follow [the existing CPU/CUDA installation notes](subtitles.md) for the Torch wheel.
+`requirements-scene.txt` supplies Torch/Transformers/SentencePiece and Pillow.
+Choose the official Torch 2.8 CPU/CUDA wheel for the machine first, then install
+`python -m pip install -r requirements-scene.txt`. Its Transformers 5.16.1 and
+Torch/Pillow pins match the [current Qwen environment](qwen-subtitles.md).
+To use both features, install both `requirements-qwen.txt` and
+`requirements-scene.txt` into that environment. No Whisper/MADLAD installation is
+needed. Keep `requirements-models.txt` in a separate legacy environment only for
+old speech-job recovery; it pins Transformers 4.57.1 and must not downgrade Qwen.
+
+The adapter accepts the pooled-output return type in Transformers 5 and the old
+tensor return in 4. Updating packages invalidates derived scene vectors through
+the existing runtime identity. Prepare those vectors again; original previews,
+media, captions and watch state remain preserved. Compatibility checks below do
+not replace the historical model-quality evidence or target-device acceptance.
 Prepare an ordinary local directory at `<data-dir>/models/scene`, without symlinks,
 from the ungated [Google SigLIP2 Base/16-224 repository](https://huggingface.co/google/siglip2-base-patch16-224/tree/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2)
 (declared Apache-2.0; source revision `75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2`).
@@ -52,6 +64,27 @@ its request to release memory; this incurs model/import latency on every query. 
 The selected-video POST carries the query in its body, never the URL/DB/logs. Existing
 loopback/token/CSP/no-store boundaries and preview image integrity checks still apply.
 These controls are not an OS-level packet audit. Watching stays independent of inference.
+
+## Runtime compatibility · September 11, 2026
+
+A separate Linux/Python 3.12 environment installed Torch 2.8.0+cpu, Transformers
+5.16.1, Pillow 12.3.0, SentencePiece 0.2.2 and protobuf 7.36.1. The shared Qwen +
+scene requirements resolved successfully with `pip install --dry-run`; this is not
+an installation/inference check of every speech dependency or the target Windows host.
+
+`MEDIA_TEST_SCENE_RUNTIME=1 python -m unittest discover -s tests -p test_scene_runtime.py -q`
+uses locally trained tiny tokenizer assets and one-layer random SigLIP weights.
+It actually loads the production Encoder, processes a JPEG and Korean query with
+network connections denied, and verifies unit-length 768-dimensional outputs. A
+pooled-tensor return shim matches both outputs exactly. It does not load upstream
+SigLIP2 weights or establish retrieval quality/old-runtime full compatibility.
+The same test against the preceding adapter reproduced its ModelOutput/norm failure;
+the corrected adapter passed in 3.146 s. An initial new fixture passed bytes where
+the production method expects frame dictionaries; corrected without changing that API.
+
+Existing scene persistence/lifetime tests: 8 passed / 5.196 s; scene DOM passed
+(mock HTTP/media). The opt-in runtime test skips in ordinary lightweight CI. Historical
+real-weight evidence below remains explicitly tied to Transformers 4.57.1.
 
 ## Actual evidence and limits
 
