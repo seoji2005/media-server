@@ -62,6 +62,35 @@ class SubtitleTests(unittest.TestCase):
             return self.jobs.enqueue(self.item['id'])
     def run_job(self, job_id):
         execute(self.store,job_id,FixtureModel)
+    def test_pause_handles_failed_launch_with_no_process(self):
+        job_id = self.enqueue()
+        self.jobs.active = job_id
+        self.assertIsNone(self.jobs.process)
+        self.jobs.action(job_id, 'pause')
+        self.assertEqual(self.jobs.row(job_id)['state'], 'paused')
+        self.assertIsNone(self.jobs.active)
+
+    def test_resume_retires_failed_compute_before_requeueing(self):
+        job_id = self.enqueue()
+        child = subprocess.Popen([sys.executable, '-c', 'import time;time.sleep(20)'],
+                                 stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL, start_new_session=os.name != 'nt')
+        self.jobs.active, self.jobs.process = job_id, child
+        self.jobs.update(job_id, state='failed', attempt=1, error='processing_failed')
+        try:
+            with patch('media_clarity.models.local_models'):
+                self.jobs.action(job_id, 'resume')
+            self.assertIsNotNone(child.poll())
+            self.assertTrue(child.stdin.closed)
+            self.assertIsNone(self.jobs.process)
+            self.assertIsNone(self.jobs.active)
+            self.assertEqual(self.jobs.row(job_id)['state'], 'queued')
+        finally:
+            if child.poll() is None:
+                child.kill(); child.wait(timeout=5)
+            if not child.stdin.closed:
+                child.stdin.close()
+
     def test_guardian_exit_before_claim_fails_once_without_automatic_retry(self):
         job_id = self.enqueue()
         popen = subprocess.Popen

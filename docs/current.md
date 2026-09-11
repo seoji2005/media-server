@@ -89,3 +89,10 @@ was unavailable for a local rerun; require the new fixed-HEAD CI on both OSes.
 The next session should first verify live Git/PR state and regain the saved trial
 state before starting new ASR or translation. Reuse verified spans/batches. Record
 natural-language quality and actual browser/target-device acceptance separately.
+
+A further independent state review identified two edges in that correction:
+failed compute could still be closing when resume requeued it, and failed Popen
+could leave an active ID without a process. Pause/resume now use one bounded
+active-slot cleanup that tolerates a missing process, and resume retires the old
+compute before requeueing. Two focused regressions cover these states. No local
+execution was available for these final additions; final CI must establish them.

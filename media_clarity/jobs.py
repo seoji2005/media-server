@@ -172,6 +172,13 @@ class Jobs:
             except subprocess.TimeoutExpired:
                 raise MediaError('processing_worker_active', 409) from None
 
+    def _clear_active_process(self):
+        # Called under the supervisor lock, including failed Popen with no process.
+        self._terminate()
+        if self.process:
+            self.process.stdin.close()
+        self.process, self.active = None, None
+
     def _supervise(self):
         while not self.stop.wait(.25):
             try:
@@ -402,10 +409,7 @@ class Jobs:
                 if row['state'] not in ('running','queued'):
                     return
                 if self.active == job_id:
-                    self._terminate()
-                    # Reap this attempt before a quick resume can queue a new one.
-                    self.process.stdin.close()
-                    self.process, self.active = None, None
+                    self._clear_active_process()
                 # A worker may have committed success before termination; retain it.
                 with self.store.db() as db:
                     db.execute("UPDATE subtitle_jobs SET state='paused',error=NULL WHERE id=? AND state IN ('running','queued')", (job_id,))
@@ -413,6 +417,10 @@ class Jobs:
             elif action == 'resume':
                 if row['state'] not in ('paused','failed'):
                     return
+                # A failure can be committed while the old compute is still closing.
+                # Retire it before its later exit can invalidate this new queue.
+                if self.active == job_id:
+                    self._clear_active_process()
                 from .models import local_models
                 if cloud:
                     gemini.api_key()
