@@ -3,9 +3,11 @@ import importlib.metadata
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -113,3 +115,73 @@ time.sleep(30)
             finally:
                 unrelated.terminate(); unrelated.wait(timeout=5)
 
+    def test_completed_row_between_last_poll_and_deadline_is_kept(self):
+        real_popen = subprocess.Popen
+        clock = [0.]
+        output_path = []
+        def launch(args, **kwargs):
+            output_path.append(Path(kwargs['stdout'].name))
+            return real_popen([sys.executable, '-c', '''import sys,time,json
+sys.stdin.buffer.read(1)
+print(json.dumps({'check':{'name':'python','state':'ready'}}),flush=True)
+time.sleep(30)
+'''], **kwargs)
+        def last_sleep(seconds):
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if b'\n' in output_path[0].read_bytes():
+                    clock[0] = 4.
+                    return
+                time.sleep(.01)
+            self.fail('synthetic child did not emit')
+        with patch.object(setup.subprocess, 'Popen', side_effect=launch), \
+                patch.object(setup, 'TOTAL_SECONDS', 3), \
+                patch.object(setup, 'monotonic', side_effect=lambda:clock[0]), \
+                patch.object(setup, 'sleep', side_effect=last_sleep):
+            result = setup.check_setup(Path('unused'))
+        self.assertEqual(result['error'], 'setup_check_timeout')
+        self.assertEqual(result['state'], 'blocked')
+        self.assertEqual(result['checks'], [{'name':'python','state':'ready'}])
+
+    def test_exited_worker_cannot_leave_a_running_descendant(self):
+        real_popen = subprocess.Popen
+        for exit_code in (0, 1):
+            with self.subTest(exit_code=exit_code), tempfile.TemporaryDirectory() as temp:
+                heartbeat = Path(temp)/'heartbeat'
+                child = '''import sys,time
+from pathlib import Path
+p=Path(sys.argv[1])
+while True:
+ with p.open('ab') as f:f.write(b'x')
+ time.sleep(.04)
+'''
+                parent = '''import subprocess,sys,time
+from pathlib import Path
+sys.stdin.buffer.read(1)
+p=Path(sys.argv[1])
+subprocess.Popen([sys.executable,'-c',sys.argv[2],str(p)])
+deadline=time.monotonic()+5
+while not p.exists() and time.monotonic()<deadline:time.sleep(.01)
+raise SystemExit(int(sys.argv[3]))
+'''
+                owned = []
+                leaked = False
+                def launch(args, **kwargs):
+                    process = real_popen([sys.executable,'-c',parent,str(heartbeat),child,str(exit_code)], **kwargs)
+                    owned.append(process)
+                    return process
+                try:
+                    with patch.object(setup.subprocess, 'Popen', side_effect=launch):
+                        result = setup.check_setup(Path('unused'))
+                    self.assertEqual(result['state'], 'blocked')
+                    self.assertEqual(owned[0].returncode, exit_code)
+                    self.assertTrue(heartbeat.exists())
+                    size = heartbeat.stat().st_size
+                    time.sleep(.25)
+                    leaked = heartbeat.stat().st_size != size
+                    self.assertEqual(heartbeat.stat().st_size, size)
+                finally:
+                    # Failure cleanup uses only the group we created; no PID scan.
+                    if os.name != 'nt' and owned and (owned[0].returncode is None or leaked):
+                        try:os.killpg(owned[0].pid, signal.SIGKILL)
+                        except ProcessLookupError:pass

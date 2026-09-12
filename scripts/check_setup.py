@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 import threading
-import time
+from time import monotonic, sleep
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -137,12 +137,40 @@ def check_setup(root, progress=None):
     # The diagnostic does not need an API credential in any child environment.
     env = {k:v for k,v in os.environ.items() if k not in ('GEMINI_API_KEY', 'GOOGLE_API_KEY')}
     env.update(HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', HF_HUB_DISABLE_TELEMETRY='1')
-    started = last = time.monotonic()
+    started = last = monotonic()
     seen = size = 0
     process = job = None
     with tempfile.TemporaryDirectory(prefix='media-setup-') as temp:
         path = Path(temp) / 'progress.jsonl'
+        def drain():
+            nonlocal seen, size, last
+            current = path.stat().st_size
+            if current > MAX_OUTPUT:
+                raise ValueError('output limit')
+            if current <= size:
+                return
+            size, last = current, monotonic()
+            with path.open('rb') as reader:
+                raw = reader.read(MAX_OUTPUT + 1)
+            if len(raw) > MAX_OUTPUT:
+                raise ValueError('output limit')
+            lines = raw.split(b'\n')[:-1]
+            for line in lines[seen:]:
+                event = json.loads(line)
+                if 'check' in event:
+                    result['checks'].append(event['check'])
+                    if progress:
+                        progress(event['check'])
+                elif event.get('progress') == 'models' and progress:
+                    progress({'name':'models', 'state':'checking'})
+                elif event.get('state') in ('ready', 'blocked'):
+                    result['state'] = event['state']
+                    if event.get('error'):
+                        result.setdefault('error', event['error'])
+            seen = len(lines)
         try:
+            if os.name != 'nt' and not all(hasattr(os, name) for name in ('waitid','WNOWAIT')):
+                raise OSError('safe process observation unavailable')
             with path.open('wb') as output:
                 process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()),
                     '--worker', '--data-dir', str(root)], stdin=subprocess.PIPE,
@@ -152,59 +180,49 @@ def check_setup(root, progress=None):
                     job = WindowsJob(process)
                 process.stdin.write(b'1'); process.stdin.flush()
                 while True:
-                    now = time.monotonic()
+                    # Keep a POSIX leader waitable until group cleanup, so its
+                    # PID/group identity cannot be recycled before killpg.
+                    finished = (process.poll() is not None if os.name == 'nt' else
+                        os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None)
+                    drain()
+                    now = monotonic()
                     if now - started >= TOTAL_SECONDS or now - last >= IDLE_SECONDS:
                         result['error'] = 'setup_check_timeout'
                         break
-                    # Observe exit before reading: a final write between reading
-                    # output and polling must get drained on the next iteration.
-                    code = process.poll()
-                    current = path.stat().st_size
-                    if current > MAX_OUTPUT:
-                        result['error'] = 'setup_check_failed'
+                    if finished:
                         break
-                    if current > size:
-                        size, last = current, now
-                        with path.open('rb') as reader:
-                            raw = reader.read(MAX_OUTPUT + 1)
-                        if len(raw) > MAX_OUTPUT:
-                            result['error'] = 'setup_check_failed'
-                            break
-                        lines = raw.split(b'\n')[:-1]
-                        for line in lines[seen:]:
-                            event = json.loads(line)
-                            if 'check' in event:
-                                result['checks'].append(event['check'])
-                                if progress:
-                                    progress(event['check'])
-                            elif event.get('progress') == 'models' and progress:
-                                progress({'name':'models', 'state':'checking'})
-                            elif event.get('state') in ('ready', 'blocked'):
-                                result.update(event)
-                        seen = len(lines)
-                    if code is not None:
-                        if code or len(result['checks']) != 5:
-                            result.update(state='blocked', error='setup_check_failed')
-                        break
-                    time.sleep(.2)
+                    sleep(.2)
         except (Exception, KeyboardInterrupt):
             result.update(state='blocked', error='setup_check_failed')
         finally:
             try:
                 if process:
-                    if process.poll() is None:
-                        if os.name == 'nt':
-                            if job:
-                                job.close()
+                    # Always clean descendants, including when their leader
+                    # already exited normally or with an error.
+                    if os.name == 'nt':
+                        if job:
+                            job.close()
+                        if process.poll() is None:
                             process.kill()
-                        else:
+                    else:
+                        try:
                             os.killpg(process.pid, signal.SIGKILL)
-                        process.wait(timeout=5)
+                        except ProcessLookupError:
+                            pass
+                    process.wait(timeout=5)
                     process.stdin.close()
                 if job:
                     job.close()
             except Exception:
-                result.update(state='blocked', error='setup_check_cleanup_failed')
+                result['cleanup_error'] = 'setup_check_cleanup_failed'
+                result.setdefault('error', 'setup_check_cleanup_failed')
+            try:
+                if path.exists():
+                    drain()  # Preserve completed rows even at a deadline boundary.
+            except Exception:
+                result.setdefault('error', 'setup_check_failed')
+    if not result.get('error') and (not process or process.returncode or len(result['checks']) != 5):
+        result['error'] = 'setup_check_failed'
     if result.get('error'):
         result['state'] = 'blocked'
     return result

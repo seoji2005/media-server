@@ -173,3 +173,14 @@ required CI check; real Windows 11 setup, RTX and viewing acceptance are still p
 Require an independent review of the new supervisor/privacy boundary and fixed-revision
 Ubuntu/Windows CI before development merge. Model restoration and bounded installation
 remain the next setup work; do not call this an installer.
+
+Initial independent review reproduced two supervisor defects before CI: a POSIX
+worker exiting first could leave its descendants alive, and a row written during
+the last polling interval could be lost at the deadline. Keep the failed revision
+in history. The correction observes POSIX exit with `waitid(WNOWAIT)` so the owned
+leader remains waitable until group cleanup, then always cleans the group and reaps
+it. Windows retains its kill-on-close Job. Bounded output is drained before deadline
+decisions and after cleanup; a timeout remains blocked even if a final ready event
+was written. Regressions cover normal/error worker exit with a live descendant,
+an item arriving in the final interval, and total/idle caps preserving an unrelated
+process. The native CPU prerequisite result is not descendant-lifecycle acceptance.
