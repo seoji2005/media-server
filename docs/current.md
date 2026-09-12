@@ -82,7 +82,10 @@ hashes, actual inference and Gemini connectivity are explicitly separate.
 `restore-qwen-models.cmd` / `scripts/restore_qwen_cache.py` restores the owner's
 preserved public ASR/aligner cache bundles. Exact manifest hashes anchor metadata,
 ordered archives, members and full weight hashes. Prerequisite checks happen before
-GB-scale restoration. The app/worker OS locks are reused without opening the DB;
+GB-scale restoration. Configuration/native imports/CUDA availability are checked
+in an isolated 60-second probe that does not require or load weights. It holds the
+worker lease while the app lock remains held; restoration retakes the lease after
+the native process exits. The app/worker OS locks are reused without opening the DB;
 a running app/worker or custom qwen-paths configuration stops writes. Existing
 matching files are reused, conflicting files stop, and unique incomplete files
 remain as .partial. Only verified/flushed files are published with no-overwrite
@@ -105,6 +108,11 @@ records absent files explicitly. A new corrected run, not an unchanged retry,
 verifies the real 15 archives and both existing full models. Actual timing and
 preservation evidence are recorded in the review/PR; full new weight restoration
 uses small synthetic fixtures locally and does not duplicate current GB assets.
+Independent review found one P2 preflight gap: package/FFmpeg checks alone allowed
+restoration with invalid device settings or a blocked native runtime. The isolated
+runtime-only check above was added before hashing/writes; invalid configuration,
+native import failure and missing CUDA now block model publication. Preserve the
+initial reviewed revision. Require fresh independent delta review and fixed-HEAD CI.
 Require uninvolved persistence/privacy review and fixed-HEAD Windows/Ubuntu CI
 before development merge. Observe each CI at most ten minutes/ten polls.
 

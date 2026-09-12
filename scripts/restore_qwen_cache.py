@@ -1,6 +1,6 @@
 """Restore the owner's pinned public Qwen cache archives, offline and without overwrite."""
 import argparse
-from contextlib import nullcontext
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from media_clarity.qwen import ASR_REPO, ASR_REVISION, ALIGNER_REPO, ALIGNER_REVISION
 from media_clarity.storage import MediaError, RESERVE, default_data_dir, file_signature, no_symlink, open_lock
+from media_clarity.model_check import diagnose, ERRORS as MODEL_ERRORS
 from scripts.check_setup import collect, run_setup, worker_output
 
 TOTAL_SECONDS = 1200
@@ -203,8 +204,17 @@ def restore(args, emit):
             raise MediaError('custom_model_paths_configured', 409)
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Same OS locks used by the app and its model workers, without opening the DB.
-    with (open_lock(root / 'instance.lock', 'already_running', 503) if not args.verify_only else nullcontext()), \
-            (open_lock(root / 'worker.lock', 'processing_worker_active', 409) if not args.verify_only else nullcontext()):
+    with ExitStack() as locks:
+        if not args.verify_only:
+            locks.enter_context(open_lock(root / 'instance.lock', 'already_running', 503))
+            emit({'progress':'models'})
+            runtime = diagnose(root, runtime_only=True)
+            emit({'check':{'name':'models', **runtime}})
+            if runtime['state'] != 'ready':
+                raise MediaError(runtime['error'] or 'model_restore_failed', 503)
+            # The isolated native probe released its worker lease at process exit.
+            # Retake it before hashing/writing while the app lock remains held.
+            locks.enter_context(open_lock(root / 'worker.lock', 'processing_worker_active', 409))
         plans = []
         needed = 0
         for kind, bundle in (('asr', args.asr_bundle), ('aligner', args.aligner_bundle)):
@@ -233,7 +243,7 @@ def worker(args):
         restore(args, emit)
         return 0
     except Exception as exc:
-        code = exc.code if isinstance(exc, MediaError) and exc.code in ERRORS | {'model_restore_prerequisites_missing'} else 'model_restore_failed'
+        code = exc.code if isinstance(exc, MediaError) and exc.code in ERRORS | MODEL_ERRORS | {'model_restore_prerequisites_missing'} else 'model_restore_failed'
         emit({'state':'blocked', 'error':code})
         return 1
     finally:
@@ -263,7 +273,7 @@ def main():
             show_prerequisite(check)
     result = run_setup([sys.executable, str(Path(__file__).resolve()), *sys.argv[1:], '--worker'],
                        total_seconds=TOTAL_SECONDS, idle_seconds=IDLE_SECONDS,
-                       expected_checks=17 if args.verify_only else 21, progress=None if args.json else show)
+                       expected_checks=17 if args.verify_only else 22, progress=None if args.json else show)
     result.update(api_connection='not_checked', actual_inference='not_checked', verify_only=args.verify_only)
     if args.json:
         print(json.dumps(result, ensure_ascii=False))

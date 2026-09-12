@@ -358,6 +358,21 @@ class SpeechTimings:
             row['failures'] += int(failed)
 
 
+def runtime_device(root):
+    """Check configuration/native imports/device without requiring model weights."""
+    from .models import device_configuration
+    private_runtime()
+    device = device_configuration(root)['device']
+    try:
+        import torch
+        from transformers import AutoModelForMultimodalLM, AutoModelForTokenClassification, AutoProcessor
+        if device == 'cuda' and not torch.cuda.is_available():
+            raise MediaError('model_cuda_unavailable', 503)
+    except ImportError:
+        raise MediaError('model_runtime_incompatible', 503) from None
+    return device
+
+
 class QwenSpeech:
     asr_profile = PROFILE
     audio_timing = 'source-timestamps-v1'
@@ -368,17 +383,9 @@ class QwenSpeech:
             raise MediaError('processing_config_changed', 409)
         self.asr_profile = profile
         self.timings = timings
-        from .models import device_configuration
         private_runtime()
         self.paths = local_models(root, check_packages=True)
-        self.device = device_configuration(root)['device']
-        try:
-            import torch
-            from transformers import AutoModelForMultimodalLM, AutoModelForTokenClassification, AutoProcessor
-            if self.device == 'cuda' and not torch.cuda.is_available():
-                raise MediaError('model_cuda_unavailable', 503)
-        except ImportError:
-            raise MediaError('model_runtime_incompatible', 503) from None
+        self.device = runtime_device(root)
 
     def identity(self):
         digest = hashlib.sha256((self.asr_profile + ':' + self.device + ':float32-cpu-float16-cuda').encode())

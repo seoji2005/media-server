@@ -27,15 +27,14 @@ def configuration(root):
         return {'device':None, 'selection':None, 'state':'blocked', 'error':code}
 
 
-def inspect_runtime(root):
+def inspect_runtime(root, *, runtime_only=False):
     result = configuration(root)
     if result['error']:
         return result
     try:
-        from .qwen import QwenSpeech
+        from .qwen import QwenSpeech, runtime_device
         # Constructor checks packages/device, but loads no ASR/translation weights.
-        backend = QwenSpeech(root)
-        result['device'] = backend.device
+        result['device'] = runtime_device(root) if runtime_only else QwenSpeech(root).device
         result['state'] = 'ready'
     except Exception as exc:
         result['state'] = 'blocked'
@@ -43,10 +42,13 @@ def inspect_runtime(root):
     return result
 
 
-def run_probe(root, timeout=60):
+def run_probe(root, timeout=60, *, runtime_only=False):
     # Keep stdin open as a parent-liveness pipe. Only the fixed, small result can
     # use stdout; native imports and their children inherit redirected null output.
-    process = subprocess.Popen([sys.executable, '-m', 'media_clarity.model_check', str(root)],
+    command = [sys.executable, '-m', 'media_clarity.model_check', str(root)]
+    if runtime_only:
+        command.append('--runtime-only')
+    process = subprocess.Popen(command,
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     try:
         try:
@@ -64,13 +66,13 @@ def run_probe(root, timeout=60):
         process.stdin.close(); process.stdout.close()
 
 
-def diagnose(root):
+def diagnose(root, *, runtime_only=False):
     """Bounded child output and timeout; no heavyweight imports in the server."""
     result = configuration(root)
     if result['error']:
         return result
     try:
-        raw = run_probe(root)
+        raw = run_probe(root, runtime_only=True) if runtime_only else run_probe(root)
         value = json.loads(raw)
         if (type(value) is not dict or set(value) != {'device','selection','state','error'}
                 or value['device'] not in ('cpu','cuda',None)
@@ -106,7 +108,7 @@ def main():
         from .jobs import worker_guard
         root = Path(sys.argv[1])
         with worker_guard(root):
-            finish(inspect_runtime(root))
+            finish(inspect_runtime(root, runtime_only='--runtime-only' in sys.argv[2:]))
     except Exception as exc:
         code = exc.code if isinstance(exc, MediaError) and exc.code in ERRORS else 'model_check_failed'
         finish({'device':None, 'selection':None, 'state':'blocked', 'error':code})

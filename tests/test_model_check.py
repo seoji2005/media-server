@@ -94,6 +94,23 @@ class ModelCheckTests(unittest.TestCase):
         with patch('media_clarity.model_check.run_probe',side_effect=MediaError('model_check_timeout')):
             self.assertEqual(diagnose(self.root)['error'],'model_check_timeout')
 
+    def test_qwen_runtime_only_checks_native_imports_and_cuda_without_weights(self):
+        from media_clarity import model_check, qwen
+        (self.root/'models').mkdir()
+        (self.root/'models/settings.json').write_text('{"device":"cuda"}')
+        transformer = types.SimpleNamespace(AutoModelForMultimodalLM=object(),
+            AutoModelForTokenClassification=object(), AutoProcessor=object())
+        for available, error in ((True, None), (False, 'model_cuda_unavailable'),
+                                 (None, 'model_runtime_incompatible')):
+            torch = None if available is None else types.SimpleNamespace(cuda=types.SimpleNamespace(is_available=lambda:available))
+            with self.subTest(error=error), patch.dict(sys.modules, {'torch':torch,'transformers':transformer}), \
+                    patch.object(qwen, 'private_runtime'), \
+                    patch.object(qwen, 'local_models', side_effect=AssertionError('weight lookup during runtime-only check')):
+                result = model_check.inspect_runtime(self.root, runtime_only=True)
+            self.assertEqual(result['state'], 'ready' if error is None else 'blocked')
+            self.assertEqual(result['error'], error)
+        self.assertEqual(list((self.root/'models').iterdir()), [self.root/'models/settings.json'])
+
     def test_translation_only_preflight_never_imports_asr_and_keeps_cuda_checks(self):
         original=builtins.__import__
         def importing(name,*args,**kwargs):

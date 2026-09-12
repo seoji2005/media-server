@@ -53,7 +53,8 @@ class CacheRestoreTests(unittest.TestCase):
             self.assertRegex(revision, r'^[0-9a-f]{40}$')
 
     def run_fixture(self, args, specs, emit):
-        with patch.object(cache, 'SPECS', specs), patch.object(cache, 'collect', return_value=True):
+        with patch.object(cache, 'SPECS', specs), patch.object(cache, 'collect', return_value=True), \
+                patch.object(cache, 'diagnose', return_value={'state':'ready','device':'cpu','selection':'default','error':None}):
             return cache.restore(args, emit)
 
     def test_restore_reuse_preserves_database_settings_and_partial_files(self):
@@ -97,6 +98,27 @@ class CacheRestoreTests(unittest.TestCase):
                 with self.assertRaisesRegex(MediaError, '^model_restore_prerequisites_missing$'):
                     cache.restore(args, lambda e:None)
             manifests.assert_not_called(); self.assertFalse(args.data_dir.exists())
+
+    def test_blocked_settings_import_or_device_prevents_weight_work(self):
+        for code in ('model_settings_invalid', 'model_runtime_incompatible', 'model_cuda_unavailable'):
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as temp:
+                args, specs, _ = fixture(Path(temp))
+                if code == 'model_settings_invalid':
+                    settings = args.data_dir / 'models/settings.json'; settings.parent.mkdir(parents=True)
+                    settings.write_bytes(b'{"device":"invalid"}')
+                    diagnostic = cache.diagnose  # Actual configuration validation.
+                else:
+                    diagnostic = lambda *a,**k:{'state':'blocked','error':code,'device':'cuda','selection':'default'}
+                with patch.object(cache, 'collect', return_value=True), \
+                        patch.object(cache, 'diagnose', side_effect=diagnostic), \
+                        patch.object(cache, 'preflight') as weights:
+                    with self.assertRaisesRegex(MediaError, '^' + code + '$'):
+                        cache.restore(args, lambda e:None)
+                weights.assert_not_called()
+                self.assertFalse((args.data_dir / 'models/qwen-asr').exists())
+                self.assertFalse((args.data_dir / 'models/qwen-aligner').exists())
+                if code == 'model_settings_invalid':
+                    self.assertEqual(settings.read_bytes(), b'{"device":"invalid"}')
 
     def test_changed_manifest_metadata_or_existing_other_model_prevents_publication(self):
         for mutation in ('manifest', 'metadata', 'existing', 'truncated'):
@@ -184,6 +206,7 @@ for kind in c.SPECS:
  raw=(root/kind/'model-cache-manifest.json').read_bytes()
  c.SPECS[kind]=(*c.SPECS[kind][:2],c.hashlib.sha256(raw).hexdigest())
 c.collect=lambda *a,**k:True
+c.diagnose=lambda *a,**k:dict(state='ready',device='cpu',selection='default',error=None)
 output=c.worker_output()
 def emit(event):
  os.write(output,(json.dumps(event)+'\\n').encode())
@@ -194,7 +217,7 @@ c.restore(argparse.Namespace(data_dir=root/'library',asr_bundle=root/'asr',align
                                           idle_seconds=90, expected_checks=17)
             self.assertEqual(result['error'], 'setup_check_timeout')
             self.assertNotIn('cleanup_error', result)
-            self.assertEqual(len(result['checks']), 11)
+            self.assertEqual(len(result['checks']), 12)
             self.assertEqual((args.data_dir / 'models/qwen-asr/model.safetensors').read_bytes(), weights['asr'])
             self.assertFalse((args.data_dir / 'models/qwen-aligner/model.safetensors').exists())
             with open_lock(args.data_dir / 'instance.lock', 'busy', 409), open_lock(args.data_dir / 'worker.lock', 'busy', 409):

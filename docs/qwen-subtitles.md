@@ -106,8 +106,11 @@ After installing the repository runtime, stop Media Clarity and run in PowerShel
 
 Use the same `--data-dir` as the app for a custom library. Linux uses
 `.venv/bin/python scripts/restore_qwen_cache.py` with the same arguments.
-The helper checks Python/packages/FFmpeg prerequisites before model restoration,
-holds the existing app and worker OS locks without opening the DB, and restores
+The helper checks Python/packages/FFmpeg, then validates device configuration,
+native Qwen runtime imports and CUDA availability in a separate 60-second probe
+that requires no model weights. It holds the app OS lock while the probe briefly
+holds the worker lease; after that process exits it retakes the worker lease for
+hashing/restoration. It opens no DB and restores
 only `models/qwen-asr` and `models/qwen-aligner`. Existing custom `qwen-paths.json`
 stops restoration; its paths and `settings.json` are never rewritten. A running app
 or model worker stops restoration. Whole operation: 20 minutes, byte-progress idle:
