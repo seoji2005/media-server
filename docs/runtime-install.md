@@ -60,7 +60,9 @@ On failure, `.setup-cache/install-*` retains completed wheels and temporary asse
 `.venv` retains its current files. There is no automatic repair/resume of a partial
 environment. A later invocation validates an existing environment without calling
 pip; invalid/mismatched environments stop. Preserve them and use a fresh checkout
-for a new installation. Reuse currently requires the selected exact Torch build.
+for a new installation. Validation disables bytecode writes in both its isolated
+interpreter and the separate native probe, including cache-free existing environments.
+Reuse currently requires the selected exact Torch build.
 The app/worker locks prevent setting/package work during active app/model jobs.
 Restore reacquires its own locks and stops if another app starts during handoff.
 

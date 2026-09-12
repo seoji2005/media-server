@@ -50,6 +50,34 @@ class InstallTests(unittest.TestCase):
                 cmd.assert_not_called()
             self.assertEqual((repo/'.venv/partial').read_bytes(),b'completed')
 
+    def test_cache_free_existing_venv_stays_unchanged_through_native_child(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo,data,args=self.fixture(Path(temp))
+            shutil.copytree(ROOT/'media_clarity',repo/'media_clarity',ignore=shutil.ignore_patterns('__pycache__'))
+            (repo/'scripts').mkdir()
+            shutil.copyfile(ROOT/'scripts/check_setup.py',repo/'scripts/check_setup.py')
+            (repo/'requirements.txt').write_text('transformers==5.16.1\n')
+            (repo/'requirements-qwen.txt').write_text('torch==2.8.0\n')
+            (data/'models').mkdir();(data/'models/settings.json').write_text('{"device":"cpu"}')
+            venv=repo/'.venv';env=install.environment()
+            install.command([sys.executable,'-I','-m','venv','--without-pip','--copies',str(venv)],env,lambda e:None,(venv,),timeout=45)
+            python=venv/('Scripts/python.exe' if os.name=='nt' else 'bin/python')
+            site=Path(install.command([str(python),'-I','-B','-c',"import sysconfig;print(sysconfig.get_path('purelib'))"],env,lambda e:None).decode().strip())
+            for name,version,body in (
+                ('torch','2.8.0+cpu','pass\n'),
+                ('transformers','5.16.1','AutoModelForMultimodalLM=AutoModelForTokenClassification=AutoProcessor=object\n')):
+                (site/(name+'.py')).write_text(body)
+                dist=site/(name+'-'+version+'.dist-info');dist.mkdir()
+                (dist/'METADATA').write_text('Metadata-Version: 2.1\nName: '+name+'\nVersion: '+version+'\n')
+            def snapshot():
+                return {str(p.relative_to(venv)):(p.stat().st_size,p.stat().st_mtime_ns) for p in venv.rglob('*') if p.is_file()}
+            before=snapshot()
+            with patch.object(install,'ROOT',repo):
+                value=install.native_check(python,data,'cpu',env,lambda e:None)
+            self.assertEqual(value['state'],'ready')
+            self.assertEqual(snapshot(),before)
+            self.assertFalse(list(site.rglob('*.pyc')))
+
     def test_busy_worker_blocks_first_device_setting_and_all_package_writes(self):
         with tempfile.TemporaryDirectory() as temp:
             repo,data,args = self.fixture(Path(temp)); args.device='cuda'

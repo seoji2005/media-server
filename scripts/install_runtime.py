@@ -166,8 +166,11 @@ valid=(sys.version_info[:2]==(3,12) and struct.calcsize('P')==8 and
 result=diagnose(Path(sys.argv[3]),runtime_only=True) if valid else {'state':'blocked','error':'install_existing_environment_invalid'}
 print(json.dumps(result))
 """
-    value = json.loads(command([str(python), '-I', '-c', code, str(ROOT),
-                               str(ROOT/'.venv'), str(root), TORCH[device]], env, emit, timeout=75))
+    # -I ignores Python environment flags: use -B for this interpreter and pass
+    # the environment flag to diagnose's separate, non-isolated probe as well.
+    native_env = {**env, 'PYTHONDONTWRITEBYTECODE':'1'}
+    value = json.loads(command([str(python), '-I', '-B', '-c', code, str(ROOT),
+                               str(ROOT/'.venv'), str(root), TORCH[device]], native_env, emit, timeout=75))
     if value.get('state') != 'ready' or value.get('device') != device:
         raise MediaError('install_existing_environment_invalid', 503)
     return value
