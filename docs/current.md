@@ -132,3 +132,11 @@ changes before development merge. Observe CI at most ten minutes/ten polls; pres
 failures rather than extending caps or retrying unchanged failures. Continue bounded
 Windows runtime/model setup and diagnostic packaging next. The blocked local browser
 route still prevents real extension/playback acceptance in this Work.
+
+First PR46 CI34675874046: Ubuntu passed; Windows ran 301 Python tests and failed
+one new credential fixture before the DOM/browser stages. The fixture cleared the
+entire environment, so Windows `Path.home()` could not resolve its normal user
+directory during CLI construction. Restrict fixture isolation to removing only the
+Gemini key and preserve the rest of the user environment. This changes the test
+setup, not production storage paths, key handling or timeout/skip policy. Require
+new fixed-revision review/CI; retain the original failed run.

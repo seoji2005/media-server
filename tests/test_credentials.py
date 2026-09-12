@@ -83,10 +83,13 @@ class CredentialTests(unittest.TestCase):
                 serve.assert_not_called()
 
     def test_successful_main_scopes_prompt_to_serve(self):
-        with patch.dict(os.environ, {}, clear=True), \
+        with patch.dict(os.environ), \
                 patch('sys.argv', ['media_clarity', '--prompt-gemini-key']), \
                 patch('getpass.getpass', return_value=CANARY), \
                 patch('media_clarity.__main__.serve') as serve:
+            # Remove only the credential. Windows Path.home needs its normal
+            # user environment even before argument parsing creates the app.
+            os.environ.pop('GEMINI_API_KEY', None)
             def run(args):
                 self.assertEqual(os.environ['GEMINI_API_KEY'], CANARY)
                 return 0
