@@ -66,9 +66,16 @@ def byte_range(header: str | None, size: int) -> tuple[int, int, int]:
     return start, end, 206
 
 
-def create_app(data_dir: Path | None = None) -> FastAPI:
+def create_app(data_dir: Path | None = None, *, codespaces_demo: bool = False) -> FastAPI:
     from .previews import Previews
     from .scenes import Scenes, status as scene_status, query_text
+    cloud_origin = None
+    if codespaces_demo:
+        from .codespaces import origin, prepare_directory
+        if data_dir is not None:
+            raise MediaError('codespaces_existing_data', 409)
+        cloud_origin = origin()
+        data_dir = prepare_directory()
     store = Store(data_dir if data_dir is not None else default_data_dir())
     jobs = Jobs(store)
     recommendations = Recommendations(store)
@@ -81,7 +88,11 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         store.start()
         try:
             recommendations.init()
-            jobs.start()
+            if codespaces_demo:
+                from .codespaces import seed_samples
+                await run_in_threadpool(seed_samples, store, jobs)
+            else:
+                jobs.start()
             yield
         finally:
             scenes.close()
@@ -101,22 +112,39 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         valid_host = re.fullmatch(r"(127\.0\.0\.1|localhost|\[::1\])(?::[0-9]{1,5})?", host)
         origin = request.headers.get("origin")
         denied = not valid_host or (origin is not None and origin != "http://" + host) or request.headers.get("sec-fetch-site") == "cross-site"
+        if cloud_origin is not None:
+            # GitHub terminates TLS. Trust the configured Host/Origin, never a
+            # forwarded header or an arbitrary *.app.github.dev origin.
+            denied = (host != cloud_origin.removeprefix('https://')
+                      or (origin is not None and origin != cloud_origin)
+                      or request.headers.get('sec-fetch-site') == 'cross-site'
+                      or len(request.headers.getlist('host')) != 1
+                      or len(request.headers.getlist('origin')) > 1)
         if denied:
             response = JSONResponse({"error": "local_origin_required"}, status_code=403)
         elif request.method not in {"GET", "HEAD", "OPTIONS"} and not secrets.compare_digest(request.headers.get("x-media-token", ""), token):
             response = JSONResponse({"error": "session_required"}, status_code=403)
+        elif codespaces_demo and request.method not in {'GET', 'HEAD', 'OPTIONS'}:
+            from .codespaces import viewing_mutation
+            if not viewing_mutation(request.url.path):
+                response = JSONResponse({'error':'codespaces_viewing_only'}, status_code=403)
+            else:
+                response = await guarded_call(request, call_next)
         else:
-            try:
-                response = await call_next(request)
-            except MediaError as exc:
-                response = JSONResponse({"error": exc.code}, status_code=exc.status)
-            except (OSError, sqlite3.Error):
-                response = JSONResponse({"error": "storage_unavailable"}, status_code=503)
-            except Exception:
-                # No request body, URL, source name, decoder output or traceback in logs.
-                response = JSONResponse({"error": "internal_error"}, status_code=500)
+            response = await guarded_call(request, call_next)
         response.headers.update(SECURITY_HEADERS)
         return response
+
+    async def guarded_call(request, call_next):
+        try:
+            return await call_next(request)
+        except MediaError as exc:
+            return JSONResponse({'error':exc.code}, status_code=exc.status)
+        except (OSError, sqlite3.Error):
+            return JSONResponse({'error':'storage_unavailable'}, status_code=503)
+        except Exception:
+            # No request body, URL, source name, decoder output or traceback in logs.
+            return JSONResponse({'error':'internal_error'}, status_code=500)
 
     @app.exception_handler(MediaError)
     async def media_error(request, exc):
@@ -128,7 +156,11 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 
     @app.get("/")
     def index():
-        return HTMLResponse((STATIC / "index.html").read_text(encoding="utf-8"))
+        html = (STATIC / 'index.html').read_text(encoding='utf-8')
+        if codespaces_demo:
+            from .codespaces import viewing_html
+            html = viewing_html(html)
+        return HTMLResponse(html)
 
     @app.get("/assets/{name}")
     def asset(name: str):

@@ -341,3 +341,7 @@ video::cue{font-family:system-ui,sans-serif;background:rgba(0,0,0,.8);color:whit
 .preview-time{display:block;padding:10px;font-size:14px;font-variant-numeric:tabular-nums;text-align:left}
 .preview-retry{width:100%;font-size:13px;margin-top:6px}
 @media(max-width:600px){#preview-grid,#scene-results{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
+.cloud-notice{margin:0;padding:12px 24px;background:#332941;color:#f3dca9;font-size:14px;text-align:center;line-height:1.6}
+[data-codespaces-experience] #subtitle-preparation,
+[data-codespaces-experience] #scene-panel,
+[data-codespaces-experience] #settings-open{display:none}

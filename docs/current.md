@@ -1,9 +1,8 @@
 # Current work
 
-Live recovery base: Server `2c02120491e38268020d815a7228cba7610b08f4`
-(PR49 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server had no open PR at this slice's recovery on September 12. PR49 runtime setup
-and Fetch PR23 Unicode Windows registration are merged with passing CI.
+Live recovery base: Server `8bbc61e07f971af4e5665ee90757654b542dfb71`
+(PR50 merged). Server had no open PR at this slice's recovery on September 12;
+main CI 34696120258 succeeded. Fetch is outside the Codespaces slice.
 PR46 session-key launch and PR45 timing-warning correction are also merged.
 Git/PR state is authoritative; historical failed revisions and reviews remain in Git
 and preserved evidence. Synthetic CI is not model, viewing or target-device acceptance.
@@ -12,13 +11,14 @@ approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: literal subtitle search across at most two consecutive cues, with no
-overlap and a maximum 0.5-second gap. Preserve text, adjusted timestamps, selected
-track isolation and query privacy. Existing single-cue results and pagination remain.
-DOM checks cover boundary/no-space/Unicode cases and stale clicks; the existing
-synthetic browser fixture adds a cross-cue search/seek with +500 ms. This is search
-usability, not ASR quality or new model/prompt tuning. Review and CI status belong
-to the live PR. See [caption viewing](caption-viewing.md).
+Active slice: [explicit Private Codespaces viewing](codespaces.ko.md), using the
+current UI/API and an isolated, repeatable synthetic library. Python 3.12 and FFmpeg;
+no model downloads, GPU, provider keys, paid inference or Fetch. Exact environment
+HTTPS origin, session validation and default local boundary remain enforced.
+Independent security review and CI belong to the fixed live PR revision. Container
+creation, account authentication and actual Codespaces forwarding remain unverified
+until exercised there; local and simulated-edge checks must be labeled separately.
+PR50's cross-cue search is merged. See [caption viewing](caption-viewing.md).
 
 The owner wants to use the app on October 19. Target October 5 for integration,
 October 11 for stabilization and October 12–18 for buffer; these are targets,

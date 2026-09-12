@@ -1,0 +1,21 @@
+{
+  "name": "Media Clarity · 클라우드 감상 체험",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+  "remoteUser": "vscode",
+  "hostRequirements": { "cpus": 2, "memory": "4gb" },
+  "forwardPorts": [8765],
+  "portsAttributes": {
+    "8765": {
+      "label": "Media Clarity · Private",
+      "onAutoForward": "silent",
+      "protocol": "http",
+      "requireLocalPort": true
+    }
+  },
+  "postCreateCommand": "python3 scripts/setup_codespaces.py",
+  "customizations": {
+    "vscode": {
+      "settings": { "remote.autoForwardPorts": false }
+    }
+  }
+}

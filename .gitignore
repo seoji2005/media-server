@@ -1,5 +1,8 @@
 # Local execution and private inputs; generated data stays outside the checkout.
 .venv/
+.codespaces-venv/
+.codespaces-data/
+.codespaces-setup.lock
 .setup-cache/
 __pycache__/
 .pytest_cache/
