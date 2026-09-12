@@ -1,9 +1,9 @@
 # Current work
 
-Live recovery base: Server `a66e9501d37dec66c7dfa6153c78c54b55ed6c8a`
-(PR47 merged); Fetch `0d6aa28a4a0c6944c053e3d63e150908b44b9175`.
-Both repositories had no open PR at recovery on September 12. PR47 final CI34678497176
-and merge-main CI34678728658 succeeded on Windows Server 2025 and Ubuntu 24.04.
+Live recovery base: Server `bb8a6516acbb8314d9b5ee2ce03e8ff1f674516d`
+(PR48 merged); Fetch `0d6aa28a4a0c6944c053e3d63e150908b44b9175`.
+Both repositories had no open PR at recovery on September 12. PR48 final CI34682406969
+and merge-main CI34682722990 succeeded on Windows Server 2025 and Ubuntu 24.04.
 PR46 session-key launch and PR45 timing-warning correction are also merged.
 Git/PR state is authoritative; historical failed revisions and reviews remain in Git
 and preserved evidence. Synthetic CI is not model, viewing or target-device acceptance.
@@ -77,7 +77,7 @@ opens no DB/media. Total 120 seconds, progress idle 75 seconds, retries zero;
 raw native output is suppressed and completed rows survive limits. Full weight
 hashes, actual inference and Gemini connectivity are explicitly separate.
 
-## Active slice: offline cache restoration
+## Saved model restoration
 
 `restore-qwen-models.cmd` / `scripts/restore_qwen_cache.py` restores the owner's
 preserved public ASR/aligner cache bundles. Exact manifest hashes anchor metadata,
@@ -99,26 +99,39 @@ blocks Python network connections and makes no provider call or model inference.
 It does not install dependencies or implement a new model-download path. Existing
 Hugging Face internal retries still need resolution before a zero-retry installer.
 
-Initial actual cache reuse stopped at model_cache_manifest_invalid because an
-aligner manifest SHA constant was transcribed incompletely. Preserve that failed
-run. The constant was recalculated from the saved manifest and a SHA-length guard
-added. The initial evidence helper also assumed optional settings.json exists;
-its missing before-snapshot is not preservation evidence. The corrected helper
-records absent files explicitly. A new corrected run, not an unchanged retry,
-verifies the real 15 archives and both existing full models. Actual timing and
-preservation evidence are recorded in the review/PR; full new weight restoration
-uses small synthetic fixtures locally and does not duplicate current GB assets.
-Independent review found one P2 preflight gap: package/FFmpeg checks alone allowed
-restoration with invalid device settings or a blocked native runtime. The isolated
-runtime-only check above was added before hashing/writes; invalid configuration,
-native import failure and missing CUDA now block model publication. Preserve the
-initial reviewed revision. Require fresh independent delta review and fixed-HEAD CI.
-Delta review also reproduced that a separately launched native probe does not
-inherit its restore parent's socket audit hook. The probe now installs its own
-guard before runtime imports. A real separate-child regression uses synthetic
-audit events with zero DNS/network traffic; every socket event must be blocked.
-Require uninvolved persistence/privacy review and fixed-HEAD Windows/Ubuntu CI
-before development merge. Observe each CI at most ten minutes/ten polls.
+PR48 independent review and required Windows/Ubuntu CI passed. Actual 15-archive
+and full-model reuse took 27.51 seconds, preserving 17 tracked file states and the
+DB/settings. The final isolated native gate separately passed in 3.697 seconds.
+Initial failed manifest transcription, missing native preflight and the separate
+child's non-inherited audit hook were corrected; failures/reviews remain in saved
+evidence and PR48. Existing full-size reuse is not new full-size Windows restoration.
+
+## Active slice: bounded runtime installation
+
+`install-media-clarity.cmd` / `scripts/install_runtime.py` prepares a fresh repository
+`.venv` and optionally chains the original pinned cache restore and final setup
+check. See [installation](runtime-install.md). Existing environments are validated
+without pip/package changes; invalid/partial environments are preserved and block
+installation. Explicit first device selection is allowed under app/worker locks;
+existing conflicting settings stop unchanged. Current Torch 2.8.0 CPU/cu126 and
+repository requirements are retained; CUDA has no automatic CPU fallback.
+
+Requirements are validated/snapshotted. Official PyTorch/PyPI binary downloads
+precede an offline wheel install, pip check and the isolated weight-free native
+probe. Connection/resume retries are zero; unknown pip versions without a resume
+limit stop before network. The offline pip child installs its own socket guard;
+--no-index alone would still allow direct-URL dependency traffic. There is no
+automatic pip upgrade, source build, mirror,
+model download or private media/API request. Completed wheels and partial venvs
+remain in the checkout's ignored .setup-cache/.venv directories.
+
+Installation has a 1800-second total / 120-second filesystem-byte-idle bound;
+optional restore and final diagnostic have a separate 1320/90-second bound. Existing
+owned process groups/Windows Jobs supervise descendants and retain completed checks.
+Pip config/index/target injection and provider keys are removed from children while
+existing TLS/proxy settings remain unchanged. Actual installation and preservation
+results belong to the fixed revision's PR/evidence. Require fresh uninvolved review
+and Windows/Ubuntu CI before development merge. CI: ten minutes/ten polls maximum.
 
 ## Remaining execution limits
 

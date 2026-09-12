@@ -69,6 +69,8 @@ raise SystemExit(main())'''
             shutil.copyfile(ROOT/check_script.name,check_script)
             restore_script = root/'restore-qwen-models.cmd'
             shutil.copyfile(ROOT/restore_script.name,restore_script)
+            install_script = root/'install-media-clarity.cmd'
+            shutil.copyfile(ROOT/install_script.name,install_script)
             def run(launcher=script):
                 return subprocess.run(['cmd.exe','/d','/c','call',str(launcher),'--help'],cwd=temp,
                     stdin=subprocess.DEVNULL,capture_output=True,timeout=20)
@@ -84,6 +86,10 @@ raise SystemExit(main())'''
             (root/'scripts').mkdir()
             shutil.copyfile(ROOT/'scripts/check_setup.py',root/'scripts/check_setup.py')
             shutil.copyfile(ROOT/'scripts/restore_qwen_cache.py',root/'scripts/restore_qwen_cache.py')
+            shutil.copyfile(ROOT/'scripts/install_runtime.py',root/'scripts/install_runtime.py')
+            ready_install = run(install_script)
+            self.assertEqual(ready_install.returncode,0,ready_install.stderr.decode('utf-8',errors='replace'))
+            self.assertIn(b'--device',ready_install.stdout)
             subprocess.run([sys.executable,'-m','venv','--without-pip','--system-site-packages',str(root/'.venv')],
                            check=True,capture_output=True,timeout=30)
             ready = run()
