@@ -16,7 +16,22 @@ try{
     return route.continue();
   });
   const video=page.locator('#video'),select=page.locator('#subtitle-select');
-  async function open(){
+  async function open(expectRestore=false){
+    if(expectRestore){
+      const saved=await(await page.request.get(base+`/api/library/${item}`)).json();
+      assert(Math.abs(saved.position-18.25)<.05,'stored position must survive before opening');
+      // Same observation pattern as browser.mjs: capture the app's real seek
+      // before optional autoplay passes the assertion window. Never set a time.
+      await video.evaluate(v=>{
+        window.cloudResumeObservation=null;
+        v.addEventListener('loadedmetadata',()=>{
+          v.addEventListener('seeked',()=>{
+            window.cloudResumeObservation=v.currentTime;
+            v.pause();
+          },{once:true});
+        },{once:true});
+      });
+    }
     await page.locator('.card-button').filter({hasText:'보랏빛 산책'}).click();
     await page.waitForFunction(()=>document.querySelector('#video').readyState>=2&&
       document.querySelector('#video track')?.readyState===2);
@@ -24,11 +39,22 @@ try{
     assert.equal(await page.locator('#subtitle-preparation').isVisible(),false);
   }
   async function restored(){
-    await page.waitForFunction(()=>Math.abs(document.querySelector('#video').currentTime-18.25)<.05);
+    try{
+      await page.waitForFunction(()=>window.cloudResumeObservation!==null&&!document.querySelector('#video').seeking);
+      const observed=await video.evaluate(v=>({position:window.cloudResumeObservation,paused:v.paused}));
+      assert(Math.abs(observed.position-18.25)<.05,'native seek must restore the saved position');
+      assert(observed.paused);
+      console.log(JSON.stringify({phase,stage:'native-resume-observed',...observed}));
+    }catch(error){
+      console.log(JSON.stringify({phase,stage:'native-resume-failed',...await video.evaluate(v=>({
+        observed:window.cloudResumeObservation,currentTime:v.currentTime,paused:v.paused,
+        seeking:v.seeking,readyState:v.readyState,mediaError:v.error?.code??null}))}));
+      throw error;
+    }
     assert.equal(await select.inputValue(),track);
     assert.match(await page.locator('#video track').getAttribute('src'),/offset_ms=500$/);
   }
-  await page.goto(base);await open();
+  await page.goto(base);await open(phase==='restart');
   if(phase==='restart')await restored();
   else{
     const state=await(await page.request.get(base+`/api/library/${item}/subtitles`)).json();
@@ -52,7 +78,7 @@ try{
     await page.waitForFunction(()=>!document.querySelector('#video').seeking);
     await page.locator('#player-close').click();
     await page.waitForFunction(()=>!document.querySelector('#player-dialog').open);
-    await page.reload();await open();await restored();
+    await page.reload();await open(true);await restored();
   }
   if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
     await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
