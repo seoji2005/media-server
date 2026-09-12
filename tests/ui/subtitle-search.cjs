@@ -20,12 +20,12 @@ Object.defineProperty(video,'readyState',{get:()=>ready});Object.defineProperty(
 Object.defineProperty(video,'textTracks',{value:new w.EventTarget()});
 video.play=()=>{plays++;return Promise.resolve();};video.pause=()=>{};video.load=()=>{video.currentTime=0;};dialog.showModal=()=>dialog.open=true;dialog.close=()=>dialog.open=false;
 video.scrollIntoView=()=>{scrolls++;};w.HTMLElement.prototype.scrollIntoView=function(){};
-w.eval(fs.readFileSync(path.join(repo,'media_clarity/static/app.js'),'utf8')+'\nglobalThis.qa={openPlayer,closePlayer};');
+w.eval(fs.readFileSync(path.join(repo,'media_clarity/static/app.js'),'utf8')+'\nglobalThis.qa={openPlayer,closePlayer,subtitleSearchMatches,subtitleSearchText};');
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 function search(text){query.value=text;query.dispatchEvent(new w.Event('input'));for(const [id,t] of timers){if(t.ms===150){timers.delete(id);t.fn();}}}
 function loaded(cues,beforeLoad=()=>{}){
  const track=video.querySelector('track');
- const nativeCues=cues.map(([start,text])=>({startTime:start,getCueAsHTML:()=>{const fragment=d.createDocumentFragment();fragment.append(d.createTextNode(text));return fragment;}}));
+ const nativeCues=cues.map(([start,text,end=start+.1])=>({startTime:start,endTime:end,getCueAsHTML:()=>{const fragment=d.createDocumentFragment();fragment.append(d.createTextNode(text));return fragment;}}));
  Object.defineProperty(track,'track',{value:{mode:'showing',get cues(){return this.mode==='disabled'?null:nativeCues;}}});
  beforeLoad(track);track.dispatchEvent(new w.Event('load'));return track;
 }
@@ -91,6 +91,29 @@ function saves(){return requests.filter(r=>r.method==='PUT');}
  waiting.track.mode='showing';video.textTracks.dispatchEvent(new w.Event('change'));await settle();assert.equal(results.children.length,1);
  assert.equal(w.localStorage.length,0);assert.equal(w.sessionStorage.length,0);assert.equal(w.location.search,'');
  assert(!requests.some(r=>JSON.stringify(r).includes('한글')||JSON.stringify(r).includes('없는 문장')||JSON.stringify(r).includes('다른')),'search text never enters HTTP');
+ // General adjacent-cue cases, independent of any previous model evaluation text.
+ const matching=(rows,q)=>w.qa.subtitleSearchMatches(rows.map(([start,end,text])=>({start,end,text,searchText:w.qa.subtitleSearchText(text)})),w.qa.subtitleSearchText(q));
+ assert.equal(matching([[1,2,'오늘은'],[2.5,3,'공원에 가요']],'오늘은 공원에').length,1);
+ assert.equal(matching([[1,2,'今日は公'],[2,3,'園に行く']],'公園').length,1,'no-space display boundary');
+ assert.equal(matching([[1,2,'ＡＢＣ'],[2,3,'한글']],'abc 한글').length,1);
+ assert.equal(matching([[1,2,'오늘은'],[2.501,3,'공원에']],'오늘은 공원에').length,0,'longer pause');
+ assert.equal(matching([[1,2,'오늘은'],[1.9,3,'공원에']],'오늘은 공원에').length,0,'overlapping speakers');
+ assert.equal(matching([[1,2,'앞 문장'],[2,3,'공원에 가요']],'공원에').length,1,'no preceding duplicate for a single-cue hit');
+ assert.equal(matching([[1,2,'공원에'],[2,3,'공원에']],'공원에').length,2,'distinct repeated occurrences remain');
+ assert.equal(matching([[1,2,'하나'],[2,3,'둘'],[3,4,'셋']],'하나 둘 셋').length,0,'no unbounded joining');
+ assert.equal(matching([[1,2,'공원 에 가요']],'공원에').length,0,'do not remove spaces inside cues');
+ assert.equal(matching([[1,NaN,'오늘은'],[2,3,'공원에']],'오늘은 공원에').length,0);
+ select('one');await settle();
+ loaded([[10.5,'경계 <literal>',12.5],[12.7,'너머 문장',14.5],[15,'다른 대사',16]]);
+ search('경계 <literal> 너머');assert.equal(results.children.length,1);
+ assert.match(results.textContent,/경계 <literal>\n너머 문장/);assert.equal(results.querySelector('literal'),null);
+ const joinedButton=results.querySelector('button'),writesBefore=saves().length;
+ joinedButton.click();assert.equal(video.currentTime,10.5,'first adjusted native timestamp');
+ assert.equal(saves().length,writesBefore,'wait for completed seek');
+ video.dispatchEvent(new w.Event('seeked'));await settle();assert.equal(JSON.parse(saves().at(-1).body).position,10.5);
+ query.value='다른 대사';query.dispatchEvent(new w.Event('input'));video.currentTime=30;
+ joinedButton.click();assert.equal(video.currentTime,30,'cross-cue callbacks also expire on query change');
+ assert(!requests.some(r=>JSON.stringify(r).includes('경계')||JSON.stringify(r).includes('너머')),'joined query/text never enters HTTP');
  await w.qa.closePlayer();assert.equal([...timers.values()].filter(t=>t.ms===150).length,0);
  console.log('PASS subtitle search DOM: Unicode/whitespace/literal text, 115 results in bounded pages, keyboard focus, stale query/page guards, seek persistence, Off/version/item isolation, no query egress/history (mocked media/HTTP).');dom.window.close();
 })().catch(e=>{console.error(e);process.exitCode=1;dom.window.close();});

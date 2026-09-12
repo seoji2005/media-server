@@ -1,9 +1,9 @@
 # Current work
 
-Live recovery base: Server `bb8a6516acbb8314d9b5ee2ce03e8ff1f674516d`
-(PR48 merged); Fetch `0d6aa28a4a0c6944c053e3d63e150908b44b9175`.
-Both repositories had no open PR at recovery on September 12. PR48 final CI34682406969
-and merge-main CI34682722990 succeeded on Windows Server 2025 and Ubuntu 24.04.
+Live recovery base: Server `2c02120491e38268020d815a7228cba7610b08f4`
+(PR49 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server had no open PR at this slice's recovery on September 12. PR49 runtime setup
+and Fetch PR23 Unicode Windows registration are merged with passing CI.
 PR46 session-key launch and PR45 timing-warning correction are also merged.
 Git/PR state is authoritative; historical failed revisions and reviews remain in Git
 and preserved evidence. Synthetic CI is not model, viewing or target-device acceptance.
@@ -11,6 +11,14 @@ Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
+
+Active slice: literal subtitle search across at most two consecutive cues, with no
+overlap and a maximum 0.5-second gap. Preserve text, adjusted timestamps, selected
+track isolation and query privacy. Existing single-cue results and pagination remain.
+DOM checks cover boundary/no-space/Unicode cases and stale clicks; the existing
+synthetic browser fixture adds a cross-cue search/seek with +500 ms. This is search
+usability, not ASR quality or new model/prompt tuning. Review and CI status belong
+to the live PR. See [caption viewing](caption-viewing.md).
 
 The owner wants to use the app on October 19. Target October 5 for integration,
 October 11 for stabilization and October 12–18 for buffer; these are targets,

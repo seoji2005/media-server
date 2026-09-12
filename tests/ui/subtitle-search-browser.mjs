@@ -53,6 +53,16 @@ export default async function checkSubtitleSearchPages(page,trackId){
   const sought=await video.evaluate(v=>({time:v.currentTime,error:v.error?.code??null,top:v.getBoundingClientRect().top,bottom:v.getBoundingClientRect().bottom}));
   assert(sought.time>=18.6&&sought.time<19.5);assert.equal(sought.error,null);
   assert(sought.top<844&&sought.bottom>0,'late result brings the player back into view');
+  // Same native VTT fixture: phrase starts in cue 114 and ends in cue 115.
+  // Keep the existing +500 ms offset and completed-seek persistence route.
+  await query.fill('장면 114 탐색 장면 115');
+  await page.waitForFunction(()=>document.querySelector('#subtitle-search-status').textContent.includes('1개 일치'));
+  assert.equal(await results.count(),1);
+  assert.match(await results.first().textContent(),/114[\s\S]*115/);
+  const joinedSaved=page.waitForResponse(r=>r.request().method()==='PUT'&&r.url().endsWith('/position')&&r.request().postDataJSON().position>=18.45&&r.request().postDataJSON().position<18.6&&r.status()===200);
+  await results.first().click();await joinedSaved;await video.evaluate(v=>v.pause());
+  const joinedTime=await video.evaluate(v=>v.currentTime);
+  assert(joinedTime>=18.45&&joinedTime<19.5);
   assert.equal(commands.length,0);assert.equal(queryRequests.length,0);
   page.off('request',observe);
   await page.setViewportSize({width:1280,height:720});

@@ -22,8 +22,17 @@ media, saved caption rows, jobs, checkpoints and evidence hashes remain unchange
 Search reads only the currently selected, loaded native caption track in this page.
 NFKC/case normalization and collapsing whitespace let a phrase match across a cue's
 line breaks, repeated spaces or tabs. Displayed text keeps its original line breaks
-and literal characters. This is substring matching within each cue; separate cues,
-synonyms, omitted spaces and other languages are not semantically joined or inferred.
+and literal characters. Search also matches across two consecutive, non-overlapping
+cues when their gap is at most 0.5 seconds. The boundary accepts a space or no space,
+including Japanese words split by display layout; spaces inside cues are unchanged.
+Longer pauses, overlapping cues and three-cue phrases are not joined. This is literal
+matching, not inferred dialogue continuity, synonyms or translation.
+
+A cross-cue result shows both original texts and seeks to the first cue's adjusted
+timestamp. A query found entirely in one cue does not gain a redundant preceding
+result; distinct later occurrences remain separate. The same paging, stale-button
+and selected-track guards apply. No source caption, index or viewing setting is
+rewritten by searching.
 
 All matching cues are reachable in chronological pages of up to 50 buttons. The count
 and displayed range stay visible; previous/next controls move keyboard focus to the
