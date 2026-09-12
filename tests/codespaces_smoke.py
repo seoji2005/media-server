@@ -89,11 +89,14 @@ def main(browser=False):
                     request(base, url+'/position', method='PUT', token=token, body={'position':18.25})
                     request(base, url+'/caption-view', method='PUT', token=token,
                             body={'audio_index':0,'selection':track,'offset_ms':500,'revision':0})
-                assert request(base, url)['position'] == 18.25
+                position = request(base, url)['position']
+                # Native media may quantize the seek by a few microseconds; use
+                # the same 50ms bound as the browser, while API-only stays exact.
+                assert abs(position - 18.25) < .05 if browser else position == 18.25, position
                 assert request(base, url+'/subtitles')['view']['offset_ms'] == 500
                 assert request(base, url+'/subtitles')['view']['selection'] == track
                 print(json.dumps({'phase':phase, 'realHTTP':True, 'sourceHashVerified':True,
-                                  'position':18.25, 'offsetMs':500, 'browser':browser,
+                                  'position':position, 'offsetMs':500, 'browser':browser,
                                   'codespacesEdge':'simulated'}), flush=True)
 
 
