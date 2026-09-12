@@ -184,3 +184,13 @@ decisions and after cleanup; a timeout remains blocked even if a final ready eve
 was written. Regressions cover normal/error worker exit with a live descendant,
 an item arriving in the final interval, and total/idle caps preserving an unrelated
 process. The native CPU prerequisite result is not descendant-lifecycle acceptance.
+
+First PR47 CI34677770376: Ubuntu passed; Windows failed the timeout fixture when
+deleting the temporary progress file (WinError 32). The log does not expose the
+inner shutdown exception, so its exact cause remains unproven. Inspection found
+that a redundant direct kill after Windows Job closure could race termination and
+skip the owned handle wait. The correction waits after Job closure without that
+second kill; wait and pipe closure also run if shutdown signaling raises. A remaining
+temporary-file cleanup error returns a sanitized blocked result with completed
+checks, rather than discarding them in a traceback. Keep the first failed CI;
+require fresh independent delta review and Windows/Ubuntu CI on the correction.

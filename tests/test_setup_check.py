@@ -9,7 +9,7 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from media_clarity.storage import MediaError
 from scripts import check_setup as setup
@@ -107,11 +107,12 @@ time.sleep(30)
                         patch.object(setup, 'IDLE_SECONDS', idle), \
                         patch.object(setup.subprocess, 'Popen', side_effect=launch):
                     result = setup.check_setup(Path('unused'))
-                self.assertEqual(result['error'], 'setup_check_timeout')
-                self.assertEqual(result['state'], 'blocked')
-                self.assertEqual(result['checks'], [{'name':'python','state':'ready'}])
-                self.assertIsNotNone(owned[0].poll())
-                self.assertIsNone(unrelated.poll())
+                    self.assertEqual(result['error'], 'setup_check_timeout')
+                    self.assertEqual(result['state'], 'blocked')
+                    self.assertNotIn('cleanup_error', result)
+                    self.assertEqual(result['checks'], [{'name':'python','state':'ready'}])
+                    self.assertIsNotNone(owned[0].poll())
+                    self.assertIsNone(unrelated.poll())
             finally:
                 unrelated.terminate(); unrelated.wait(timeout=5)
 
@@ -142,6 +143,36 @@ time.sleep(30)
         self.assertEqual(result['error'], 'setup_check_timeout')
         self.assertEqual(result['state'], 'blocked')
         self.assertEqual(result['checks'], [{'name':'python','state':'ready'}])
+
+    def test_job_termination_waits_without_racing_a_second_kill(self):
+        for close_error in (None, OSError('synthetic termination error')):
+            with self.subTest(close_error=close_error is not None):
+                process = Mock()
+                process.kill.side_effect = PermissionError('termination already requested')
+                job = Mock()
+                job.close.side_effect = close_error
+                if close_error:
+                    with self.assertRaises(OSError):
+                        setup.stop_worker(process, job)
+                else:
+                    setup.stop_worker(process, job)
+                process.kill.assert_not_called()
+                process.wait.assert_called_once_with(timeout=5)
+                process.stdin.close.assert_called_once()
+
+    def test_temporary_file_cleanup_failure_keeps_results_without_raw_error(self):
+        result = {'checks':[{'name':'python','state':'ready'}], 'error':'setup_check_timeout'}
+        real_cleanup = tempfile.TemporaryDirectory.cleanup
+        def fail_after_cleanup(temp):
+            real_cleanup(temp)
+            raise PermissionError('private/path?secret=value')
+        with patch.object(tempfile.TemporaryDirectory, 'cleanup', fail_after_cleanup):
+            with setup.temporary_output(result) as temp:
+                (temp/'progress.jsonl').write_text('synthetic')
+        self.assertEqual(result['checks'], [{'name':'python','state':'ready'}])
+        self.assertEqual(result['error'], 'setup_check_timeout')
+        self.assertEqual(result['cleanup_error'], 'setup_check_cleanup_failed')
+        self.assertNotIn('private/path', json.dumps(result))
 
     def test_exited_worker_cannot_leave_a_running_descendant(self):
         real_popen = subprocess.Popen

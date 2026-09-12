@@ -1,5 +1,6 @@
 """Bounded, offline setup checks. No installation, API call or media scan."""
 import argparse
+from contextlib import contextmanager
 import importlib.metadata
 import json
 import os
@@ -128,6 +129,42 @@ def worker(root):
         os.close(output)
 
 
+def stop_worker(process, job):
+    try:
+        if job:
+            # Job closure already requests termination. A second TerminateProcess
+            # can race that request on Windows; wait on our live handle instead.
+            job.close()
+        elif os.name == 'nt':
+            if process.poll() is None:
+                process.kill()
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+    finally:
+        # A signal/Job error must not skip reaping or closing the handshake pipe.
+        try:
+            process.wait(timeout=5)
+        finally:
+            process.stdin.close()
+
+
+@contextmanager
+def temporary_output(result):
+    temp = tempfile.TemporaryDirectory(prefix='media-setup-')
+    try:
+        yield Path(temp.name)
+    finally:
+        try:
+            temp.cleanup()
+        except OSError:
+            # Keep completed diagnostics even if Windows still holds a file.
+            result['cleanup_error'] = 'setup_check_cleanup_failed'
+            result.setdefault('error', 'setup_check_cleanup_failed')
+
+
 def check_setup(root, progress=None):
     from media_clarity.gemini import configured
     from media_clarity.worker_lifecycle import WindowsJob
@@ -140,8 +177,8 @@ def check_setup(root, progress=None):
     started = last = monotonic()
     seen = size = 0
     process = job = None
-    with tempfile.TemporaryDirectory(prefix='media-setup-') as temp:
-        path = Path(temp) / 'progress.jsonl'
+    with temporary_output(result) as temp:
+        path = temp / 'progress.jsonl'
         def drain():
             nonlocal seen, size, last
             current = path.stat().st_size
@@ -199,20 +236,7 @@ def check_setup(root, progress=None):
                 if process:
                     # Always clean descendants, including when their leader
                     # already exited normally or with an error.
-                    if os.name == 'nt':
-                        if job:
-                            job.close()
-                        if process.poll() is None:
-                            process.kill()
-                    else:
-                        try:
-                            os.killpg(process.pid, signal.SIGKILL)
-                        except ProcessLookupError:
-                            pass
-                    process.wait(timeout=5)
-                    process.stdin.close()
-                if job:
-                    job.close()
+                    stop_worker(process, job)
             except Exception:
                 result['cleanup_error'] = 'setup_check_cleanup_failed'
                 result.setdefault('error', 'setup_check_cleanup_failed')
