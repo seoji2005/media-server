@@ -34,6 +34,39 @@ await page.route('**/*', route => {
   return route.continue();
 });
 const video = page.locator('#video');
+async function armResumeObservation() {
+  const items = (await (await page.request.get(`${base}/api/library`)).json()).items;
+  assert.equal(items.length, 1);
+  assert(Math.abs(items[0].position - 7) < .25, 'stored resume fixture must remain seven seconds');
+  await video.evaluate(v => {
+    window.resumeObservation = null;
+    // Observe the app's seek before autoplay can leave the narrow assertion
+    // window. Never assign currentTime here: a wrong restore must still fail.
+    v.addEventListener('loadedmetadata', () => {
+      v.addEventListener('seeked', () => {
+        window.resumeObservation = v.currentTime;
+        v.pause();
+      }, {once: true});
+    }, {once: true});
+  });
+}
+async function checkObservedResume() {
+  try {
+    await page.waitForFunction(() => {
+      const v = document.querySelector('#video');
+      return window.resumeObservation !== null && v.readyState >= 2 && !v.seeking;
+    });
+    const restored = await video.evaluate(v => ({time: window.resumeObservation, paused: v.paused}));
+    assert(Math.abs(restored.time - 7) < .25, 'native seek must restore seven seconds');
+    assert.equal(restored.paused, true);
+  } catch (error) {
+    console.log(JSON.stringify({phase, stage: 'resume-observation-failed', ...await video.evaluate(v => ({
+      observedTime: window.resumeObservation, currentTime: v.currentTime,
+      paused: v.paused, seeking: v.seeking, readyState: v.readyState, mediaError: v.error?.code ?? null
+    }))}));
+    throw error;
+  }
+}
 async function checkSubtitleStatusRecovery(){
   const snapshot=()=>video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused,track:v.querySelector('track').src}));
   const before=await snapshot(),commands=[];
@@ -192,6 +225,7 @@ try {
   await page.locator('.card-button').waitFor();
   assert.equal(await page.locator('.card-button').count(), 1);
   mark('player-open');
+  if (phase === 'restart') await armResumeObservation();
   await page.locator('.card-button').click();
   await page.waitForFunction(() => document.querySelector('#video').readyState >= 2);
   const selector = page.locator('#subtitle-select');
@@ -212,10 +246,7 @@ try {
     await page.locator('#subtitle-preparation > summary').click();
     await page.locator('#subtitle-input').setInputFiles(subtitle);
   } else {
-    await page.waitForFunction(() => {
-      const v = document.querySelector('#video');
-      return !v.seeking && Math.abs(v.currentTime - 7) < .25;
-    });
+    await checkObservedResume();
   }
   mark('caption-load');
   await page.waitForFunction(count => document.querySelector('#subtitle-select').options.length === count, phase === 'first' ? 2 : 4);
@@ -335,11 +366,9 @@ try {
   await page.locator('#search').fill('ci 한글');
   assert.equal(await page.locator('.card-button').count(),1,'NFKC title search handles width and Hangul composition');
   await page.locator('#search').fill('');
+  await armResumeObservation();
   await page.locator('.card-button').click();
-  await page.waitForFunction(() => {
-    const v = document.querySelector('#video');
-    return v.readyState >= 2 && !v.seeking && Math.abs(v.currentTime - 7) < .25;
-  });
+  await checkObservedResume();
   await page.locator('#player-close').click();
   await page.waitForFunction(() => !document.querySelector('#player-dialog').open);
   mark('moment-entry');
