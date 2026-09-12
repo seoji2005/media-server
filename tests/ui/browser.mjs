@@ -9,9 +9,13 @@ import checkVP9Playback from './vp9-playback-browser.mjs';
 const [base, source, subtitle, phase] = process.argv.slice(2);
 assert.match(base, /^http:\/\/127\.0\.0\.1:\d+$/);
 assert(['first', 'restart'].includes(phase));
+// Fixed labels only: a hard timeout must identify its stage without logging paths,
+// requests, dialogue or credentials. This adds no retry or timeout extension.
+const mark=stage=>console.log(JSON.stringify({phase,stage}));
 // Branded Chrome/Edge for proprietary codecs. An explicit executable supports cloud QA.
 const executablePath = process.env.MEDIA_TEST_BROWSER_EXECUTABLE;
 const channel = process.env.MEDIA_TEST_BROWSER_CHANNEL || 'chrome';
+mark('browser-launch');
 const browser = await chromium.launch({headless: true,
   ...(executablePath ? {executablePath} : {channel})});
 const page = await browser.newPage();
@@ -179,12 +183,15 @@ async function checkMomentEntry() {
   assert.equal((await page.request.put(`${path}/position`, {headers, data:{position:7, audio_index:0}})).status(), 200);
 }
 try {
+  mark('initial-navigation');
   await page.goto(base);
   if (phase === 'first') {
+    mark('source-import');
     await page.locator('#file-input').setInputFiles(source);
   }
   await page.locator('.card-button').waitFor();
   assert.equal(await page.locator('.card-button').count(), 1);
+  mark('player-open');
   await page.locator('.card-button').click();
   await page.waitForFunction(() => document.querySelector('#video').readyState >= 2);
   const selector = page.locator('#subtitle-select');
@@ -210,6 +217,7 @@ try {
       return !v.seeking && Math.abs(v.currentTime - 7) < .25;
     });
   }
+  mark('caption-load');
   await page.waitForFunction(count => document.querySelector('#subtitle-select').options.length === count, phase === 'first' ? 2 : 4);
   const trackId = await selector.locator('option').filter({hasText: '가져온 자막'}).getAttribute('value');
   if(phase==='restart'){
@@ -235,6 +243,7 @@ try {
   assert(observed.frames > 0, 'decoded video frames required');
   assert.equal(observed.error, null);
   assert(observed.cues.includes('한국어 자막 재생 확인'), 'active native Korean cue required');
+  mark('subtitle-status-recovery');
   await checkSubtitleStatusRecovery();
   const displayTitle='ＣＩ 한글 <literal>';
   if(phase==='restart')assert.equal(await page.locator('#player-title').textContent(),displayTitle,'display title survives server restart');
@@ -316,6 +325,7 @@ try {
   await page.waitForFunction(() => [...document.querySelector('#video').textTracks].every(t => t.mode !== 'showing'));
   await selector.selectOption(trackId);
   await page.waitForFunction(() => [...document.querySelector('#video').textTracks].some(t => t.mode === 'showing'));
+  mark('caption-viewing');
   await checkCaptionViewing(trackId);
   if(phase==='restart')await checkSubtitleSearchPages(page,trackId);
   await video.evaluate(v => { v.currentTime = 7; });
@@ -332,14 +342,19 @@ try {
   });
   await page.locator('#player-close').click();
   await page.waitForFunction(() => !document.querySelector('#player-dialog').open);
+  mark('moment-entry');
   await checkMomentEntry();
+  mark('item-entry');
   await checkItemEntry(page,base,phase,trackId,source);
-  if(phase==='restart')await checkVP9Playback(page,base,source);
+  if(phase==='restart'){mark('vp9-playback');await checkVP9Playback(page,base,source);}
   assert(ranges.includes(206), 'real browser Range response required');
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
+  mark('checks-complete');
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
     subtitleSearch115NativeCues:phase==='restart', statusRecoveryWithExistingCaption: true, displayTitleAndNormalizedSearch: true, nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
+  mark('browser-close');
   await browser.close();
+  mark('browser-closed');
 }

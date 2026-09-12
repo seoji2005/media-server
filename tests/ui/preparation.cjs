@@ -29,7 +29,15 @@ function fixture(){
   const el=id=>d.getElementById(id);
   async function open(){await settle();await w.qa.openPlayer('a');await settle();el('subtitle-search-panel').open=true;}
   async function start(mode){
-    const panel=el(mode==='preview'?'preview-panel':'scene-panel');panel.open=true;panel.dispatchEvent(new w.Event('toggle'));await settle();
+    const panel=el(mode==='preview'?'preview-panel':'scene-panel');
+    // Setting open already queues a native toggle. Do not dispatch a second one:
+    // that delayed duplicate can reread empty state after a preparation error.
+    const toggled=new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{panel.removeEventListener('toggle',onToggle);reject(new Error('panel toggle timed out'));},5000);
+      function onToggle(){clearTimeout(timer);resolve();}
+      panel.addEventListener('toggle',onToggle,{once:true});
+    });
+    panel.open=true;await toggled;await settle();
     el(mode==='preview'?'preview-build':'scene-prepare').click();await settle();
   }
   async function answer(value){assert(pending.length,'expected an in-flight request');pending.shift().resolve({ok:true,json:async()=>value});await settle();}
