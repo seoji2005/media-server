@@ -1,7 +1,10 @@
 # Current work
 
-Live recovery base is Server `2b2cf29a9f7cc063d39c9963d5eccaec1fd1e89b`
-(PR45 merged), Fetch `0d6aa28a4a0c6944c053e3d63e150908b44b9175`.
+Live recovery base is Server `b4846ee3108742da97806d7ac5be3f5a2193fdff`
+(PR46 merged), Fetch `0d6aa28a4a0c6944c053e3d63e150908b44b9175`.
+PR46 CI34676198953 and merge-main CI34676537273 succeeded on Ubuntu/Windows
+after independent privacy and fixture-delta review. The key launch helper is merged;
+that does not establish target-device or viewing acceptance.
 PR45 CI34673272608 and merge-main CI34673519391 succeeded on Ubuntu/Windows.
 The actual model trial below used unchanged PR44 main
 `7fde01e4274930a97a4e2c2405b0fe8deb456294`, not the newer launch changes.
@@ -140,3 +143,54 @@ directory during CLI construction. Restrict fixture isolation to removing only t
 Gemini key and preserve the rest of the user environment. This changes the test
 setup, not production storage paths, key handling or timeout/skip policy. Require
 new fixed-revision review/CI; retain the original failed run.
+
+## Setup check helper
+
+`check-media-clarity.cmd` / `scripts/check_setup.py` checks Python 3.12/64-bit,
+the checked-out base/Qwen requirements (including local Torch CPU/CUDA tags), actual
+FFmpeg/ffprobe version execution, and the existing isolated model-runtime diagnostic.
+Missing prerequisites stop the native model check. Readiness is prerequisite evidence:
+full model hashes, actual inference, per-codec playback and Gemini connectivity remain
+explicitly unchecked. No installation, download, provider call or media scan occurs.
+It neither opens nor migrates the media DB; native diagnostics reuse the worker lease
+in the existing library. Missing library roots are reported without being created.
+
+The lightweight checker owns a POSIX process group or the existing Windows kill-on-close
+Job before its child handshake. Whole check: 120 seconds, progress idle: 75 seconds,
+zero retries; FFmpeg/ffprobe each retain 10 seconds and the model probe 60 seconds.
+On a bound it stops its owned group/Job and returns completed checks. Diagnostic output
+is bounded and raw native output is suppressed. Gemini/Google key values are excluded
+from the checker child environment; the parent's presence/format boolean is informational.
+Normal console output gives actionable states; `--json` returns shareable diagnostics
+without media paths, titles or key values.
+
+Local targeted tests cover version mismatch, unsupported metadata, missing dependencies,
+real isolated missing-library checks, total/idle deadlines preserving completed results
+and an unrelated process, plus launcher behavior. A fresh temporary library referencing
+previously SHA-verified model assets passed the actual Linux CPU native-runtime check
+without creating a DB or loading ASR/aligner weights. Windows CMD dispatch remains a
+required CI check; real Windows 11 setup, RTX and viewing acceptance are still pending.
+Require an independent review of the new supervisor/privacy boundary and fixed-revision
+Ubuntu/Windows CI before development merge. Model restoration and bounded installation
+remain the next setup work; do not call this an installer.
+
+Initial independent review reproduced two supervisor defects before CI: a POSIX
+worker exiting first could leave its descendants alive, and a row written during
+the last polling interval could be lost at the deadline. Keep the failed revision
+in history. The correction observes POSIX exit with `waitid(WNOWAIT)` so the owned
+leader remains waitable until group cleanup, then always cleans the group and reaps
+it. Windows retains its kill-on-close Job. Bounded output is drained before deadline
+decisions and after cleanup; a timeout remains blocked even if a final ready event
+was written. Regressions cover normal/error worker exit with a live descendant,
+an item arriving in the final interval, and total/idle caps preserving an unrelated
+process. The native CPU prerequisite result is not descendant-lifecycle acceptance.
+
+First PR47 CI34677770376: Ubuntu passed; Windows failed the timeout fixture when
+deleting the temporary progress file (WinError 32). The log does not expose the
+inner shutdown exception, so its exact cause remains unproven. Inspection found
+that a redundant direct kill after Windows Job closure could race termination and
+skip the owned handle wait. The correction waits after Job closure without that
+second kill; wait and pipe closure also run if shutdown signaling raises. A remaining
+temporary-file cleanup error returns a sanitized blocked result with completed
+checks, rather than discarding them in a traceback. Keep the first failed CI;
+require fresh independent delta review and Windows/Ubuntu CI on the correction.

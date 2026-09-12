@@ -80,6 +80,17 @@ Gemini 자막을 만들 때는 **start-media-clarity-gemini.cmd를 더블클릭*
 키 입력은 API 연결 검사가 아닙니다. 영상에서 Gemini 작업을 시작해야 번역 요청을 보냅니다.
 명령줄에서는 `--prompt-gemini-key`를 사용하세요. 키 값 자체를 명령줄 인자로 넣지 마세요.
 
+설치 상태를 한 번에 보려면 **check-media-clarity.cmd를 더블클릭**하세요.
+Python 3.12·64비트, 두 requirements 파일의 지정 버전, FFmpeg/ffprobe의 실제 실행,
+선택 장치의 모델 파일 구조·네이티브 실행 환경을 순서대로 확인합니다. 앞 단계가 막히면
+모델 검사는 건너뛰고 필요한 패키지와 진단 코드를 보여줍니다. 설치·다운로드·API 호출은
+하지 않습니다. 전체 120초 / 진행 정체 75초에 소유 검사 프로세스를 종료하고 완료된
+항목을 남깁니다. 재시도는 0이며 FFmpeg/ffprobe는 각각 10초, 모델 진단은 60초 상한입니다.
+명령줄은 `.venv\Scripts\python scripts/check_setup.py`; `--json`은 경로·키 없는 진단을,
+`--data-dir`은 기존 사용자 보관함을 지정합니다. 모델 진단은 작업자 잠금을 사용하며
+영상이나 DB를 읽거나 변경하지 않습니다. 모델 전체 SHA256·실제 추론·코덱별 재생·
+Gemini 연결은 이 검사와 별도로 확인해야 합니다.
+
 macOS/Linux:
 
 ```sh
