@@ -9,6 +9,7 @@ import os
 import re
 import sqlite3
 import subprocess
+import signal
 import sys
 import threading
 import time
@@ -159,12 +160,24 @@ class Jobs:
 
     def _terminate(self):
         if self.process and self.process.poll() is None:
-            self.process.terminate()
+            if os.name == 'nt':
+                self.process.kill()  # Closing the guardian also closes its Windows Job.
+            else:
+                try:
+                    os.killpg(self.process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
             try:
                 self.process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait()
+                raise MediaError('processing_worker_active', 409) from None
+
+    def _clear_active_process(self):
+        # Called under the supervisor lock, including failed Popen with no process.
+        self._terminate()
+        if self.process:
+            self.process.stdin.close()
+        self.process, self.active = None, None
 
     def _supervise(self):
         while not self.stop.wait(.25):
@@ -179,7 +192,7 @@ class Jobs:
                         if code is None:
                             continue
                         with self.store.db() as db:
-                            db.execute("UPDATE subtitle_jobs SET state='failed',error='worker_stopped' WHERE id=? AND state='running'", (self.active,))
+                            db.execute("UPDATE subtitle_jobs SET state='failed',error='worker_stopped' WHERE id=? AND state IN ('queued','running')", (self.active,))
                             db.commit()
                         self.process.stdin.close()
                         self.process, self.active = None, None
@@ -192,6 +205,7 @@ class Jobs:
                     self.process = subprocess.Popen(
                         [sys.executable, '-m', 'media_clarity.worker', str(self.store.root), self.active],
                         stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        start_new_session=os.name != 'nt',
                         env={**os.environ, 'HF_HUB_OFFLINE': '1', 'TRANSFORMERS_OFFLINE': '1',
                              'HF_HUB_DISABLE_TELEMETRY': '1', 'DO_NOT_TRACK': '1',
                              'ORT_DISABLE_TELEMETRY': '1'})
@@ -395,7 +409,7 @@ class Jobs:
                 if row['state'] not in ('running','queued'):
                     return
                 if self.active == job_id:
-                    self._terminate()
+                    self._clear_active_process()
                 # A worker may have committed success before termination; retain it.
                 with self.store.db() as db:
                     db.execute("UPDATE subtitle_jobs SET state='paused',error=NULL WHERE id=? AND state IN ('running','queued')", (job_id,))
@@ -403,6 +417,10 @@ class Jobs:
             elif action == 'resume':
                 if row['state'] not in ('paused','failed'):
                     return
+                # A failure can be committed while the old compute is still closing.
+                # Retire it before its later exit can invalidate this new queue.
+                if self.active == job_id:
+                    self._clear_active_process()
                 from .models import local_models
                 if cloud:
                     gemini.api_key()

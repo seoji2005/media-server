@@ -62,6 +62,83 @@ class SubtitleTests(unittest.TestCase):
             return self.jobs.enqueue(self.item['id'])
     def run_job(self, job_id):
         execute(self.store,job_id,FixtureModel)
+    def test_pause_handles_failed_launch_with_no_process(self):
+        job_id = self.enqueue()
+        self.jobs.active = job_id
+        self.assertIsNone(self.jobs.process)
+        self.jobs.action(job_id, 'pause')
+        self.assertEqual(self.jobs.row(job_id)['state'], 'paused')
+        self.assertIsNone(self.jobs.active)
+
+    def test_resume_retires_failed_compute_before_requeueing(self):
+        job_id = self.enqueue()
+        child = subprocess.Popen([sys.executable, '-c', 'import time;time.sleep(20)'],
+                                 stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL, start_new_session=os.name != 'nt')
+        self.jobs.active, self.jobs.process = job_id, child
+        self.jobs.update(job_id, state='failed', attempt=1, error='processing_failed')
+        try:
+            with patch('media_clarity.models.local_models'):
+                self.jobs.action(job_id, 'resume')
+            self.assertIsNotNone(child.poll())
+            self.assertTrue(child.stdin.closed)
+            self.assertIsNone(self.jobs.process)
+            self.assertIsNone(self.jobs.active)
+            self.assertEqual(self.jobs.row(job_id)['state'], 'queued')
+        finally:
+            if child.poll() is None:
+                child.kill(); child.wait(timeout=5)
+            if not child.stdin.closed:
+                child.stdin.close()
+
+    def test_guardian_exit_before_claim_fails_once_without_automatic_retry(self):
+        job_id = self.enqueue()
+        popen = subprocess.Popen
+        def failed_start(_args, **kwargs):
+            return popen([sys.executable, '-c', 'raise SystemExit(1)'], **kwargs)
+        with patch('media_clarity.jobs.subprocess.Popen', side_effect=failed_start) as launch:
+            self.jobs.start()
+            try:
+                deadline = time.monotonic()+5
+                while self.jobs.row(job_id)['state'] != 'failed' and time.monotonic() < deadline:
+                    time.sleep(.03)
+                row = self.jobs.row(job_id)
+                self.assertEqual((row['state'], row['error'], row['attempt']), ('failed','worker_stopped',0))
+                time.sleep(.6)
+                self.assertEqual(launch.call_count, 1)
+            finally:
+                self.jobs.close()
+
+    def test_quick_pause_resume_is_not_failed_by_the_stopped_guardian(self):
+        job_id = self.enqueue()
+        popen = subprocess.Popen
+        count = 0
+        def fixture_start(_args, **kwargs):
+            nonlocal count
+            count += 1
+            code = 'import time;time.sleep(20)' if count == 1 else 'raise SystemExit(1)'
+            return popen([sys.executable, '-c', code], **kwargs)
+        with patch('media_clarity.jobs.subprocess.Popen', side_effect=fixture_start) as launch:
+            self.jobs.start()
+            try:
+                deadline = time.monotonic()+5
+                while self.jobs.process is None and time.monotonic() < deadline:
+                    time.sleep(.02)
+                self.assertIsNotNone(self.jobs.process)
+                self.jobs.action(job_id, 'pause')
+                self.assertEqual(self.jobs.row(job_id)['state'], 'paused')
+                self.assertIsNone(self.jobs.process)
+                with patch('media_clarity.models.local_models'):
+                    self.jobs.action(job_id, 'resume')
+                deadline = time.monotonic()+5
+                while self.jobs.row(job_id)['state'] != 'failed' and time.monotonic() < deadline:
+                    time.sleep(.02)
+                self.assertEqual(self.jobs.row(job_id)['error'], 'worker_stopped')
+                time.sleep(.6)
+                self.assertEqual(launch.call_count, 2, 'resume must launch one new attempt')
+            finally:
+                self.jobs.close()
+
     def test_srt_timing_text_and_append_only_versions(self):
         first = self.jobs.import_srt(self.item['id'],SRT.encode())
         second = self.jobs.import_srt(self.item['id'],SRT.replace('여러분','친구들').encode())
