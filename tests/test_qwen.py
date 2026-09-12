@@ -306,3 +306,35 @@ class QwenJobTests(unittest.TestCase):
         self.assertEqual(self.jobs.row(jid)['error'],'processing_checkpoint_invalid')
         self.assertEqual(self.jobs.row(jid)['asr_completed'],0)
         self.assertEqual(self.jobs.status(self.item['id'])['tracks'],[])
+
+    def test_published_timing_review_ignores_float_noise_but_keeps_real_warnings(self):
+        cases = [
+            ('float_noise', 'quiet', 'はい。', [unit('はい',.1,4.000000000000001,
+                raw_start=.10000000000000002)], 0),
+            ('official_correction', 'quiet', 'はい。', [unit('はい',.1,.5,raw_start=.18)], 1),
+            ('clipped_final_tick', 'end', 'はい。', [unit('はい',.1,4.04)], 1),
+            ('forced_boundary', 'forced', 'はい。', [unit('はい',.1,.5)], 1),
+            ('zero_word_time', 'quiet', 'はい。はい。',
+                [unit('はい',.1,.1),unit('はい',.2,.5)], 1),
+        ]
+        for name,boundary,text,units,expected in cases:
+            with self.subTest(name=name):
+                rec=evidence(text,units);rec['boundary']=boundary
+                class Speech:
+                    def __init__(self,root,profile):self.asr_profile=profile
+                    def identity(self):return 'synthetic-timing-review'
+                    def close(self):pass
+                    def transcribe_parts(self,path,duration,index,saved):
+                        yield {'clip':[0,4],'cues':qwen.validate_evidence(rec,[0,4]),
+                               'evidence':rec,'error':None}
+                jid=self.queue(qwen.LEGACY_PROFILE)
+                with patch('media_clarity.qwen.QwenSpeech',Speech), \
+                        patch('media_clarity.gemini.request',side_effect=fixtures.reply):
+                    execute(self.store,jid)
+                row=self.jobs.row(jid)
+                self.assertEqual(row['state'],'succeeded')
+                saved=asr_checkpoints.load(self.store,row,4)
+                self.assertEqual(saved[0]['evidence'],rec)
+                with self.store.db() as db:
+                    track=db.execute('SELECT presentation_summary FROM subtitle_tracks WHERE job_id=?',(jid,)).fetchone()
+                self.assertEqual(json.loads(track[0])['timing_review_count'],expected)
