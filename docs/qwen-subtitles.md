@@ -89,6 +89,49 @@ runtime can still run. Speech language is automatically detected. The aligner su
 [Official ASR model](https://huggingface.co/Qwen/Qwen3-ASR-1.7B-hf),
 [official aligner](https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B-hf).
 
+## Offline cache restore
+
+The preserved public checkpoint bundles can prepare the pinned models without
+network access. Each bundle contains its original `model-cache-manifest.json`,
+`model-cache-metadata` directory and the ASR's ten / aligner's five cache ZIPs.
+Keep ZIP files intact. If all fifteen ZIPs share a separate directory, pass
+`--parts-dir` for that directory. The original manifests' full SHA256 values are
+pinned in the helper; edited manifests are rejected.
+
+After installing the repository runtime, stop Media Clarity and run in PowerShell:
+
+```powershell
+.\restore-qwen-models.cmd --asr-bundle 'D:\QwenCache\asr' --aligner-bundle 'D:\QwenCache\aligner'
+```
+
+Use the same `--data-dir` as the app for a custom library. Linux uses
+`.venv/bin/python scripts/restore_qwen_cache.py` with the same arguments.
+The helper checks Python/packages/FFmpeg prerequisites before model restoration,
+holds the existing app and worker OS locks without opening the DB, and restores
+only `models/qwen-asr` and `models/qwen-aligner`. Existing custom `qwen-paths.json`
+stops restoration; its paths and `settings.json` are never rewritten. A running app
+or model worker stops restoration. Whole operation: 20 minutes, byte-progress idle:
+90 seconds, automatic retries: zero; the existing isolated setup supervisor owns
+the process group / Windows Job and retains completed check rows on termination.
+
+All metadata, archives, members and the reassembled full weight stream must match
+their pinned hashes. Existing matching files are reused; different files stop
+the operation. New files use unique `.partial` names and are published with
+atomic no-overwrite links only after verification and file flush. Interruption
+keeps completed files and partials; a later explicit invocation verifies/reuses
+completed files and does not delete or append to previous partials. A later corrupt
+archive can leave a verified earlier model and a partial later model. They remain
+available for inspection. Disk space is checked for missing complete files; existing
+partials still consume space. No arbitrary archive path extraction occurs.
+
+`--verify-only` checks the source bundles without runtime prerequisites or destination
+writes; it does not establish installed model readiness. `--json` emits completed
+part/model checks and fixed errors without private paths or credentials. The restore
+child receives no Gemini/Google key and blocks Python network connection attempts.
+No model inference, provider call, download or dependency installation occurs. Run
+`check-media-clarity.cmd` afterward, then separately verify actual inference and viewing.
+Real Windows 11/RTX installation and viewing acceptance are still pending.
+
 ## Text, timing and recovery
 
 - Decode the selected original audio with existing restricted FFmpeg behavior.

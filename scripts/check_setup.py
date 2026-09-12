@@ -63,7 +63,7 @@ def package_checks():
     return packages
 
 
-def collect(root, emit):
+def collect(root, emit, *, models=True):
     checks = []
     def record(value):
         checks.append(value)
@@ -87,6 +87,8 @@ def collect(root, emit):
             code = exc.code if isinstance(exc, MediaError) and exc.code in (
                 'ffmpeg_unavailable', 'media_timeout', 'invalid_media') else 'tool_check_failed'
             record({'name':tool, 'state':'blocked', 'error':code})
+    if not models:
+        return all(check['state'] == 'ready' for check in checks)
     if any(check['state'] != 'ready' for check in checks):
         record({'name':'models', 'state':'not_checked', 'error':'prerequisites_missing'})
     else:
@@ -105,18 +107,23 @@ def collect(root, emit):
     emit({'state':'ready' if all(c['state'] == 'ready' for c in checks) else 'blocked'})
 
 
-def worker(root):
+def worker_output():
     # Wait until the parent owns our POSIX group or Windows kill-on-close Job.
     if os.name != 'nt' and os.getpgrp() != os.getpid():
-        return 1
+        raise OSError('worker containment unavailable')
     if os.read(sys.stdin.fileno(), 1) != b'1':
-        return 1
+        raise OSError('worker handshake unavailable')
     from media_clarity.worker_lifecycle import parent_gone
     threading.Thread(target=parent_gone, daemon=True).start()
     output = os.dup(1)
     with open(os.devnull, 'wb') as quiet:
         os.dup2(quiet.fileno(), 1)
         os.dup2(quiet.fileno(), 2)
+    return output
+
+
+def worker(root):
+    output = worker_output()
     def emit(value):
         os.write(output, (json.dumps(value, ensure_ascii=True) + '\n').encode('ascii'))
     try:
@@ -165,12 +172,9 @@ def temporary_output(result):
             result.setdefault('error', 'setup_check_cleanup_failed')
 
 
-def check_setup(root, progress=None):
-    from media_clarity.gemini import configured
+def run_setup(command, *, total_seconds, idle_seconds, expected_checks, progress=None):
     from media_clarity.worker_lifecycle import WindowsJob
-    result = {'state':'blocked', 'checks':[], 'gemini_configured':configured(),
-              'api_connection':'not_checked', 'model_full_hashes':'not_checked',
-              'actual_inference':'not_checked', 'automatic_retries':0}
+    result = {'state':'blocked', 'checks':[], 'automatic_retries':0}
     # The diagnostic does not need an API credential in any child environment.
     env = {k:v for k,v in os.environ.items() if k not in ('GEMINI_API_KEY', 'GOOGLE_API_KEY')}
     env.update(HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', HF_HUB_DISABLE_TELEMETRY='1')
@@ -198,8 +202,8 @@ def check_setup(root, progress=None):
                     result['checks'].append(event['check'])
                     if progress:
                         progress(event['check'])
-                elif event.get('progress') == 'models' and progress:
-                    progress({'name':'models', 'state':'checking'})
+                elif event.get('progress') in ('models', 'asr', 'aligner') and progress:
+                    progress({'name':event['progress'], 'state':'checking'})
                 elif event.get('state') in ('ready', 'blocked'):
                     result['state'] = event['state']
                     if event.get('error'):
@@ -209,8 +213,7 @@ def check_setup(root, progress=None):
             if os.name != 'nt' and not all(hasattr(os, name) for name in ('waitid','WNOWAIT')):
                 raise OSError('safe process observation unavailable')
             with path.open('wb') as output:
-                process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()),
-                    '--worker', '--data-dir', str(root)], stdin=subprocess.PIPE,
+                process = subprocess.Popen(command, stdin=subprocess.PIPE,
                     stdout=output, stderr=subprocess.DEVNULL, env=env,
                     start_new_session=os.name != 'nt')
                 if os.name == 'nt':
@@ -223,7 +226,7 @@ def check_setup(root, progress=None):
                         os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None)
                     drain()
                     now = monotonic()
-                    if now - started >= TOTAL_SECONDS or now - last >= IDLE_SECONDS:
+                    if now - started >= total_seconds or now - last >= idle_seconds:
                         result['error'] = 'setup_check_timeout'
                         break
                     if finished:
@@ -245,10 +248,19 @@ def check_setup(root, progress=None):
                     drain()  # Preserve completed rows even at a deadline boundary.
             except Exception:
                 result.setdefault('error', 'setup_check_failed')
-    if not result.get('error') and (not process or process.returncode or len(result['checks']) != 5):
+    if not result.get('error') and (not process or process.returncode or len(result['checks']) != expected_checks):
         result['error'] = 'setup_check_failed'
     if result.get('error'):
         result['state'] = 'blocked'
+    return result
+
+
+def check_setup(root, progress=None):
+    from media_clarity.gemini import configured
+    result = run_setup([sys.executable, str(Path(__file__).resolve()), '--worker', '--data-dir', str(root)],
+                       total_seconds=TOTAL_SECONDS, idle_seconds=IDLE_SECONDS, expected_checks=5, progress=progress)
+    result.update(gemini_configured=configured(), api_connection='not_checked',
+                  model_full_hashes='not_checked', actual_inference='not_checked')
     return result
 
 
