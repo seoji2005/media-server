@@ -63,15 +63,23 @@ raise SystemExit(main())'''
             root = Path(temp)/'Media Clarity & 공간 !'; root.mkdir()
             script = root/'start-media-clarity.cmd'
             shutil.copyfile(ROOT/script.name,script)
-            def run():
-                return subprocess.run(['cmd.exe','/d','/c','call',str(script),'--help'],cwd=temp,
+            gemini_script = root/'start-media-clarity-gemini.cmd'
+            shutil.copyfile(ROOT/gemini_script.name,gemini_script)
+            def run(launcher=script):
+                return subprocess.run(['cmd.exe','/d','/c','call',str(launcher),'--help'],cwd=temp,
                     stdin=subprocess.DEVNULL,capture_output=True,timeout=20)
             missing = run()
             self.assertEqual(missing.returncode,1)
             self.assertIn('처음 실행 설정',missing.stdout.decode('utf-8'))
+            missing_gemini = run(gemini_script)
+            self.assertEqual(missing_gemini.returncode,1)
+            self.assertIn('처음 실행 설정',missing_gemini.stdout.decode('utf-8'))
             shutil.copytree(ROOT/'media_clarity',root/'media_clarity',ignore=shutil.ignore_patterns('__pycache__'))
             subprocess.run([sys.executable,'-m','venv','--without-pip','--system-site-packages',str(root/'.venv')],
                            check=True,capture_output=True,timeout=30)
             ready = run()
             self.assertEqual(ready.returncode,0,ready.stderr.decode('utf-8',errors='replace'))
             self.assertIn(b'--open-browser',ready.stdout)
+            ready_gemini = run(gemini_script)
+            self.assertEqual(ready_gemini.returncode,0,ready_gemini.stderr.decode('utf-8',errors='replace'))
+            self.assertIn(b'--prompt-gemini-key',ready_gemini.stdout)

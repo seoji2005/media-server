@@ -4,7 +4,7 @@ Prepare permitted local videos for comfortable watching in a refined, smooth
 personal media app. The owner is a viewer, not a routine editor or model operator.
 
 Target: Windows 11, Ryzen 5 7500F, RAM 64 GB, RTX 4070 SUPER 12 GB.
-Leave starts October 12 or 19, 2026 (unconfirmed); plan usable by October 11.
+The owner confirmed leave starts October 19, 2026; plan usable by October 11.
 Aim for an October 5 integration candidate and October 6–11 stabilization.
 An extra week improves quality, not scope. These are targets, not delivery claims.
 

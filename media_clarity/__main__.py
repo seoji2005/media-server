@@ -36,42 +36,32 @@ def main():
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--models", action="store_true", help="doctor: also check the optional subtitle model runtime")
     parser.add_argument("--open-browser", action="store_true", help="serve: open the viewing page after successful startup")
+    parser.add_argument("--prompt-gemini-key", action="store_true", help="serve: privately enter a key for this session; Enter starts viewing only")
     args = parser.parse_args()
     if args.models and args.command != 'doctor':
         parser.error('--models is only available with doctor')
     if args.open_browser and args.command != 'serve':
         parser.error('--open-browser is only available with serve')
+    if args.prompt_gemini_key and args.command != 'serve':
+        parser.error('--prompt-gemini-key is only available with serve')
     if not 1024 <= args.port <= 65535:
         parser.error("port must be between 1024 and 65535")
     try:
         if args.command == "serve":
-            import uvicorn
-            from .app import create_app
-            for name in ("uvicorn", "uvicorn.error", "uvicorn.asgi", "asyncio"):
-                logging.getLogger(name).addFilter(SafeServerLog())
-            app = create_app(args.data_dir)
-            options = dict(host="127.0.0.1", port=args.port, access_log=False,
-                           log_level="warning", timeout_keep_alive=5,
-                           limit_concurrency=32, h11_max_incomplete_event_size=16384)
-            if args.open_browser:
-                from .launch import BrowserServer
-                server = BrowserServer(uvicorn.Config(app, **options))
-                try:
-                    server.run()
-                except KeyboardInterrupt:
-                    pass
-                return 0 if server.started else 1
-            uvicorn.run(app, **options)
-            return 0
+            from .credentials import prompt_gemini_key
+            with prompt_gemini_key(args.prompt_gemini_key):
+                return serve(args)
         store = Store(args.data_dir)
         store.start()
         try:
             if args.command == "doctor":
+                from .gemini import configured
                 from .model_check import configuration, diagnose
                 models = configuration(store.root)
                 if args.models:
                     models = diagnose(store.root)
-                print(json.dumps({**store.diagnostics(), 'models':models}, ensure_ascii=False))
+                print(json.dumps({**store.diagnostics(), 'models':models,
+                                  'gemini_configured':configured()}, ensure_ascii=False))
                 if args.models and models['state'] != 'ready':
                     return 1
             elif args.source is None:
@@ -92,6 +82,27 @@ def main():
     except Exception:
         print("ERROR: local_operation_failed", file=sys.stderr)
         return 1
+
+
+def serve(args):
+    import uvicorn
+    from .app import create_app
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.asgi", "asyncio"):
+        logging.getLogger(name).addFilter(SafeServerLog())
+    app = create_app(args.data_dir)
+    options = dict(host="127.0.0.1", port=args.port, access_log=False,
+                   log_level="warning", timeout_keep_alive=5,
+                   limit_concurrency=32, h11_max_incomplete_event_size=16384)
+    if args.open_browser:
+        from .launch import BrowserServer
+        server = BrowserServer(uvicorn.Config(app, **options))
+        try:
+            server.run()
+        except KeyboardInterrupt:
+            pass
+        return 0 if server.started else 1
+    uvicorn.run(app, **options)
+    return 0
 
 
 if __name__ == "__main__":

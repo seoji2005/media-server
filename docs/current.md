@@ -1,7 +1,10 @@
 # Current work
 
-Live recovery base is Server `7fde01e4274930a97a4e2c2405b0fe8deb456294`
-(PR44 merged), Fetch `0d6aa28a4a0c6944c053e3d63e150908b44b9175`.
+Live recovery base is Server `2b2cf29a9f7cc063d39c9963d5eccaec1fd1e89b`
+(PR45 merged), Fetch `0d6aa28a4a0c6944c053e3d63e150908b44b9175`.
+PR45 CI34673272608 and merge-main CI34673519391 succeeded on Ubuntu/Windows.
+The actual model trial below used unchanged PR44 main
+`7fde01e4274930a97a4e2c2405b0fe8deb456294`, not the newer launch changes.
 PR44 CI34663790987 and main CI34664078212 succeeded. Earlier PR43 main
 CI34660439190 failed; PR44 fixed the preparation-event fixture and added browser
 stage diagnostics. Those checks are synthetic product CI, not model quality or
@@ -60,7 +63,7 @@ This reference was used in earlier translation comparisons and is not a pristine
 holdout. Twelve minutes on Linux CPU does not replace 40–120-minute acceptance
 or Windows 11/RTX 4070 SUPER testing.
 
-## Current correction: PR45
+## Merged correction: PR45
 
 Actual evidence exposed a floating-point-only timing warning. Publication now
 ignores differences within 1e-9 seconds, while retaining zero-duration units,
@@ -78,6 +81,54 @@ arms native seek observation before opening, records the first restored position
 and pauses before playback advances it. A missing/wrong restore still fails;
 there is no restore-time assignment, deadline increase or unchanged CI rerun.
 Separate uninvolved reviewers passed the production warning change and the browser
-observation change at their fixed revisions. Require new fixed-HEAD Ubuntu/Windows
-CI before merge. Observe at most ten minutes/ten polls; preserve any failure and
-stop rather than extending caps or retrying unchanged failures.
+observation change at their fixed revisions. The final PR and merge CI passed as
+recorded above; this does not change the actual-quality limits.
+
+## Ordered October work: first run and quality
+
+The owner confirmed October 19 leave and requested execution in order. Prioritize
+ASR/translation quality, Windows setup and everyday launch, real Fetch companion
+download to exact-video playback, 40–120-minute interruption/recovery, then integrated
+enhancement, search/recommendation quality and target-device viewing. Keep the
+October 5 integration / October 11 stabilization targets and the remaining week as
+buffer. These are targets; the complete scope remains in the product contract.
+
+A bounded ASR-only diagnostic compares existing approximately 30-second windows
+with two contiguous shorter windows near 15 seconds, using unchanged Qwen weights,
+auto language, prompt, precision and decoding. Four dialogue03 windows reuse verified
+baseline payloads/audio hashes; three dialogue09 windows use new baseline inference.
+The original product output and all user/reference-assisted edits stay unchanged.
+An initial diagnostic passed dialogue09 WAV directly to the product's video-only
+decoder and failed before that file's inference. Preserve that failed run and its
+eight completed dialogue03 calls. The corrected dialogue09 input is a lossless
+Matroska wrapper with matching full decoded PCM; do not relax the product whitelist
+or rerun the completed dialogue03 calls. This is a new corrected diagnostic, not an
+automatic retry or a product HTTP acceptance run.
+
+The short input recovered the one-hour walking phrase in one dialogue03 window,
+but did not fix the thousand-steps/shop error and introduced other transcription
+errors, including dialogue09's AI terms. Do not adopt a global chunk-size change
+from these results. Both references were used previously; neither is a pristine
+holdout. Text inspection is not human listening, alignment or Korean viewing quality.
+
+The optional `--prompt-gemini-key` / `start-media-clarity-gemini.cmd` launch asks for
+a hidden, session-only key before app creation. Valid inherited keys skip input;
+blank input starts viewing only. Invalid or unavailable hidden input stops safely.
+No key is saved to app files, registry, arguments or logs, and prompting does not
+contact Gemini. The process environment is inherited by children, including browser
+launchers; see the subtitle documentation for the exact scope. `doctor` reports
+presence/format only. This is an everyday launch improvement, not a complete
+installer or a model/API connectivity check.
+
+Local checks cover credential cancellation/validation, environment restoration,
+child inheritance, diagnostics without key disclosure and existing startup/model
+diagnostics. A real Linux pseudo-terminal launch with a synthetic key returned
+HTTP 200, did not echo/store the key, and the owned server exited with -15. No browser
+was attempted. Windows CMD dispatch is checked in required CI; actual Windows 11
+console input/double-click/reboot and RTX inference remain unverified.
+
+Require an uninvolved privacy review and fixed-HEAD Ubuntu/Windows CI for launch
+changes before development merge. Observe CI at most ten minutes/ten polls; preserve
+failures rather than extending caps or retrying unchanged failures. Continue bounded
+Windows runtime/model setup and diagnostic packaging next. The blocked local browser
+route still prevents real extension/playback acceptance in this Work.

@@ -90,7 +90,10 @@ def provider(config):
 
 
 def api_key():
-    key = os.environ.get('GEMINI_API_KEY', '')
+    return validate_key(os.environ.get('GEMINI_API_KEY', ''))
+
+
+def validate_key(key):
     # Authorization keys may contain dots; reject whitespace/header delimiters.
     if not re.fullmatch(r'[A-Za-z0-9_.-]{1,512}', key):
         raise MediaError('gemini_key_missing', 503)

@@ -93,8 +93,21 @@ completed cloud versions are labeled **한국어 · Gemini**.
 
 Set `GEMINI_API_KEY` in the environment of the process launching the app, then restart
 the app. There is no browser key form or key stored in app settings/database. A configured
-key indicator checks presence/format only; it does not make an API call. For example,
-Windows PowerShell, from the repository directory:
+key indicator (including `doctor`'s `gemini_configured`) checks presence/format only;
+it does not make an API call.
+
+On Windows, `start-media-clarity-gemini.cmd` opens a hidden console prompt before
+starting the app. On any supported terminal, use `python -m media_clarity
+--prompt-gemini-key`. A valid existing environment key skips the prompt. Empty Enter
+starts viewing only; cancellation, unsupported hidden input or invalid format stops
+before creating the app/library. No plaintext-input fallback is allowed.
+The key is held in the server process environment for this session and inherited by
+its child processes, as with the manual environment setup (including OS browser
+launchers). It is not written to files, settings, registry, logs or shell arguments.
+It is restored/removed from the environment when the serving call ends; this is not
+a guarantee of zeroing process memory. No API request is made by the prompt.
+
+For manual setup, Windows PowerShell, from the repository directory:
 
 ```powershell
 $geminiKey = Read-Host 'Gemini API key' -AsSecureString
