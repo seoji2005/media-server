@@ -65,6 +65,8 @@ raise SystemExit(main())'''
             shutil.copyfile(ROOT/script.name,script)
             gemini_script = root/'start-media-clarity-gemini.cmd'
             shutil.copyfile(ROOT/gemini_script.name,gemini_script)
+            check_script = root/'check-media-clarity.cmd'
+            shutil.copyfile(ROOT/check_script.name,check_script)
             def run(launcher=script):
                 return subprocess.run(['cmd.exe','/d','/c','call',str(launcher),'--help'],cwd=temp,
                     stdin=subprocess.DEVNULL,capture_output=True,timeout=20)
@@ -74,7 +76,10 @@ raise SystemExit(main())'''
             missing_gemini = run(gemini_script)
             self.assertEqual(missing_gemini.returncode,1)
             self.assertIn('처음 실행 설정',missing_gemini.stdout.decode('utf-8'))
+            self.assertEqual(run(check_script).returncode,1)
             shutil.copytree(ROOT/'media_clarity',root/'media_clarity',ignore=shutil.ignore_patterns('__pycache__'))
+            (root/'scripts').mkdir()
+            shutil.copyfile(ROOT/'scripts/check_setup.py',root/'scripts/check_setup.py')
             subprocess.run([sys.executable,'-m','venv','--without-pip','--system-site-packages',str(root/'.venv')],
                            check=True,capture_output=True,timeout=30)
             ready = run()
@@ -83,3 +88,6 @@ raise SystemExit(main())'''
             ready_gemini = run(gemini_script)
             self.assertEqual(ready_gemini.returncode,0,ready_gemini.stderr.decode('utf-8',errors='replace'))
             self.assertIn(b'--prompt-gemini-key',ready_gemini.stdout)
+            ready_check = run(check_script)
+            self.assertEqual(ready_check.returncode,0,ready_check.stderr.decode('utf-8',errors='replace'))
+            self.assertIn(b'--json',ready_check.stdout)
