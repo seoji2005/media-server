@@ -106,6 +106,27 @@ def no_symlink(path: Path) -> None:
             raise MediaError("unsafe_storage", 503)
 
 
+def open_lock(path: Path, code: str, status: int):
+    """Return a retained OS lock; closing the stream releases it without deletion."""
+    no_symlink(path)
+    stream = path.open('a+b')
+    try:
+        if os.name == 'nt':
+            import msvcrt
+            stream.seek(0)
+            if not stream.read(1):
+                stream.write(b'0'); stream.flush()
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        stream.close()
+        raise MediaError(code, status) from None
+    return stream
+
+
 def title_from_name(name: str) -> str:
     # Only the basename is user-visible; never retain a client/server source path.
     clean = name.replace("\\", "/").split("/")[-1]
@@ -166,24 +187,7 @@ class Store:
             no_symlink(path)
             path.mkdir(exist_ok=True, mode=0o700)
         lock = self.root / "instance.lock"
-        no_symlink(lock)
-        self.lock_file = lock.open("a+b")
-        try:
-            if os.name == "nt":
-                import msvcrt
-                self.lock_file.seek(0)
-                if not self.lock_file.read(1):
-                    self.lock_file.write(b"0")
-                    self.lock_file.flush()
-                self.lock_file.seek(0)
-                msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            self.lock_file.close()
-            self.lock_file = None
-            raise MediaError("already_running", 503) from None
+        self.lock_file = open_lock(lock, 'already_running', 503)
         try:
             self._init_db()
             self._recover()

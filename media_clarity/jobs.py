@@ -16,7 +16,7 @@ import threading
 import time
 import uuid
 
-from .storage import ID, MediaError, no_symlink
+from .storage import ID, MediaError, no_symlink, open_lock
 from .subtitles import MAX_SUBTITLE_BYTES, parse_caption, validate_cues, webvtt, translation_units, korean_text, korean_language
 from .subtitle_layout import generated_layout
 from . import asr_checkpoints, gemini, qwen
@@ -94,26 +94,8 @@ def document(value):
 def worker_guard(root):
     """A kernel-owned worker lease outlives a server crash and Python GIL stalls."""
     path = root / 'worker.lock'
-    no_symlink(path)
-    stream = path.open('a+b')
-    try:
-        try:
-            if os.name == 'nt':
-                import msvcrt
-                stream.seek(0)
-                if not stream.read(1):
-                    stream.write(b'0')
-                    stream.flush()
-                stream.seek(0)
-                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            raise MediaError('processing_worker_active', 409) from None
+    with open_lock(path, 'processing_worker_active', 409):
         yield
-    finally:
-        stream.close()
 
 
 class Jobs:

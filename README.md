@@ -91,6 +91,12 @@ Python 3.12·64비트, 두 requirements 파일의 지정 버전, FFmpeg/ffprobe�
 영상이나 DB를 읽거나 변경하지 않습니다. 모델 전체 SHA256·실제 추론·코덱별 재생·
 Gemini 연결은 이 검사와 별도로 확인해야 합니다.
 
+보존된 Qwen 모델 아카이브가 있으면 [오프라인 캐시 복원](docs/qwen-subtitles.md#offline-cache-restore)을
+사용할 수 있습니다. `restore-qwen-models.cmd`는 지정한 원본 캐시의 manifest·15개 ZIP·
+전체 가중치 SHA256를 검증하고 기존의 올바른 파일을 재사용합니다. 다른 내용의 기존 파일,
+완료 모델과 중단된 `.partial` 파일은 보존합니다. 설치된 런타임이 부족하면 복원을 시작하지
+않습니다. 의존 패키지 설치나 API 연결까지 수행하는 설치 프로그램은 아닙니다.
+
 macOS/Linux:
 
 ```sh

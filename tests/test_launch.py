@@ -67,6 +67,8 @@ raise SystemExit(main())'''
             shutil.copyfile(ROOT/gemini_script.name,gemini_script)
             check_script = root/'check-media-clarity.cmd'
             shutil.copyfile(ROOT/check_script.name,check_script)
+            restore_script = root/'restore-qwen-models.cmd'
+            shutil.copyfile(ROOT/restore_script.name,restore_script)
             def run(launcher=script):
                 return subprocess.run(['cmd.exe','/d','/c','call',str(launcher),'--help'],cwd=temp,
                     stdin=subprocess.DEVNULL,capture_output=True,timeout=20)
@@ -77,9 +79,11 @@ raise SystemExit(main())'''
             self.assertEqual(missing_gemini.returncode,1)
             self.assertIn('처음 실행 설정',missing_gemini.stdout.decode('utf-8'))
             self.assertEqual(run(check_script).returncode,1)
+            self.assertEqual(run(restore_script).returncode,1)
             shutil.copytree(ROOT/'media_clarity',root/'media_clarity',ignore=shutil.ignore_patterns('__pycache__'))
             (root/'scripts').mkdir()
             shutil.copyfile(ROOT/'scripts/check_setup.py',root/'scripts/check_setup.py')
+            shutil.copyfile(ROOT/'scripts/restore_qwen_cache.py',root/'scripts/restore_qwen_cache.py')
             subprocess.run([sys.executable,'-m','venv','--without-pip','--system-site-packages',str(root/'.venv')],
                            check=True,capture_output=True,timeout=30)
             ready = run()
@@ -91,3 +95,6 @@ raise SystemExit(main())'''
             ready_check = run(check_script)
             self.assertEqual(ready_check.returncode,0,ready_check.stderr.decode('utf-8',errors='replace'))
             self.assertIn(b'--json',ready_check.stdout)
+            ready_restore = run(restore_script)
+            self.assertEqual(ready_restore.returncode,0,ready_restore.stderr.decode('utf-8',errors='replace'))
+            self.assertIn(b'--verify-only',ready_restore.stdout)
