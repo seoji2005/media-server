@@ -111,6 +111,33 @@ class ModelCheckTests(unittest.TestCase):
             self.assertEqual(result['error'], error)
         self.assertEqual(list((self.root/'models').iterdir()), [self.root/'models/settings.json'])
 
+    def test_separate_native_probe_installs_its_own_socket_guard(self):
+        # Synthetic audit events exercise the actual child boundary, with no DNS
+        # or network traffic even if the child guard regresses.
+        code = '''import sys
+from pathlib import Path
+from media_clarity import model_check as m
+from media_clarity.storage import MediaError
+def inspecting(root,**kwargs):
+ for event in ('socket.connect','socket.getaddrinfo','socket.sendto'):
+  try:sys.audit(event,None,('example.invalid',443))
+  except MediaError as error:
+   if error.code!='model_check_failed':raise AssertionError('wrong guard')
+  else:raise AssertionError('child guard missing')
+ return dict(device='cpu',selection='default',state='ready',error=None)
+m.inspect_runtime=inspecting
+sys.argv=['model_check',sys.argv[1],'--runtime-only']
+m.main()
+'''
+        real_popen = subprocess.Popen
+        def launch(command, **kwargs):
+            self.assertIn('--runtime-only', command)
+            return real_popen([sys.executable,'-c',code,str(self.root)], **kwargs)
+        with patch('media_clarity.model_check.subprocess.Popen', side_effect=launch):
+            result = diagnose(self.root, runtime_only=True)
+        self.assertEqual(result['state'], 'ready')
+        self.assertIsNone(result['error'])
+
     def test_translation_only_preflight_never_imports_asr_and_keeps_cuda_checks(self):
         original=builtins.__import__
         def importing(name,*args,**kwargs):

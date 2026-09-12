@@ -95,6 +95,12 @@ def main():
     with open(os.devnull, 'wb') as quiet:
         os.dup2(quiet.fileno(), 1)
         os.dup2(quiet.fileno(), 2)
+    # Audit hooks are process-local. A setup parent's guard is not inherited by
+    # this separately launched native probe, so install our own before imports.
+    def offline(event, values):
+        if event in ('socket.connect', 'socket.getaddrinfo', 'socket.sendto'):
+            raise MediaError('model_check_failed', 503)
+    sys.addaudithook(offline)
     def parent_gone():
         os.read(sys.stdin.fileno(), 1)
         os._exit(1)

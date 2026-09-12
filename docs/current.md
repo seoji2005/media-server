@@ -113,6 +113,10 @@ restoration with invalid device settings or a blocked native runtime. The isolat
 runtime-only check above was added before hashing/writes; invalid configuration,
 native import failure and missing CUDA now block model publication. Preserve the
 initial reviewed revision. Require fresh independent delta review and fixed-HEAD CI.
+Delta review also reproduced that a separately launched native probe does not
+inherit its restore parent's socket audit hook. The probe now installs its own
+guard before runtime imports. A real separate-child regression uses synthetic
+audit events with zero DNS/network traffic; every socket event must be blocked.
 Require uninvolved persistence/privacy review and fixed-HEAD Windows/Ubuntu CI
 before development merge. Observe each CI at most ten minutes/ten polls.
 
