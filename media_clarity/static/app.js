@@ -721,7 +721,7 @@ function subtitleSearchMatches(cues,query){
     const next=cues[i+1];
     // Only two consecutive, non-overlapping cues separated by at most 0.5 s.
     // Overlapping speakers and longer pauses must not become one sentence.
-    if(!next||!Number.isFinite(cue.end)||next.start<cue.end||next.start-cue.end>0.5)continue;
+    if(!next||!Number.isFinite(cue.end)||next.start<cue.end||next.start-cue.end>0.5+1e-9)continue;
     if(!cue.searchText||!next.searchText)continue;
     // A display boundary may split either words (Japanese) or a spaced phrase.
     // The match must actually consume text on both sides of that boundary.

@@ -94,6 +94,7 @@ function saves(){return requests.filter(r=>r.method==='PUT');}
  // General adjacent-cue cases, independent of any previous model evaluation text.
  const matching=(rows,q)=>w.qa.subtitleSearchMatches(rows.map(([start,end,text])=>({start,end,text,searchText:w.qa.subtitleSearchText(text)})),w.qa.subtitleSearchText(q));
  assert.equal(matching([[1,2,'오늘은'],[2.5,3,'공원에 가요']],'오늘은 공원에').length,1);
+ assert.equal(matching([[0.1,.564,'오늘은'],[1.064,2,'공원에']],'오늘은 공원에').length,1,'500 ms floating-point boundary');
  assert.equal(matching([[1,2,'今日は公'],[2,3,'園に行く']],'公園').length,1,'no-space display boundary');
  assert.equal(matching([[1,2,'ＡＢＣ'],[2,3,'한글']],'abc 한글').length,1);
  assert.equal(matching([[1,2,'오늘은'],[2.501,3,'공원에']],'오늘은 공원에').length,0,'longer pause');
