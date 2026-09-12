@@ -713,6 +713,26 @@ for(const action of ["pause","resume","restart"])$("subtitle-"+action).addEventL
 let subtitleSearch={state:"empty",cues:[]}, subtitleSearchTimer=null,subtitleSearchRender=0;
 const SUBTITLE_PAGE_SIZE=50;
 function subtitleSearchText(value){return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/gu," ").trim();}
+function subtitleSearchMatches(cues,query){
+  const matches=[];
+  for(let i=0;i<cues.length;i++){
+    const cue=cues[i];
+    if(cue.searchText.includes(query)){matches.push(cue);continue;}
+    const next=cues[i+1];
+    // Only two consecutive, non-overlapping cues separated by at most 0.5 s.
+    // Overlapping speakers and longer pauses must not become one sentence.
+    if(!next||!Number.isFinite(cue.end)||next.start<cue.end||next.start-cue.end>0.5+1e-9)continue;
+    if(!cue.searchText||!next.searchText)continue;
+    // A display boundary may split either words (Japanese) or a spaced phrase.
+    // The match must actually consume text on both sides of that boundary.
+    const crosses=[" ",""].some(separator=>{
+      const joined=cue.searchText+separator+next.searchText,index=joined.indexOf(query);
+      return index>=0&&index<cue.searchText.length&&index+query.length>cue.searchText.length+separator.length;
+    });
+    if(crosses)matches.push({...cue,text:cue.text+"\n"+next.text});
+  }
+  return matches;
+}
 function resetSubtitleSearch(clearQuery=false,state="empty"){
   clearTimeout(subtitleSearchTimer);subtitleSearchTimer=null;
   subtitleSearch={state,cues:[]};
@@ -733,9 +753,9 @@ function renderSubtitleSearch(){
   // Disabled native tracks expose null cues, including when loading finishes Off.
   // Read after the loaded track is showing; keep plain text only for this selection.
   if(selected.cues===null)selected.cues=Array.from(selected.track.cues||[]).map(cue=>{
-    const text=cue.getCueAsHTML().textContent;return {start:cue.startTime,text,searchText:subtitleSearchText(text)};
+    const text=cue.getCueAsHTML().textContent;return {start:cue.startTime,end:cue.endTime,text,searchText:subtitleSearchText(text)};
   });
-  if(selected.query!==query){selected.query=query;selected.matches=selected.cues.filter(cue=>cue.searchText.includes(query));selected.page=0;}
+  if(selected.query!==query){selected.query=query;selected.matches=subtitleSearchMatches(selected.cues,query);selected.page=0;}
   const count=selected.matches.length;
   selected.page=Math.max(0,Math.min(selected.page||0,Math.ceil(count/SUBTITLE_PAGE_SIZE)-1));
   const start=selected.page*SUBTITLE_PAGE_SIZE,end=Math.min(start+SUBTITLE_PAGE_SIZE,count);
