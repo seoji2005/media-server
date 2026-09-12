@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import hashlib
 import html
 import json
+import math
 import os
 import re
 import sqlite3
@@ -490,10 +491,14 @@ class Jobs:
                 presentation['timing_review_count'] = json.loads(original[0] or '{}').get('timing_review_count',0)
             elif job['speech_profile'] in qwen.PROFILES:
                 parts = asr_checkpoints.load(self.store, job, media['duration'])
+                # Ignore arithmetic noise far below one sample/timestamp tick;
+                # keep the saved raw/official times and real review reasons intact.
                 presentation['timing_review_count'] = sum(
                     p['evidence']['boundary'] == 'forced' or any(
-                        u['start'] == u['end'] or u['start'] != u['raw_start'] or u['end'] != u['raw_end']
-                        or u['end'] > p['evidence'].get('recognition_end',p['clip'][1])-p['clip'][0]
+                        u['start'] == u['end']
+                        or not math.isclose(u['start'],u['raw_start'],rel_tol=0,abs_tol=1e-9)
+                        or not math.isclose(u['end'],u['raw_end'],rel_tol=0,abs_tol=1e-9)
+                        or u['end'] > p['evidence'].get('recognition_end',p['clip'][1])-p['clip'][0]+1e-9
                         for u in p['evidence']['units']) for p in parts)
         presentation_json = document(presentation) if presentation is not None else None
         summary_json = None
