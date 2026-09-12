@@ -10,6 +10,11 @@ Opening a video sends nothing; the labeled action still discloses text egress an
 
 ## Install
 
+For bounded first-run package setup and optional saved-cache restoration, use
+[the runtime installer](runtime-install.md). It keeps the pins below, stops on
+existing-environment conflicts and never invokes the network model downloader.
+The manual commands below do not themselves provide a whole-run deadline.
+
 Keep Python 3.12 and the normal `requirements.txt`. Install the appropriate official
 PyTorch 2.8 CPU/CUDA wheel for the machine, then:
 

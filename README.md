@@ -59,13 +59,22 @@ Python **3.12**, FFmpeg와 ffprobe가 필요합니다. FFmpeg는 신뢰하는 �
 Windows PowerShell, 저장소 폴더에서:
 
 ```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python -m pip install -r requirements.txt
 ffmpeg -version
 ffprobe -version
+.\install-media-clarity.cmd
 .\.venv\Scripts\python -m media_clarity doctor
 .\.venv\Scripts\python -m media_clarity
 ```
+
+**install-media-clarity.cmd**는 Python 3.12와 FFmpeg가 설치된 PC에서 현재 지정된
+자막 패키지까지 준비합니다. Windows 기본 장치는 CUDA이며, 첫 설치를 CPU로 하려면
+`--device cpu`를 붙이세요. 이미 저장된 장치 설정과 충돌하면 변경 없이 멈춥니다.
+기존 `.venv`는 검증만 하고 패키지를 바꾸지 않습니다. 불완전하거나 호환되지 않는
+기존 환경이 있으면 보존한 뒤 새 저장소 폴더에서 설치하세요.
+보존 캐시 경로를 함께 지정하면 [모델 복원과 최종 진단](docs/runtime-install.md)까지
+연결됩니다. API 키 입력이나 모델 다운로드는 이 설치 명령에 포함하지 않습니다.
+전체 30분·설치 파일 바이트 변화 정체 120초·연결/재개 재시도 0을 적용합니다.
+완료된 다운로드와 중단된 환경은 `.setup-cache`·`.venv`에 남습니다.
 
 최초 설치 뒤에는 **start-media-clarity.cmd를 더블클릭**하면 됩니다. 보관함과 서버가
 준비된 뒤 기본 브라우저를 엽니다. 실행 창에서 Ctrl+C로 종료하세요. 브라우저가 열리지

@@ -1,5 +1,6 @@
 # Local execution and private inputs; generated data stays outside the checkout.
 .venv/
+.setup-cache/
 __pycache__/
 .pytest_cache/
 node_modules/

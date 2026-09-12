@@ -202,7 +202,7 @@ def run_setup(command, *, total_seconds, idle_seconds, expected_checks, progress
                     result['checks'].append(event['check'])
                     if progress:
                         progress(event['check'])
-                elif event.get('progress') in ('models', 'asr', 'aligner') and progress:
+                elif event.get('progress') in ('models', 'asr', 'aligner', 'install') and progress:
                     progress({'name':event['progress'], 'state':'checking'})
                 elif event.get('state') in ('ready', 'blocked'):
                     result['state'] = event['state']
