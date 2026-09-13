@@ -37,6 +37,13 @@ moment-entry assertion sampled its baseline before the preceding close's positio
 write committed (7.001268 versus 7.00305 seconds). The native fixture now waits for
 confirmed completion of preceding saves before sampling/navigating; its exact
 no-write assertions remain intact. Final fixed-revision CI belongs to PR67.
+CI34760211040 then passed all Ubuntu checks and Windows general native first/
+restart checks, including moment entry. Windows failed the separate Codespaces
+fixture's stored-position assertion after it reloaded immediately on close. That
+fixture now deliberately holds a real position write across close, confirms the
+old DB position, then releases and awaits successful saves before reload. It also
+settles resume/pause saves before browser exit; existing DB/native restore and
+server-restart assertions remain. Both failures remain in the PR evidence.
 
 Completed in PR65: recommendation/preference reads are bounded at ten seconds and
 writes at thirty, including response bodies. Uncertain saves require saved-state

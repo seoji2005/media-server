@@ -17,6 +17,8 @@ try{
     return route.continue();
   });
   const video=page.locator('#video'),select=page.locator('#subtitle-select');
+  const savedPosition=()=>page.waitForFunction(()=>[...positionSaves.values()].every(state=>
+    !state.running&&!state.pending&&state.latest?.saved&&!state.latest.failed),null,{timeout:5000});
   async function open(expectRestore=false){
     if(expectRestore){
       const saved=await(await page.request.get(base+`/api/library/${item}`)).json();
@@ -96,12 +98,29 @@ try{
     await page.waitForFunction(()=>{const v=document.querySelector('#video');return v.currentTime>=4.45&&v.currentTime<5;});
     await video.evaluate(v=>v.play());
     await page.waitForFunction(()=>document.querySelector('#video').getVideoPlaybackQuality().totalVideoFrames>5);
-    await video.evaluate(v=>{v.pause();v.currentTime=18.25;});
-    await page.waitForFunction(()=>!document.querySelector('#video').seeking);
-    await page.locator('#player-close').click();
-    await page.waitForFunction(()=>!document.querySelector('#player-dialog').open);
+    // Hold an actual write across close so this checks the pending-save contract
+    // deterministically. A hidden dialog is not a commit acknowledgement.
+    const positionURL=base+`/api/library/${item}/position`;
+    let release;const gate=new Promise(resolve=>release=resolve);
+    const hold=async route=>{
+      await page.evaluate(()=>window.cloudPositionHeld=true);
+      await gate;await route.continue();
+    };
+    await page.route(positionURL,hold,{times:1});
+    try{
+      await video.evaluate(v=>{v.pause();v.currentTime=18.25;});
+      await page.waitForFunction(()=>!document.querySelector('#video').seeking&&window.cloudPositionHeld===true);
+      await page.locator('#player-close').click();
+      await page.waitForFunction(()=>!document.querySelector('#player-dialog').open);
+      const pending=await(await page.request.get(base+`/api/library/${item}`)).json();
+      assert(Math.abs(pending.position-18.25)>=.05,'held final seek must still be uncommitted after close');
+      release();await savedPosition();
+    }finally{release();await page.unroute(positionURL,hold);}
     await page.reload();await open(true);await restored();
   }
+  // The parent checks SQLite after this browser exits and restarts the server.
+  // Confirm any ordinary resume/pause save before discarding this page too.
+  await savedPosition();
   if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
     await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
     await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`codespaces-${phase}.png`)});
