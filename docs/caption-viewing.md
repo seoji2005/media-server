@@ -5,6 +5,21 @@ Without an explicit choice, reopening selects the latest matching audio caption.
 The automatic-selection button clears the saved choice and offset. Missing saved
 versions stay Off with a notice instead of silently selecting another version.
 
+When another Korean caption is available, **최신 한국어 자막 보기** beside the
+selector uses the newest saved Korean track for the current audio. It remains
+reachable while preparation is folded, including from a foreign caption, source
+view, older version or Off. Arrival of a result does not change the current choice.
+The explicit click uses the existing caption-setting save, resets timing to zero
+like ordinary version selection, and keeps media position/play state. Pending or
+unconfirmed caption saves disable it. It cannot start or repeat processing.
+"Latest" means the newest available matching-language track, not a claim that a
+particular job produced it. Other-audio and foreign tracks are excluded.
+
+Imported foreign captions use **Gemini로 한국어 번역** for their first translation;
+generated results retain **Gemini로 다시 번역**. A result's source is labeled
+**원문 자막** because it can come from either speech recognition or a supplied file.
+The source-content accuracy notice remains; no provenance is inferred from text.
+
 Earlier/later controls step by 0.5 seconds within ±10 seconds. Positive values
 show captions later. Adjusting timing pins the displayed version. Selecting another
 caption resets its timing. Off resets the saved offset; native Off retains its

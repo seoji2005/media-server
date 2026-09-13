@@ -725,9 +725,15 @@ $("model-check").addEventListener("click",async()=>{
 let captionView=null, captionViewVersion=0, captionSaving=false, captionSaveError="", captionNativeHidden=false, subtitleReadVersion=0;
 const pendingCaptionViews=new Map();
 function captionKey(owner){return `${owner.id}:${owner.audio_index||0}`;}
+function latestKoreanSubtitle(){
+  return subtitleTracks.find(t=>(t.audio_index||0)===(activeItem?.audio_index||0)&&["ko","kor"].includes((t.language||"").split("-")[0].toLowerCase()));
+}
 function renderCaptionView(){
   const offset=captionView?.offset_ms||0,disabled=!captionView||captionSaving||!!captionSaveError;
   $("subtitle-select").disabled=disabled;
+  const ready=latestKoreanSubtitle();
+  $("subtitle-ready").hidden=!ready||(subtitleLoaded===ready.id&&!captionNativeHidden&&captionView?.selection!=="");
+  $("subtitle-ready").disabled=disabled;
   $("caption-earlier").disabled=disabled||!subtitleLoaded||captionNativeHidden||offset<=-10000;
   $("caption-later").disabled=disabled||!subtitleLoaded||captionNativeHidden||offset>=10000;
   $("caption-reset").disabled=disabled||!subtitleLoaded||captionNativeHidden||!offset;
@@ -763,6 +769,10 @@ for(const [id,delta] of [["caption-earlier",-500],["caption-later",500],["captio
   if(subtitleLoaded&&captionView)saveCaptionView(subtitleLoaded,delta?Math.min(10000,Math.max(-10000,captionView.offset_ms+delta)):0);
 });
 $("caption-auto").addEventListener("click",()=>saveCaptionView(null));
+$("subtitle-ready").addEventListener("click",()=>{
+  const track=latestKoreanSubtitle();
+  if(track&&!$("subtitle-ready").hidden&&!$("subtitle-ready").disabled)saveCaptionView(track.id);
+});
 $("caption-view-retry").addEventListener("click",()=>{
   if(!activeItem)return;captionViewVersion++;captionView=null;captionSaveError="";subtitleLoaded=null;renderCaptionView();refreshSubtitles(activeItem,{confirm:true});
 });
@@ -770,7 +780,7 @@ function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitl
 function selectedSubtitle(){const [id,view]=(subtitleLoaded||"").split(":");return {track:subtitleTracks.find(t=>t.id===id),transcript:view==="transcript"};}
 function renderSubtitleNotes(){
   const {track,transcript}=selectedSubtitle(),notes=[];
-  if(transcript)notes.push("음성 인식으로 만든 원문 자막입니다. 실제 대사와 다를 수 있습니다.");
+  if(transcript)notes.push("번역에 사용한 원문 자막입니다. 실제 대사와 다를 수 있습니다.");
   if(!transcript&&track?.review_count)notes.push(`가독성 확인이 필요한 표시 구간 ${track.review_count}개${track.fast_count?` · 읽기 속도가 빠른 구간 ${track.fast_count}개`:""}. 번역 내용을 생략하지 않고 표시했습니다.`);
   if(track?.timing_review_count)notes.push(`시간 정렬 확인이 필요한 음성 구간 ${track.timing_review_count}개. 원문과 원래 시간값을 보존했습니다.`);
   const imported=track?.import_notes;
@@ -791,7 +801,7 @@ function renderRetranslation(){
   $("subtitle-retranslate").hidden=!(track?.can_retranslate??track?.has_transcript)||!!(subtitleJob&&["queued","running","paused"].includes(subtitleJob.state));
   $("subtitle-translator-panel").hidden=!!(subtitleJob&&["queued","running","paused"].includes(subtitleJob.state));
   $("subtitle-generate").textContent="Gemini로 자막 만들기";
-  $("subtitle-retranslate").textContent="Gemini로 다시 번역";
+  $("subtitle-retranslate").textContent=track?.source==="supplied"?"Gemini로 한국어 번역":"Gemini로 다시 번역";
   $("subtitle-cloud-note").hidden=false;
   $("subtitle-cloud-note").textContent=`새 자막의 음성 인식은 이 기기에서 Qwen으로 실행하고 시간에 맞춥니다. 인식·저장된 대사와 앞뒤 문맥 텍스트를 Google로 보내 한국어로 번역합니다. 영상·음성 파일은 보내지 않습니다. API 사용료가 발생합니다. ${geminiConfigured?"API 키가 설정되어 있습니다. 연결은 번역을 시작할 때 확인합니다.":"API 키 설정이 필요합니다. 설치 안내를 확인해 주세요."} 중단 후 재개하면 처리 중이던 요청이 다시 전송되어 과금될 수 있습니다. 재개·처음부터 다시는 기존 작업의 번역 엔진을 유지합니다.`;
 }
@@ -801,7 +811,7 @@ function renderPreparationSummary(){
   if(track?.import_notes&&Object.values(track.import_notes).some(Boolean))label="가져온 자막 보정 내역";
   if(track?.fallback_count)label=`원문 ${track.fallback_count}구간`;
   if(track?.review_count)label=`표시 확인 ${track.review_count}구간`;
-  if(transcript)label="원문 · 자동 전사";
+  if(transcript)label="원문 자막";
   if(track&&(track.audio_index||0)!==(activeItem?.audio_index||0))label=`다른 오디오의 자막 · ${(track.audio_index||0)+1}`;
   if(j?.state==="paused")label="일시정지";
   if(j?.state==="queued")label="대기 중";
@@ -835,7 +845,7 @@ function loadSubtitle(id,force=false){
   const owner=activeItem,{track:chosen,transcript}=selectedSubtitle();
   if(!chosen||(transcript&&!chosen.has_transcript))return;
   const query=new URLSearchParams();if(transcript)query.set("transcript","true");if(captionView?.offset_ms)query.set("offset_ms",String(captionView.offset_ms));
-  const track=document.createElement("track");track.kind="subtitles";track.srclang=transcript?"und":chosen.language||"ko";track.label=transcript?"원문 · 자동 전사":chosen.language&&chosen.language!=="ko"?chosen.language:"한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${chosen.id}.vtt${query.size?"?"+query:""}`;
+  const track=document.createElement("track");track.kind="subtitles";track.srclang=transcript?"und":chosen.language||"ko";track.label=transcript?"원문 자막":chosen.language&&chosen.language!=="ko"?chosen.language:"한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${chosen.id}.vtt${query.size?"?"+query:""}`;
   track.dataset.offsetMs=String(captionView?.offset_ms||0);
   track.addEventListener("load",()=>{
     if(activeItem!==owner||subtitleLoaded!==id||track.parentNode!==video)return;
@@ -869,7 +879,7 @@ async function refreshSubtitles(owner,{confirm=false}={}){
     for(const [i,t] of data.tracks.entries()){
       const version=` · ${data.tracks.length-i}${(owner.audio_tracks||[]).length>1?` · 오디오 ${(t.audio_index||0)+1}`:""}`;
       select.add(new Option(`${t.source==="supplied"?`가져온 자막 · ${t.language||"ko"}`:t.provider==="gemini"?"한국어 · Gemini":"한국어 · 자동 번역"}${version}${t.fallback_count?` · 원문 ${t.fallback_count}구간`:""}`,t.id));
-      if(t.has_transcript)select.add(new Option(`원문 · 자동 전사${version}`,`${t.id}:transcript`));
+      if(t.has_transcript)select.add(new Option(`원문 자막${version}`,`${t.id}:transcript`));
     }
     const matching=data.tracks.filter(t=>(t.audio_index||0)===(owner.audio_index||0));
     const chosen=captionView.selection!==null?captionView.selection:subtitleLoaded===null?(matching[0]?.id||""):was;

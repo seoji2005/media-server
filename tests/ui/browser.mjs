@@ -393,7 +393,7 @@ try {
   }
   await page.locator('#title-panel > summary').click();
   if (phase === 'restart') {
-    const sourceId = await selector.locator('option').filter({hasText: '원문 · 자동 전사'}).getAttribute('value');
+    const sourceId = await selector.locator('option').filter({hasText: '원문 자막'}).getAttribute('value');
     const position = await video.evaluate(v => v.currentTime);
     await selector.selectOption(sourceId);
     await page.waitForFunction(() => [...document.querySelector('#video').textTracks].some(t =>
@@ -436,12 +436,25 @@ try {
     await page.locator('#subtitle-query').fill('Original');
     await page.locator('#subtitle-results button').waitFor();
     assert.equal(await page.locator('#subtitle-results button').count(), 1);
-    await selector.selectOption(sourceId.split(':')[0]);
+    // The prepared Korean result can be used without reopening preparation or
+    // starting processing. The source remains selected until this explicit click.
+    await page.locator('#subtitle-preparation').evaluate(el=>el.open=false);
+    const ready=page.locator('#subtitle-ready'),commands=[];
+    const observeReady=request=>{if(request.method()==='POST')commands.push(true);};
+    page.on('request',observeReady);
+    assert.equal(await ready.isVisible(),true);assert.equal(await selector.inputValue(),sourceId);
+    const readyBefore=await video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused}));
+    const readySaved=page.waitForResponse(r=>r.request().method()==='PUT'&&r.url().endsWith('/caption-view'));
+    await ready.click();const savedResponse=await readySaved;assert.equal(savedResponse.status(),200);
+    const savedReady=await savedResponse.json();assert.equal(savedReady.selection,sourceId.split(':')[0]);assert.equal(savedReady.offset_ms,0);
     await page.waitForFunction(() => [...document.querySelector('#video').textTracks].some(t =>
       t.mode === 'showing' && [...t.activeCues].some(c => c.text.includes('한국어 자동 번역 확인'))));
     await page.waitForFunction(() => document.querySelectorAll('#subtitle-results button').length === 0);
+    assert.equal(await ready.isVisible(),false);assert.deepEqual(commands,[]);page.off('request',observeReady);
+    assert.deepEqual(await video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused})),readyBefore);
+    console.log(JSON.stringify({phase,readyKoreanCaption:true}));
     await selector.selectOption(trackId);
-    assert.equal(await retranslate.isVisible(), false);
+    assert.equal(await retranslate.evaluate(el=>el.hidden), true);
     await page.waitForFunction(() => document.querySelector('#video track')?.readyState === 2);
   }
   await selector.selectOption('');
