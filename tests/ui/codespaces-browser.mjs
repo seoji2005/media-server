@@ -66,13 +66,17 @@ try{
       const url=new URL(request.url());
       if(request.method()==='POST'&&url.pathname===`/api/library/${item}/subtitles`)imports.push(true);
     };page.on('request',observe);
+    const beforeIds=state.tracks.map(t=>t.id);
     const receipt=page.waitForResponse(response=>response.request().method()==='POST'&&
       new URL(response.url()).pathname===`/api/library/${item}/subtitles`);
     await page.locator('#subtitle-input').setInputFiles(manualSubtitle);
     const importedResponse=await receipt;assert.equal(importedResponse.status(),201);
-    const imported=(await importedResponse.json()).id;
-    await page.waitForFunction(id=>!document.querySelector('#subtitle-select').disabled&&
-      document.querySelector('#subtitle-select').value===id,imported);
+    // The product consumes the POST body and then confirms the saved status. Read
+    // the resulting selection instead of asking DevTools to retain a second copy
+    // of the response body beside active media requests.
+    await page.waitForFunction(ids=>{const select=document.querySelector('#subtitle-select');
+      return !select.disabled&&select.value&&!ids.includes(select.value);},beforeIds);
+    const imported=await select.inputValue();
     assert.equal(imports.length,1);assert.match(await page.locator('#subtitle-state').textContent(),/자막/);
     assert.match(await(await page.request.get(base+`/api/library/${item}/subtitles/${imported}.vtt`)).text(),/직접 가져온 자막 확인/);
     page.off('request',observe);
