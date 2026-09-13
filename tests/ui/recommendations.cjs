@@ -39,6 +39,25 @@ w.eval(fs.readFileSync(path.join(repo,'media_clarity/static/app.js'),'utf8')+'\n
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 const control=d.getElementById('preference-controls'),include=d.getElementById('preference-include'),value=d.getElementById('preference-value');
 const change=element=>element.dispatchEvent(new w.Event('change'));
+// Keep the transport alive after abort to exercise late replies/commits too.
+const fixtureFetch=w.fetch;let held=null;
+w.fetch=async(url,options={})=>{
+ const h=held;
+ if(!h||h.url!==url||h.method!==(options.method||'GET'))return fixtureFetch(url,options);
+ held=null;h.request=options;
+ if(h.stage==='delivery')await h.gate;
+ const response=await fixtureFetch(url,options);
+ if(h.stage==='body'){const body=await response.json();return {...response,json:async()=>{await h.gate;return body;}};}
+ return response;
+};
+function hold(url,method='GET',stage='delivery'){
+ let release;const h={url,method,stage,gate:new Promise(resolve=>release=resolve),release:()=>release()};held=h;return h;
+}
+async function expire(ms){
+ const matches=[...timers].filter(([,t])=>t.ms===ms);
+ assert.equal(matches.length,1,`one ${ms}ms request deadline must exist`);
+ const [id,t]=matches[0];timers.delete(id);t.fn();await settle();
+}
 (async()=>{
  await settle();assert.equal(d.querySelectorAll('.media-card').length,2,'library unaffected');
  await w.qa.openPlayer('a');await settle();assert.equal(include.checked,false);assert.equal(value.value,'neutral');
@@ -84,7 +103,60 @@ const change=element=>element.dispatchEvent(new w.Event('change'));
  assert.equal(d.querySelectorAll('.media-card').length,0);assert.match(d.getElementById('empty-title').textContent,/못했어요/);
  failRecommendations=false;d.getElementById('nav-recommended').click();await settle();assert.equal(d.querySelectorAll('.media-card').length,1);
  d.getElementById('nav-all').click();assert.equal(d.querySelectorAll('.media-card').length,2);
+ // A stalled preference read must release the loading state, including a body
+ // that never finishes. Late replies cannot overwrite a newer explicit read.
+ await w.qa.closePlayer();
+ for(const stage of ['delivery','body']){
+  const h=hold('/api/library/a/preference','GET',stage);
+  await w.qa.openPlayer('a');await settle();assert(control.disabled);
+  await expire(10000);assert(h.request.signal.aborted);
+  assert(control.disabled);assert.equal(d.getElementById('preference-retry').hidden,false);
+  const beforeRetry=requests.length;await settle();assert.equal(requests.length,beforeRetry,'no automatic read retry');
+  prefs.a={included:false,preference:'less',revision:prefs.a.revision+1};
+  d.getElementById('preference-retry').click();await settle();assert(!control.disabled);assert.equal(value.value,'less');
+  h.release();await settle();assert.equal(value.value,'less');assert(!include.checked);
+  await w.qa.closePlayer();
+ }
+ // A timed-out write might still commit. Recovery is read-only, and the server
+ // revision protects a newer exclusion from an older, delayed inclusion.
+ await w.qa.openPlayer('a');await settle();
+ for(const stage of ['delivery','body']){
+  const h=hold('/api/library/a/preference','PUT',stage),before=copy(prefs.a);
+  include.checked=true;change(include);await settle();
+  await expire(30000);assert(h.request.signal.aborted);assert(control.disabled);
+  assert.equal(d.getElementById('preference-retry').hidden,false);
+  const writes=requests.filter(r=>r.method==='PUT').length;
+  change(include);await settle();assert.equal(requests.filter(r=>r.method==='PUT').length,writes);
+  const read=hold('/api/library/a/preference','GET','body');
+  d.getElementById('preference-retry').click();await settle();await expire(10000);
+  assert(control.disabled);assert.equal(d.getElementById('preference-retry').hidden,false);
+  d.getElementById('preference-retry').click();await settle();assert(!control.disabled);
+  assert.equal(requests.filter(r=>r.method==='PUT').length,writes,'status recovery sends no write');
+  assert.equal(include.checked,stage==='body','read reflects only the confirmed server state');
+  // Explicit new user edit: no replay of the timed-out inclusion.
+  include.checked=false;change(include);await settle();const latest=copy(prefs.a);
+  assert.equal(latest.revision,before.revision+(stage==='body'?2:1));
+  h.release();read.release();await settle();assert.deepEqual(prefs.a,latest);
+  assert(!control.disabled);assert(!include.checked,'late inclusion receipt cannot replace the newer exclusion');
+ }
+ // Reopening during a hung write still waits for its bounded settlement, then
+ // reads once; a delayed receipt cannot replace the reopened view.
+ const pending=hold('/api/library/a/preference','PUT','body');
+ value.value='like';change(value);await settle();
+ await w.qa.closePlayer();await w.qa.openPlayer('a');await settle();assert(control.disabled);
+ await expire(30000);assert(!control.disabled);assert.equal(value.value,'like');
+ pending.release();await settle();assert.equal(value.value,'like');
+ await w.qa.closePlayer();
+ for(const stage of ['delivery','body']){
+  const h=hold('/api/recommendations','GET',stage);
+  d.getElementById('nav-recommended').click();await settle();await expire(10000);
+  assert(h.request.signal.aborted);assert.match(d.getElementById('empty-title').textContent,/못했어요/);
+  const count=requests.length;await settle();assert.equal(requests.length,count,'no automatic recommendation retry');
+  d.getElementById('nav-recommended').click();await settle();
+  const current=d.getElementById('library-grid').textContent;
+  h.release();await settle();assert.equal(d.getElementById('library-grid').textContent,current);
+ }
  assert.equal(w.localStorage.length,0);assert.equal(w.sessionStorage.length,0);
  assert(requests.every(r=>r.url.startsWith('/api/')));
- console.log('PASS recommendation DOM: opt-in/save/exclusion, existing player, literal titles, stale response isolation, uncertain-write recovery, late item read, retry, memory-only UI (mock HTTP/media; not browser playback).');w.close();
+ console.log('PASS recommendation DOM: opt-in/save/exclusion, bounded headers/body, late commit conflict, explicit read recovery, reopen during save, stale response isolation, no automatic retries, memory-only UI (mock HTTP/media; not browser playback).');w.close();
 })().catch(e=>{console.error(e);process.exitCode=1;w.close();});
