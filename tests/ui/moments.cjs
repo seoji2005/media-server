@@ -2,14 +2,14 @@ const assert = require('node:assert/strict');
 const {JSDOM} = require('jsdom');
 
 module.exports = async function checkMoments(html, source) {
-  for (const delayed of ['session', 'library']) {
+  for (const delayed of ['session', 'library', 'session-failure']) {
     const entry = id => ({item_id:id.repeat(32), timeline:{file_id:id,sha256:id}, duration_ms:20000, start_ms:3000, end_ms:null});
     const a=entry('a'), b=entry('b'), c=entry('c');
     const fragment = value => '#moment='+encodeURIComponent(JSON.stringify(value));
     const dom = new JSDOM(html, {url:'http://127.0.0.1:8765/'+fragment(a),runScripts:'outside-only'});
     const w=dom.window, d=w.document, video=d.getElementById('video'), dialog=d.getElementById('player-dialog');
     const tick=()=>new Promise(resolve=>setTimeout(resolve,10));
-    let release, releaseSave, holdSave=false;
+    let release, releaseSave, holdSave=false, firstSession=true;
     const startup=new Promise(resolve=>{release=resolve;});
     const save=new Promise(resolve=>{releaseSave=resolve;});
     const item=id=>({id,title:id,duration:20,position:8,width:320,height:180,available:true,thumbnail:false,
@@ -18,6 +18,7 @@ module.exports = async function checkMoments(html, source) {
     w.fetch=async(url,options={})=>{
       let data={};
       if(url==='/api/session') {
+        if(delayed==='session-failure'&&firstSession){firstSession=false;throw Error('fixture startup unavailable');}
         if(delayed==='session')await startup;
         data={token:'fixture',diagnostics:{ffmpeg:true,ffprobe:true,models:{}}};
       } else if(url==='/api/library') {
@@ -44,6 +45,7 @@ module.exports = async function checkMoments(html, source) {
       if(delayed==='library')assert.equal(w.qa.owner().id,b.item_id);
       else assert.equal(w.qa.owner(),null);
       release();await tick();
+      if(delayed==='session-failure'){d.getElementById('connection-retry').click();await tick();}
       assert.equal(w.qa.owner().id,b.item_id,'slow startup must not replace newer scene');
       assert.equal(writes.length,0,'navigation does not save history');
       // Two new scene links arrive while an ordinary player's last save is pending.
@@ -57,5 +59,5 @@ module.exports = async function checkMoments(html, source) {
       assert.equal(dialog.open,true);
     } finally {release();releaseSave();w.close();}
   }
-  console.log('PASS moment DOM: delayed session/startup and consecutive scene entry during pending close (mock HTTP/media).');
+  console.log('PASS moment DOM: delayed/failed session recovery, delayed library and consecutive scene entry during pending close (mock HTTP/media).');
 };

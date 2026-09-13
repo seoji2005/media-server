@@ -27,9 +27,9 @@
       <a class="brand" href="/" aria-label="Media Clarity 보관함"><span class="brand-mark">m<span>c</span></span><span>Media<br><strong>Clarity</strong></span></a>
       <div class="sidebar-label">내 공간</div>
       <nav>
-        <button class="nav-item selected" id="nav-all" type="button" aria-current="page"><svg><use href="#i-grid"/></svg>보관함<span id="nav-count">0</span></button>
+        <button class="nav-item selected" id="nav-all" type="button" aria-current="page"><svg><use href="#i-grid"/></svg>보관함<span id="nav-count">—</span></button>
         <button class="nav-item" id="nav-continue" type="button"><svg><use href="#i-clock"/></svg>이어보기</button>
-        <button class="nav-item" id="nav-recommended" type="button"><svg><use href="#i-play"/></svg>추천</button>
+        <button class="nav-item" id="nav-recommended" type="button" disabled><svg><use href="#i-play"/></svg>추천</button>
       </nav>
       <div class="sidebar-bottom"><span class="local-dot"></span><span>이 기기에만 보관<small>당신만의 감상 공간</small></span><svg><use href="#i-lock"/></svg></div>
     </aside>
@@ -38,7 +38,7 @@
         <div class="breadcrumb">내 공간 <span>/</span> <strong id="breadcrumb-current">보관함</strong></div>
         <label class="search"><svg><use href="#i-search"/></svg><input id="search" type="search" autocomplete="off" placeholder="보관함에서 검색" aria-label="영상 제목 검색"><kbd>/</kbd></label>
         <button class="button button-quiet top-settings" id="settings-open" type="button" aria-label="설정 열기" aria-haspopup="dialog" aria-controls="settings-dialog"><svg><use href="#i-settings"/></svg><span>설정</span></button>
-        <button class="button button-primary top-import" id="import-top" type="button" aria-label="영상 가져오기"><svg><use href="#i-plus"/></svg><span>영상 가져오기</span></button>
+        <button class="button button-primary top-import" id="import-top" type="button" aria-label="영상 가져오기" disabled><svg><use href="#i-plus"/></svg><span>영상 가져오기</span></button>
       </header>
       <div class="page-content">
         <section class="welcome" id="welcome">
@@ -48,6 +48,11 @@
           <div class="welcome-art" aria-hidden="true"><div class="art-frame frame-back"></div><div class="art-frame frame-front"><div class="art-orbit"></div><span class="art-play">▶</span></div></div>
         </section>
         <div class="notice" id="diagnostic" role="status" hidden></div>
+        <section class="notice" id="connection-recovery" hidden>
+          <p id="connection-message" role="status"></p>
+          <p>보관함을 아직 확인하지 못했습니다. 서버를 실행한 뒤 다시 연결해 주세요.</p>
+          <button class="button button-secondary" id="connection-retry" type="button">보관함 다시 연결</button>
+        </section>
         <section class="notice" id="item-entry-notice" role="status" hidden>
           <p id="item-entry-message"></p>
           <button class="button button-secondary" id="item-entry-prepare" type="button" hidden>재생용 사본 준비</button>
@@ -62,13 +67,13 @@
           <button class="button button-secondary" id="import-check" type="button">보관함 전체 다시 확인</button>
         </section>
         <section class="library-section" aria-labelledby="library-heading">
-          <div class="section-heading"><div><h2 id="library-heading">보관함 <span id="item-count">0</span></h2><p id="section-description">당신의 다음 감상을 기다리는 영상들</p></div><span class="sort-label">최근 가져온 순</span></div>
+          <div class="section-heading"><div><h2 id="library-heading">보관함 <span id="item-count">—</span></h2><p id="section-description">당신의 다음 감상을 기다리는 영상들</p></div><span class="sort-label">최근 가져온 순</span></div>
           <div class="library-grid" id="library-grid"></div>
           <div class="empty-state" id="empty-state" hidden>
             <div class="empty-icon"><svg><use href="#i-film"/></svg><span>+</span></div>
             <h3 id="empty-title">첫 번째 영상을 담아보세요</h3>
             <p id="empty-description">파일을 선택하거나 이곳에 끌어놓으세요.<br>원본은 그대로 두고, 감상용 사본을 안전하게 보관합니다.</p>
-            <button class="button button-primary" id="import-empty" type="button"><svg><use href="#i-plus"/></svg>영상 선택하기</button>
+            <button class="button button-primary" id="import-empty" type="button" disabled><svg><use href="#i-plus"/></svg>영상 선택하기</button>
             <div class="format-note" id="format-note">MP4·MKV · H.264 / WebM · VP8, VP9<span>필요한 재생용 사본도 이 기기에서 준비</span></div>
           </div>
           <div class="loading-state" id="loading-state" role="status"><span class="spinner"></span>보관함을 열고 있어요</div>
