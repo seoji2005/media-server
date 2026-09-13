@@ -262,8 +262,15 @@ async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false
     resetPreviews();
     const positionState=positionSaves.get(id);
     if(positionState&&!positionState.running){
-      positionState.revision=item.position_revision??0;
-      if(positionState.latest?.saved)positionState.latest=null;
+      if(positionState.latest?.saved&&positionState.revision>(item.position_revision??0)){
+        // This GET may have captured history before the closing player's write
+        // committed. Keep our confirmed revision; the response cannot undo it.
+        item.position=Math.min(item.duration,positionState.latest.position);
+        item.position_revision=positionState.revision;
+      }else{
+        positionState.revision=item.position_revision??0;
+        if(positionState.latest?.saved)positionState.latest=null;
+      }
     }
     const pendingPosition=positionState?.latest;
     if(!moment&&pendingPosition&&!pendingPosition.saved&&pendingPosition.audio_index===item.audio_index){

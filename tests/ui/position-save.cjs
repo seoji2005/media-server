@@ -7,7 +7,7 @@ async function check(commitBeforeResponse){
   const w=dom.window,d=w.document,video=d.getElementById('video'),dialog=d.getElementById('player-dialog');
   const timers=new Map(),requests=[],held=[];
   const library=['a','b'].map(id=>({id,title:id,duration:120,position:8.25,position_revision:0,width:320,height:180,available:true,thumbnail:false,audio_index:0}));
-  let clock=0,timerId=0,holdNext=false,blockRead=false;
+  let clock=0,timerId=0,holdNext=false,blockRead=false,holdRead=false,readRelease;
   w.setTimeout=(fn,ms)=>{timers.set(++timerId,{fn,at:clock+ms});return timerId;};
   w.clearTimeout=id=>timers.delete(id);
   const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -46,7 +46,11 @@ async function check(commitBeforeResponse){
       return commit();
     }
     if(blockRead&&item.id==='a')return new Promise(()=>{});
-    return response({...item});
+    const snapshot={...item};
+    if(holdRead&&url==='/api/library/a'){
+      holdRead=false;await new Promise(resolve=>{readRelease=resolve;});
+    }
+    return response(snapshot);
   };
   Object.defineProperty(video,'readyState',{get:()=>1});Object.defineProperty(video,'duration',{get:()=>120});
   video.play=()=>Promise.resolve();video.pause=()=>video.dispatchEvent(new w.Event('pause'));video.load=()=>{video.currentTime=0;};
@@ -85,6 +89,19 @@ async function check(commitBeforeResponse){
     video.currentTime=36;await w.qa.savePosition();assert.equal(library[0].position,36);
     w.dispatchEvent(new w.Event('pagehide'));await tick();
     assert.equal(requests.at(-1).position,36);
-  }finally{for(const release of held)release();w.close();}
+    if(!commitBeforeResponse){
+      holdNext=true;video.currentTime=40;video.dispatchEvent(new w.Event('seeked'));await tick();
+      w.qa.closePlayer();holdRead=true;const opening=w.qa.openPlayer('a');await tick();
+      held.shift()();await tick();assert.equal(library[0].position,40);
+      readRelease();await opening;video.dispatchEvent(new w.Event('loadedmetadata'));
+      assert.equal(video.currentTime,40,'stale reopen read cannot replace a newer confirmed position');
+      await w.qa.savePosition();await w.qa.savePosition();
+      assert.equal(library[0].position,40,'ordinary saving after reopen cannot regress the durable position');
+      // A genuinely newer read from another window remains authoritative.
+      await w.qa.closePlayer();library[0].position=45;library[0].position_revision++;
+      await w.qa.openPlayer('a');video.dispatchEvent(new w.Event('loadedmetadata'));
+      assert.equal(video.currentTime,45);
+    }
+  }finally{for(const release of held)release();if(readRelease)readRelease();await tick();w.close();}
 }
 (async()=>{for(const mode of [false,true])await check(mode);console.log('PASS position DOM: bounded close, per-item isolation, coalescing, uncertain pre/post-commit response, late-write guard, retained intent and failure recovery (mock HTTP/media).');})().catch(e=>{console.error(e);process.exitCode=1;});
