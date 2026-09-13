@@ -6,7 +6,7 @@ const items=['a','b'].map(id=>({id,title:id,duration:20,position:0,width:320,hei
 const views=new Map(),writes=[],native=new WeakMap();
 let pending=null,delay=false,loseResponse=false;
 let importDelay=null,importPending=null;
-const tracks=[{id:'first',source:'generated',has_transcript:true,audio_index:0},{id:'second',source:'supplied',audio_index:1}];
+const tracks=[{id:'first',source:'generated',language:'ko',has_transcript:true,audio_index:0},{id:'second',source:'supplied',language:'ko',audio_index:1}];
 w.setTimeout=()=>1;w.clearTimeout=()=>{};
 w.fetch=async(url,options={})=>{
  const uri=new URL(url,w.location.href),id=uri.pathname.split('/')[3];let value;
@@ -55,14 +55,16 @@ async function nativeMode(mode){video.querySelector('track').track.mode=mode;vid
  items[0].audio_index=1;await reopen();assert.equal(select.value,'second');assert.equal(views.has('a:1'),false);
  d.getElementById('caption-earlier').click();await settle();assert.equal(views.get('a:1').offset_ms,-500);
  items[0].audio_index=0;await reopen();assert.equal(select.value,'');
- await choose('first');loseResponse=true;d.getElementById('caption-later').click();await settle();
+ await choose('first:transcript');loseResponse=true;d.getElementById('caption-later').click();await settle();
  assert.equal(select.disabled,true);assert.match(state.textContent,/저장 여부를 확인하지 못/);
- const written=writes.length;d.getElementById('caption-later').click();assert.equal(writes.length,written,'ambiguous saves do not auto-retry');
+ const ready=d.getElementById('subtitle-ready');assert(!ready.hidden);assert(ready.disabled);
+ const written=writes.length;d.getElementById('caption-later').click();ready.click();assert.equal(writes.length,written,'ambiguous saves do not auto-retry or accept a ready caption');
  d.getElementById('caption-view-retry').click();await settle();assert.equal(select.disabled,false);assert.match(video.querySelector('track').src,/offset_ms=500$/);
  views.set('a:0',{selection:'',offset_ms:0,revision:views.get('a:0').revision+1});
  d.getElementById('caption-later').click();await settle();assert.match(state.textContent,/다른 창/);
  d.getElementById('caption-view-retry').click();await settle();assert.equal(select.value,'');
  delay=true;const saving=choose('first:transcript');await saving;
+ assert(ready.disabled,'ready selection waits for the pending caption save');
  await w.qa.closePlayer();await w.qa.openPlayer('b');await settle();assert.equal(select.value,'first');
  pending();delay=false;await settle();assert.equal(select.value,'first','old response cannot change another video');
  await reopen();assert.equal(select.value,'first:transcript');

@@ -4,12 +4,12 @@ const repo=path.resolve(__dirname,'../..');
 const dom=new JSDOM(fs.readFileSync(path.join(repo,'media_clarity/static/index.html'),'utf8'),{url:'http://127.0.0.1:8765',runScripts:'outside-only'});
 const w=dom.window,d=w.document,video=d.getElementById('video'),dialog=d.getElementById('player-dialog');
 const items=['a','b'].map(id=>({id,title:id,duration:20,position:0,width:320,height:180,available:true,thumbnail:false}));
-let data={tracks:[],jobs:[]}, pendingA=null, delayA=false;const posts=[],bodies=[];
+let data={tracks:[],jobs:[]}, pendingA=null, delayA=false;const posts=[],bodies=[],captionWrites=[];
 let modelResult={device:'cuda',selection:'default',state:'blocked',error:'model_cuda_unavailable'},modelBusy=false;
 const timers=new Map();let counter=0;
 w.setTimeout=(fn,ms)=>{timers.set(++counter,{fn,ms});return counter;};w.clearTimeout=id=>timers.delete(id);
 w.fetch=async (url,options={})=>{
- if(url.endsWith('/caption-view'))return {ok:true,json:async()=>({...JSON.parse(options.body),revision:JSON.parse(options.body).revision+1})};
+ if(url.endsWith('/caption-view')){captionWrites.push(JSON.parse(options.body));return {ok:true,json:async()=>({...JSON.parse(options.body),revision:JSON.parse(options.body).revision+1})};}
  if(options.method==='POST'){posts.push(url);bodies.push(options.body);}
  if(url==='/api/session')return {ok:true,json:async()=>({token:'fixture',diagnostics:{ffmpeg:true,ffprobe:true,models:{device:'cuda',selection:'default',state:'unchecked',error:null}}})};
  if(url==='/api/models/diagnostics')return {ok:!modelBusy,json:async()=>modelBusy?{error:'processing_worker_active'}:modelResult};
@@ -65,7 +65,32 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(sent.searchParams.get('format'),format);assert.equal(sent.searchParams.get('audio_index'),'0');
   assert.equal(bodies[before],raw);assert.equal(posts.length,before+1,'import never starts ASR or translation');
   assert.equal(input.value,'');assert.equal(d.getElementById('subtitle-retranslate').hidden,false);
+  assert.equal(d.getElementById('subtitle-retranslate').textContent,'Gemini로 한국어 번역');
  }
+ // Completed Korean output is reachable without replacing the chosen source
+ // until the viewer explicitly accepts it. Newer other-audio/foreign tracks lose.
+ const ready=d.getElementById('subtitle-ready');assert(ready,'offer a direct ready Korean caption action');
+ assert(ready.hidden,'a foreign source alone is not ready Korean output');
+ d.getElementById('caption-later').click();await settle();await settle();
+ const sourceTrack=video.querySelector('track'),beforeTime=video.currentTime,writesBefore=captionWrites.length;
+ data.tracks.unshift({id:'new-ko',source:'generated',language:'ko',audio_index:0,has_transcript:true});
+ data.tracks.unshift({id:'other-audio',source:'generated',language:'ko',audio_index:1});
+ data.tracks.unshift({id:'new-ja',source:'supplied',language:'ja',audio_index:0});
+ data.jobs=[{id:'complete',state:'succeeded',stage:'ready',audio_index:0}];
+ await w.qa.refreshSubtitles(w.qa.owner());
+ assert.equal(d.getElementById('subtitle-select').value,'manual');assert.equal(video.querySelector('track'),sourceTrack);
+ assert.equal(captionWrites.length,writesBefore,'a ready result never switches captions automatically');assert(!ready.hidden);
+ const commandsBefore=posts.length;ready.click();ready.click();await settle();await settle();
+ assert.equal(d.getElementById('subtitle-select').value,'new-ko');assert(ready.hidden);
+ assert.equal(captionWrites.length,writesBefore+1);assert.equal(captionWrites.at(-1).selection,'new-ko');
+ assert.equal(captionWrites.at(-1).offset_ms,0);assert.equal(posts.length,commandsBefore,'viewing ready output starts no processing');
+ assert.equal(video.currentTime,beforeTime);assert.equal(video.querySelector('track').getAttribute('src'),'/api/library/a/subtitles/new-ko.vtt');
+ const choose=async value=>{const select=d.getElementById('subtitle-select');select.value=value;select.dispatchEvent(new w.Event('change'));await settle();await settle();};
+ await choose('new-ko:transcript');assert(!ready.hidden,'source view can return directly to Korean');
+ await choose('');await w.qa.refreshSubtitles(w.qa.owner());assert(!ready.hidden);assert.equal(video.querySelector('track'),null,'Off survives result reads');
+ data.tracks[2].language='KOR-kr';await w.qa.refreshSubtitles(w.qa.owner());ready.click();await settle();await settle();
+ assert.equal(d.getElementById('subtitle-select').value,'new-ko','language tags use the Korean primary language');
+ data.tracks=data.tracks.filter(t=>t.id!=='new-ko');await w.qa.refreshSubtitles(w.qa.owner());assert(ready.hidden,'other-audio Korean cannot be offered');
  data={tracks:[{id:'first',source:'supplied',language:'ja',can_retranslate:true}],jobs:[]};await w.qa.refreshSubtitles(w.qa.owner());
  d.getElementById('subtitle-select').value='first';d.getElementById('subtitle-select').dispatchEvent(new w.Event('change'));await settle();
  const generate=d.getElementById('subtitle-generate');assert.equal(generate.hidden,false);assert.equal(generate.textContent,'Gemini로 자막 만들기');
@@ -121,7 +146,8 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  assert.equal(video.querySelector('track').getAttribute('src'),'/api/library/a/subtitles/second.vtt?transcript=true');
  assert.equal(video.querySelector('track').srclang,'und');
  assert(notes.textContent.includes('실제 대사와 다를'));assert(!notes.textContent.includes('읽기 속도'));
- assert(d.getElementById('subtitle-brief').textContent.includes('원문 · 자동 전사'));
+ assert(d.getElementById('subtitle-brief').textContent.includes('원문 자막'));
+ assert(notes.textContent.includes('번역에 사용한 원문'));assert(!notes.textContent.includes('음성 인식으로 만든'));
  retranslate.click();await settle();assert(posts.includes('/api/library/a/subtitles/second/retranslate'));
  assert.equal(JSON.parse(bodies[posts.lastIndexOf('/api/library/a/subtitles/second/retranslate')]).provider,'gemini');
  data.jobs[0].provider='gemini';data.tracks[0].provider='gemini';data.gemini_configured=true;

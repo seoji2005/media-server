@@ -1,36 +1,36 @@
 # Current work
 
-Live recovery base: Server `deff1ff07f94587a6d6a6e8c97f69dc3fbcbf818`
-(PR59/60 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34743155629 passed Ubuntu but failed Windows Chrome after its
-Python/DOM checks passed; see the active slice below. Fetch main CI34691909315
-passed. Codespaces PR51 remains separate and open at
+Live recovery base: Server `e25f04b0fd476f09ddf6bed38c9a797e4a514d7d`
+(PR59–61 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34744119204 passed Windows/Ubuntu Python, DOM and Chrome checks.
+Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
 this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: observe the paused-position commit in the existing Chrome check.
-Main CI34743155629 passed 351 Python tests on both OSes (Ubuntu 3/Windows 2 skips)
-and all DOM checks. Windows failed the restart-phase moment-entry assertion that
-the stored position was between 3.3 and 6 seconds. That assertion did not print
-the observed position, so the historical failure's exact cause is unconfirmed.
+Active slice: make prepared Korean captions directly usable beside caption selection.
+Imported foreign captions and source views correctly remain selected after a new
+translation arrives, but the generic completion notice leaves the viewer to find
+the Korean result in the version list. An explicit latest-Korean action now selects
+the newest available Korean track for this audio, including from Off, without
+opening preparation or running a job. Existing choices and timing stay until the
+click; ordinary caption selection then resets timing and preserves playback.
+Pending/uncertain caption saves retain their existing recovery gate. Imported-source
+translation and source-caption labels no longer imply a prior translation or ASR.
+No API/schema/model/prompt change. Fixed-revision review and native Chrome evidence
+belong to this slice's PR; the blocked Work browser route remains stopped.
 
-The fixture treated a sent PUT and closed dialog as proof that the write committed,
-although closing intentionally returns before the write. A product-JS/mock-HTTP
-probe reproduces this boundary: close is immediate, an early read sees 10 seconds
-instead of the intended 3.5, and the old assertion fails. Waiting for the actual
-write confirms 3.5 seconds; the unchanged position DOM regression also passes.
-
-The Chrome check now pauses on native timeupdate, retains the 3.3–6-second bound,
-and explicitly holds its first position request until after the dialog closes.
-A pre-commit read must still show the old position. After releasing that same
-request, the exact paused-position request must receive HTTP200 and matching
-position; the following GET must match position and revision. No request is
-replayed or injected as a substitute save. Existing outer browser/CI limits remain.
-This changes only the test and docs, not product persistence/media/privacy behavior.
-Native Windows verification belongs to the follow-up PR. No Work browser rerun.
+Completed in PR61: the Chrome moment check now observes the actual position commit
+after immediate close. Earlier main CI34743155629 passed Python/DOM on both OSes
+and Chrome on Ubuntu but failed Windows's 3.3–6-second assertion without printing
+the observed position. Its historical cause is unconfirmed. A product-JS/mock-HTTP
+probe separately reproduced the premature read (10 seconds instead of 3.5).
+The check holds the existing request until close, verifies the old pre-commit value,
+then requires HTTP200 and matching position/revision after that same request commits.
+Product code and timing bounds are unchanged. Independent review, PR CI34743793898
+and merged main CI34744119204 passed, including first/restart Chrome on both OSes.
 
 PR59 and PR60 passed independent review and fixed-HEAD Ubuntu/Windows/Chrome CI
 before sequential merge. Their combined main tree26b64c70692206bfa34278343822458e0e73c61a
