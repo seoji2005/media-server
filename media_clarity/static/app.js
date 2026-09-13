@@ -13,6 +13,8 @@ let pendingItemEntry = null;
 let toastTimer, saveTimer;
 const positionSaves = new Map();
 let libraryReadVersion=0;
+let libraryEditVersion=0;
+const libraryEdits=new Map();
 let libraryLoaded=false, connectingLibrary=false, connectedLibrary=false;
 let sessionIdentity=null, reconnectingSession=false;
 const video = $("video"), dialog = $("player-dialog");
@@ -166,15 +168,31 @@ function render() {
   $("empty-description").replaceChildren();
   $("empty-description").textContent = recommended && recommendationState === "loading" ? "이 기기에 저장한 선호를 확인하고 있습니다." : recommended && recommendationState === "error" ? recommendationError + " 추천을 다시 선택하면 재시도합니다." : query ? "다른 제목으로 검색해 보세요." : recommended ? "보관함에서 영상을 열고 ‘추천에 포함’을 켜주세요. 선호를 표시한 영상은 기준으로 사용하고, 선호 미지정 영상을 추천합니다." : filter === "continue" ? "영상을 보기 시작하면 마지막 시청 위치가 여기에 남습니다." : "파일을 선택하거나 이곳에 끌어놓으세요. 원본은 그대로 두고, 감상용 사본을 안전하게 보관합니다.";
 }
+function confirmLibraryEdit(id,field,value){
+  const edits=libraryEdits.get(id)||{};
+  edits[field]={version:++libraryEditVersion,value};libraryEdits.set(id,edits);
+}
+function mergeLibraryEdits(rows,startedAt){
+  return rows.map(row=>{
+    const edits=libraryEdits.get(row.id);
+    // Keep only fields confirmed in this page after the read started. New rows
+    // and unrelated server fields must still arrive with the same response.
+    if(edits?.title?.version>startedAt)row={...row,title:edits.title.value};
+    const position=edits?.position;
+    if(position?.version>startedAt&&(row.position_revision??0)<=position.value.position_revision)
+      row={...row,...position.value};
+    return row;
+  });
+}
 async function refresh(wait=null) {
-  const version=++libraryReadVersion;
+  const version=++libraryReadVersion,editsAtStart=libraryEditVersion;
   try{
     const result=wait===null?await api("/api/library"):await boundedApi("/api/library",{},wait,"보관함 연결이 10초를 넘겼습니다. 서버 실행 상태를 확인한 뒤 다시 연결해 주세요.");
     // An older snapshot can finish after an import or another refresh. Only
     // the newest read may replace the visible library or its recommendations.
     if(version!==libraryReadVersion)return;
     if(!Array.isArray(result?.items))throw Error("보관함 응답을 읽을 수 없습니다.");
-    items=result.items;libraryLoaded=true;invalidateRecommendations();
+    items=mergeLibraryEdits(result.items,editsAtStart);libraryLoaded=true;invalidateRecommendations();
     if(filter==="recommended")await refreshRecommendations();else render();
   }catch(e){if(version===libraryReadVersion)throw e;}
 }
@@ -240,13 +258,13 @@ function showImportRecovery(detail){
 }
 $("import-check").addEventListener("click",async()=>{
   if(upload||$("import-recovery").hidden||$("import-check").disabled)return;
-  const version=importRecoveryVersion,read=++libraryReadVersion;
+  const version=importRecoveryVersion,read=++libraryReadVersion,editsAtStart=libraryEditVersion;
   $("import-check").disabled=true;$("import-recovery-message").textContent="보관함 목록을 확인하고 있어요. 영상을 다시 전송하지 않습니다.";
   try{
     const result=await boundedApi("/api/library",{},10000,"보관함을 확인하지 못했습니다. 앱 연결을 확인한 뒤 다시 눌러 주세요.");
     if(version!==importRecoveryVersion||upload||read!==libraryReadVersion)return;
     if(!Array.isArray(result.items))throw Error("보관함 응답을 읽을 수 없습니다.");
-    items=result.items;libraryLoaded=true;filter="all";$("search").value="";render();
+    items=mergeLibraryEdits(result.items,editsAtStart);libraryLoaded=true;filter="all";$("search").value="";render();
     $("import-recovery-message").textContent="보관함 전체 목록을 다시 불러왔습니다. 영상이 없으면 서버의 파일 확인이 끝난 뒤 다시 확인해 주세요. 이 동작은 영상을 다시 가져오거나 재생 준비를 시작하지 않습니다.";
   }catch(e){if(version===importRecoveryVersion&&read===libraryReadVersion)$("import-recovery-message").textContent=e.message;}
   finally{if(version===importRecoveryVersion){
@@ -416,6 +434,7 @@ function titleControls(){
   $("title-reload").disabled=!titleView||titleView.busy;
 }
 function applyTitle(id,title){
+  confirmLibraryEdit(id,"title",title);
   for(const item of items)if(item.id===id)item.title=title;
   invalidateRecommendations();render();
 }
@@ -510,7 +529,9 @@ async function flushPosition(state){
           5000,"시청 위치 저장을 확인하지 못했습니다. 이 창에는 마지막 위치가 남아 있지만 새로고침하면 잃을 수 있습니다.");
         state.revision=saved.position_revision??null;intent.saved=true;
         if(state.latest===intent){
-          const item=items.find(i=>i.id===state.id);if(item){item.position=intent.position;item.watched_at=new Date().toISOString();}
+          const value={position:intent.position,watched_at:new Date().toISOString(),position_revision:saved.position_revision??0};
+          confirmLibraryEdit(state.id,"position",value);
+          const item=items.find(i=>i.id===state.id);if(item)Object.assign(item,value);
           if(activeItem?.id===state.id&&activeItem.audio_index===intent.audio_index)$("save-state").textContent=`${time(intent.position)} 저장됨`;
           if(!dialog.open&&filter!=="recommended")render();
         }

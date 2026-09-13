@@ -1,52 +1,46 @@
 # Current work
 
-Live recovery base: Server `3cc580fa7449c145e91462068f3fb57f1bafa1b4`
-(PR64 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server PR64 CI34748855621 passed Windows/Ubuntu Python, DOM and both native Chrome
-fixtures at head557034288519f2899d0423146483514508ec0fd1. The merged main tree matches
-that tested tree. Superseded PR51 is closed and its old branch is preserved.
-Git/PR state is authoritative. Existing cost/allowed-public-egress and reviewed,
+Live recovery base: Server `ee2a1ed9af571f5d395d7653ebe931006c88f53c`
+(PR65/66 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server PR65 CI34758533386 and PR66 CI34758569508 passed Windows/Ubuntu Python,
+DOM, native synthetic Chrome and Codespaces simulated-edge checks. Final main
+matches the tested PR66 tree6b693365f328c0b7d5a26f170f52334152bc9d9b.
+Git/PR state is authoritative. Existing code/test/docs publication and reviewed,
 passing-CI development-merge approvals persist. Release and subjective quality
 acceptance remain separate.
 
 ## October order
 
-Active follow-up: a successful playback-copy POST was overridden by a failed
-secondary library refresh in `finally`; a stalled list body prevented opening
-indefinitely. Card refresh now has a ten-second library-read bound, catches its
-own error, and releases the preparation label when that read settles.
-The confirmed preparation result still controls opening; no preparation retry,
-media/API/storage change or change to the conversion time allowance is added.
-This branch follows the reviewed PR65 tree, which remains unmerged while its
-existing CI34749522449 is queued without jobs. It does not bypass that gate.
+Active slice: preserve confirmed title and viewing fields when an older library
+snapshot arrives. Request ordering already rejected obsolete reads, but a latest
+read could still predate newer confirmed writes. The regression reproduced a saved
+new title and eleven-second progress reverting to the old title and six seconds.
 
-The product-JS regression reproduced the failed-open behavior before the fix.
-An initial background-read fix passed the existing DOM tests, but independent
-review reproduced a late successful list overwriting newly saved six-second
-progress. That approach was replaced: settle the bounded old snapshot before
-opening, preserving existing read/write order. Regression covers failed/stalled
-list reads, late expired responses, one preparation POST and preserved new progress.
-The existing synthetic VP9 native
-fixture now injects one list503 after real preparation, then requires native
-decoding, supplied captions and preserved original identity; execution remains
-pending CI. Fixed-revision independent review belongs to the follow-up change.
+Ordinary list refresh and explicit import-result checks now remember which title/
+position fields were confirmed in this page after each read began. Only those
+fields are retained; new rows and unrelated server data are still accepted. A
+higher SQLite position revision takes precedence, and a later read accepts newer
+external changes. Unconfirmed drafts and failed writes are not promoted. This is
+in-page display ordering, with no API/schema/storage/ranking or write-retry change.
 
-Pending PR65: bounded recommendation/preference recovery. Recommendation and saved
-preference reads previously waited indefinitely, as did preference writes; reopening
-could then wait forever for the pending write. Reuse the existing request guard:
-reads share ten seconds through response-body parsing, writes thirty seconds. Failed
-saves retain disabled editing until a saved-state read; no write is automatically
-retried. Existing item/request versions and SQLite revisions reject stale responses
-and late writes. No ranking, API, schema, storage or model change.
+The full DOM suite passes, including title changes back to their initial value,
+new rows, import-result reads, higher server revisions and late expired responses.
+The native synthetic Chrome check captures an actual HTTP library response, saves
+a title and position through the product, then releases that earlier response and
+compares the displayed fields with the real saved revision. Native execution and
+fixed-revision independent review belong to this slice's PR. The blocked Work
+browser route remains stopped; no private media or model inference was used.
 
-The new product-JS regression fails on the old code's absent read deadline. After
-fixing a test selector typo, the complete DOM suite passes: stalled headers/bodies,
-read-only recovery, late inclusion versus newer exclusion, reopening during a save
-and zero automatic retry. Eight existing Python recommendation tests pass in 5.430s
-with actual FFmpeg/SQLite and in-process HTTP, including restart/original/caption/
-position preservation and stale-write rejection. A native CI check loses a committed
-preference write's receipt and checks read-only recovery without disturbing playback;
-its execution and fixed-revision independent review belong to the follow-up PR.
+Completed in PR65: recommendation/preference reads are bounded at ten seconds and
+writes at thirty, including response bodies. Uncertain saves require saved-state
+reads without automatic replay. Both OSes confirmed native lost-receipt recovery
+with exactly one PUT. Completed in PR66: bounded card refresh cannot override the
+actual playback-preparation result; its ordering protects new viewing progress.
+Both OSes confirmed real VP9 preparation/playback/captions after one list503 and
+preserved original identity. Initial background-read and fieldset-assertion defects
+were fixed and independently reviewed; historical failures/approval interruptions
+remain in PR65/66. Actual Windows11/RTX, human watching and actual Codespace Private
+HTTPS forwarding remain separate unverified gates.
 
 Completed in PR64: port the reviewed Private Codespaces viewing environment onto
 current main, retaining subsequent viewing/recovery/caption-import behavior. It uses
