@@ -12,6 +12,7 @@ let playerRequest = 0, entryAwaitingPlay = false;
 let pendingItemEntry = null;
 let toastTimer, saveTimer;
 const positionSaves = new Map();
+let libraryReadVersion=0;
 const video = $("video"), dialog = $("player-dialog");
 $("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
@@ -130,7 +131,17 @@ function render() {
   $("empty-description").replaceChildren();
   $("empty-description").textContent = recommended && recommendationState === "loading" ? "이 기기에 저장한 선호를 확인하고 있습니다." : recommended && recommendationState === "error" ? recommendationError + " 추천을 다시 선택하면 재시도합니다." : query ? "다른 제목으로 검색해 보세요." : recommended ? "보관함에서 영상을 열고 ‘추천에 포함’을 켜주세요. 선호를 표시한 영상은 기준으로 사용하고, 선호 미지정 영상을 추천합니다." : filter === "continue" ? "영상을 보기 시작하면 마지막 시청 위치가 여기에 남습니다." : "파일을 선택하거나 이곳에 끌어놓으세요. 원본은 그대로 두고, 감상용 사본을 안전하게 보관합니다.";
 }
-async function refresh() { const result = await api("/api/library"); items = result.items; invalidateRecommendations(); if(filter === "recommended") await refreshRecommendations(); else render(); }
+async function refresh() {
+  const version=++libraryReadVersion;
+  try{
+    const result=await api("/api/library");
+    // An older snapshot can finish after an import or another refresh. Only
+    // the newest read may replace the visible library or its recommendations.
+    if(version!==libraryReadVersion)return;
+    items=result.items;invalidateRecommendations();
+    if(filter==="recommended")await refreshRecommendations();else render();
+  }catch(e){if(version===libraryReadVersion)throw e;}
+}
 function invalidateRecommendations() { recommendationVersion++; recommendedItems=[]; recommendationState="idle"; }
 async function refreshRecommendations() {
   const version=++recommendationVersion; recommendedItems=[]; recommendationState="loading"; render();
@@ -193,16 +204,19 @@ function showImportRecovery(detail){
 }
 $("import-check").addEventListener("click",async()=>{
   if(upload||$("import-recovery").hidden||$("import-check").disabled)return;
-  const version=importRecoveryVersion;
+  const version=importRecoveryVersion,read=++libraryReadVersion;
   $("import-check").disabled=true;$("import-recovery-message").textContent="보관함 목록을 확인하고 있어요. 영상을 다시 전송하지 않습니다.";
   try{
     const result=await boundedApi("/api/library",{},10000,"보관함을 확인하지 못했습니다. 앱 연결을 확인한 뒤 다시 눌러 주세요.");
-    if(version!==importRecoveryVersion||upload)return;
+    if(version!==importRecoveryVersion||upload||read!==libraryReadVersion)return;
     if(!Array.isArray(result.items))throw Error("보관함 응답을 읽을 수 없습니다.");
     items=result.items;filter="all";$("search").value="";render();
     $("import-recovery-message").textContent="보관함 전체 목록을 다시 불러왔습니다. 영상이 없으면 서버의 파일 확인이 끝난 뒤 다시 확인해 주세요. 이 동작은 영상을 다시 가져오거나 재생 준비를 시작하지 않습니다.";
-  }catch(e){if(version===importRecoveryVersion)$("import-recovery-message").textContent=e.message;}
-  finally{if(version===importRecoveryVersion)$("import-check").disabled=false;}
+  }catch(e){if(version===importRecoveryVersion&&read===libraryReadVersion)$("import-recovery-message").textContent=e.message;}
+  finally{if(version===importRecoveryVersion){
+    $("import-check").disabled=false;
+    if(read!==libraryReadVersion)$("import-recovery-message").textContent="더 최근의 보관함 조회가 시작됐습니다. 필요하면 다시 확인해 주세요.";
+  }}
 });
 async function importFile(file) {
   if(upload) return toast("한 번에 한 개의 영상을 가져올 수 있습니다.");

@@ -9,7 +9,29 @@ approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: interrupt an import's response wait and explicitly check its result.
+Active slice: preserve the newest requested library snapshot. An older GET that
+finishes after a newer successful import/refresh could hide the newly listed item.
+Ordinary refreshes and PR56's explicit import-result check now share one in-page
+request revision. Older successes and errors cannot replace the current list;
+a latest failed read keeps the last displayed list and reports its own error.
+User filters/search stay unchanged except for the explicit full-library check.
+No media/history write, automatic retry, new timeout or browser-storage layer.
+
+This follow-up is based on PR56 HEAD `3007fba3c96e38de07488ac7904e3b4dd86f7aa5`
+because both readers must participate. PR56 itself is preserved. Its final
+CI34737420845 was still queued with no runner assigned on resumption; no rerun or
+CI-gate bypass was performed. Merge PR56 first, then verify this follow-up's actual
+main base and mandatory CI before development merge. Live Git/PR is authoritative.
+
+The new product-JS regression failed on the old response order and passes with
+both ordinary and explicit result checks. Existing UI regressions pass. A real
+loopback HTTP/FFmpeg/SQLite fixture captures a one-item response, imports a second
+same-title video, reads both items, then releases the older one-item response.
+The server retains both exact videos and the first item's caption/offset/position
+after restart. This establishes the delayed-response scenario; DOM ordering is
+mocked, and native browser viewing/upload remains unverified.
+
+Prepared in PR56: interrupt an import's response wait and explicitly check its result.
 Upload progress no longer rounds 99.5% into a completed transfer and hides cancel.
 The upload-complete event changes the control to stop waiting; abort does not
 claim server rollback. A persistent recovery notice offers a bounded ten-second,
