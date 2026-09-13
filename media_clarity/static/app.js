@@ -396,13 +396,14 @@ $("title-form").addEventListener("submit",async event=>{
 });
 $("title-reload").addEventListener("click",async()=>{
   const view=titleView;if(!view||!titleCurrent(view)||view.busy)return;
+  const keepDraft=view.uncertain||$("title-input").value!==view.expected;
   view.busy=true;titleControls();
   try{
     const saved=await boundedApi(`/api/library/${view.owner.id}`,{},30000,"저장된 제목을 확인하지 못했습니다. 서버 연결을 확인한 뒤 다시 눌러 주세요.");
     if(!titleCurrent(view))return;
     view.owner.title=view.expected=saved.title;$("player-title").textContent=saved.title;
-    // Keep an unsaved draft after an uncertain write; only its expected title changes.
-    if(!view.uncertain)$("title-input").value=saved.title;
+    // A read updates the saved title used for conflict checks, not an edited draft.
+    if(!keepDraft)$("title-input").value=saved.title;
     view.uncertain=false;$("title-state").textContent="저장된 제목을 확인했습니다. 입력한 제목을 확인한 뒤 저장해 주세요.";applyTitle(view.owner.id,saved.title);
   }catch(e){if(titleCurrent(view))$("title-state").textContent=e.message;}
   finally{if(titleCurrent(view)){view.busy=false;titleControls();if(filter==="recommended")refreshRecommendations();}}

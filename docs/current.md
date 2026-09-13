@@ -1,46 +1,44 @@
 # Current work
 
-Live recovery base: Server `3524d738c9377c59faa8794a4e45cde4389b8f4e`
-(PR56/57 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34738936411 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
+Live recovery base: Server `833815507aa5ab43bca3eb28ee2fb710b3fbf029`
+(PR58 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34740129406 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
 this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: recover the initial library connection. Failed/unread startup must
-not render an empty-library invitation. Initial session and library reads share
-ten seconds including response bodies, with zero automatic retries. A persistent
-notice offers an explicit read-only retry; import controls wait for initial success.
-Late timed-out responses cannot complete a newer attempt, and query/Continue
-filters remain in the page. Incoming scene links still wait for a valid session.
-The retry does not replay imports, settings writes or preparation commands.
-This covers initial load, not automatic reconnection/token renewal after an
-already-open app's server restarts; that existing path still requests page reload.
+Active slice: preserve title drafts when explicitly checking the saved title.
+A read could erase a draft before its first save or on the second state check
+following a failed/conflicting save. The read now updates the saved conflict
+baseline and displayed title while retaining any edited draft. An untouched
+input still receives the latest saved title. This changes no write/API/storage
+behavior, retries, browser storage, media load or caption settings.
 
-Product-JS regression reproduced the misleading empty state before the change.
-Normal/failed/malformed startup, stalled headers/body, shared deadline, duplicate
-clicks, late completion, filters and delayed scene entry pass under mocked HTTP.
-Existing DOM suites pass. Actual Linux loopback HTTP/FFmpeg/SQLite checks inject
-one failure at each temporary app read boundary and then reconnect/restart:
-all DB rows, original bytes, supplied captions, offset and position survive.
-Wrong Host/Origin and stale write tokens remain rejected. No model/API key/private
-data use or security-boundary changes. Work browser limits below remain in force;
-new retry UI native-browser interaction and human viewing are unverified.
+The product-JS regression first failed against the previous implementation
+(actual saved title replaced the draft). It now covers first and repeated reads,
+repeated conflict recovery, unchanged input receiving a newer title, and no title
+write or playback reload. Existing DOM and title HTTP/SQLite checks cover related
+behavior. The existing synthetic Chrome CI adds two actual saved-title reads;
+its result belongs to the fixed-revision PR, not to Work browser execution.
 
-Initial CI34739441697 failed: Linux passed Python/DOM but its browser fixture
-injected a hidden file input before initial connection. It now uses the actual
-enabled import button/file chooser and checks one isolated failed session read
-followed by explicit reconnect. This extends the existing CI browser regression;
-it does not use a new Work browser route or relax any timeout/security check.
-Windows failed an older Qwen HTTP fixture's succeeded-state assertion. That test
-started both a real supervisor and a manual synthetic executor for one queued job.
-An isolated launch-failure probe reproduced the competing-owner failure locally;
-the fixture now initializes jobs without that second owner. The original Windows
-error code was not reported, so its exact cause remains unconfirmed; future failed
-assertions include only the opaque error code. Product worker/model code is unchanged.
-Final fixed-HEAD review and mandatory CI results belong to the PR.
+PR59 remains separate at ec7eda07e29c072ceea4fd155923fa036c5e576c, with
+independent review and CI34741423772 success on Ubuntu/Windows including Chrome
+expired-session recovery. It is Ready, unmerged: automatic approval review rejected
+the merge because it did not accept the current continuation as explicit merge
+authorization. No alternate merge route was used. This title fix is based directly
+on main833815507aa5ab43bca3eb28ee2fb710b3fbf029 and can be reviewed independently.
+PR51 is preserved. Release and actual viewing acceptance remain separate.
+
+Completed in PR58: initial session and library reads share ten seconds including
+response bodies, with zero automatic retries and an explicit reconnect action.
+An unread library cannot be mistaken for an empty one; imports wait for initial
+success, and query/Continue filters and incoming scene links survive recovery.
+Independent review and CI34739865007 passed after correcting the browser import
+fixture and isolating its manual synthetic Qwen executor. Earlier failures and
+limits are preserved in PR58. Its actual Chrome startup recovery/import/playback
+checks use synthetic twenty-second media, not subjective quality acceptance.
 
 Completed in PR57: preserve the newest requested library snapshot. An older GET that
 finishes after a newer successful import/refresh could hide the newly listed item.
