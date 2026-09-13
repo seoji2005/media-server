@@ -1,16 +1,39 @@
 # Current work
 
-Live recovery base: Server `36490d36c5c6f4ff001f6b39b54b69722db0109d`
-(PR62 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34745268715 passed Windows/Ubuntu Python, DOM and Chrome checks.
-Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
-this September 13 recovery; its work is preserved. Git/PR state is authoritative.
+Live recovery base: Server `6287fa827630fd83c0eb1ae127bb269da815981c`
+(PR63 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server PR CI34747667722 and merged main CI34747951010 passed Windows/Ubuntu
+Python, DOM and Chrome checks. Fetch main CI34691909315 passed. Codespaces PR51
+is being ported from its old base onto this exact current product tree. Git/PR state
+is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: recover caption-file imports without duplicate delivery or stale selection.
+Active slice: port the reviewed Private Codespaces viewing environment onto current
+main without losing subsequent viewing, recovery or caption-import behavior. It uses
+the current UI/API and a separate repeatable synthetic library with Python 3.12 and
+FFmpeg. It does not install models, use GPU/provider keys, run paid inference or use
+Fetch. The HTTPS origin, session checks and local-only default remain enforced.
+Actual Codespace creation, GitHub account authentication and port forwarding remain
+unverified until separately exercised; local and simulated-edge checks stay labeled.
+The ported current tree passes all 364 Linux/Python tests, the complete DOM suite,
+13 focused Codespaces tests and an actual loopback HTTP/SQLite/FFmpeg restart check.
+Review found that hiding the whole preparation panel also hid permitted manual caption
+imports. The integration now exposes SRT/VTT import while hiding and server-blocking
+only inference controls; its native UI check imports one synthetic caption.
+The blocked Work browser route remains stopped; native integration evidence belongs
+to the new PR's fixed-head Windows/Ubuntu CI.
+Initial port CI34748607408 passed the ordinary Chrome fixture, then its new Codespaces
+fixture failed when DevTools evicted an already-consumed POST response body. The test
+now observes the app-confirmed new caption selection and saved VTT instead. Its next
+run, CI34748745873, overlapped cancellation of the obsolete revision and failed both
+matrix jobs before any step ran, with no job log. This is runner/startup evidence,
+not a product failure; required executable CI remains pending without rerunning either
+old revision.
+
+Completed in PR63: recover caption-file imports without duplicate delivery or stale selection.
 The existing unbounded handler sent two POSTs for duplicate pending file events.
 Imports now reuse the 30-second command/receipt guard, show a pending label and offer
 an explicit saved-list read after an uncertain response. That read preserves viewing

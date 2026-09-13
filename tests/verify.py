@@ -10,6 +10,7 @@ commands = [
     [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-q'],
     [shutil.which('npm.cmd' if os.name == 'nt' else 'npm'), 'test', '--prefix', 'tests/ui'],
     [sys.executable, 'tests/browser_smoke.py'],
+    [sys.executable, 'tests/codespaces_smoke.py', '--browser'],
 ]
 if not commands[1][0]:
     sys.exit('Node.js/npm required: install dependencies with npm ci --prefix tests/ui')
