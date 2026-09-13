@@ -56,17 +56,25 @@ Python **3.12**, FFmpeg와 ffprobe가 필요합니다. FFmpeg는 신뢰하는 �
 확인할 수 있습니다. 모델 설치 후에는 앱을 종료하고 `doctor --models`로도 확인할 수
 있습니다. 기본 `doctor`와 원본 감상은 자막 모델 없이 사용할 수 있습니다.
 
+처음에는 **감상용 설치**로 시작하세요. 영상 가져오기·재생·탐색, 제공받은 SRT/VTT 선택·
+시간 보정·문장 검색과 시청 위치 저장에 모델·GPU·API 키가 필요하지 않습니다.
 Windows PowerShell, 저장소 폴더에서:
 
 ```powershell
 ffmpeg -version
 ffprobe -version
-.\install-media-clarity.cmd
-.\.venv\Scripts\python -m media_clarity doctor
-.\.venv\Scripts\python -m media_clarity
+.\install-media-clarity.cmd --viewing-only
+.\.venv-viewing\Scripts\python -m media_clarity doctor
+.\start-media-clarity.cmd
 ```
 
-**install-media-clarity.cmd**는 Python 3.12와 FFmpeg가 설치된 PC에서 현재 지정된
+감상용 설치는 별도 **`.venv-viewing`**에 `requirements.txt`의 지정 패키지만 준비합니다.
+전체 10분·설치 파일 바이트 변화 정체 120초·연결/재개 재시도 0이며, 기존 환경은 검증만
+합니다. 모델이나 장치 설정을 읽거나 바꾸지 않습니다. 중단된 환경과 완료 다운로드는
+보존되므로, 불완전한 환경은 그대로 두고 새 저장소 폴더에서 설치하세요.
+
+**새 자막 생성까지 준비할 때** `install-media-clarity.cmd`를 옵션 없이 실행하세요.
+별도 **`.venv`**에 현재 지정된
 자막 패키지까지 준비합니다. Windows 기본 장치는 CUDA이며, 첫 설치를 CPU로 하려면
 `--device cpu`를 붙이세요. 이미 저장된 장치 설정과 충돌하면 변경 없이 멈춥니다.
 기존 `.venv`는 검증만 하고 패키지를 바꾸지 않습니다. 불완전하거나 호환되지 않는
@@ -80,6 +88,10 @@ ffprobe -version
 준비된 뒤 기본 브라우저를 엽니다. 실행 창에서 Ctrl+C로 종료하세요. 브라우저가 열리지
 않으면 창에 표시된 주소를 직접 입력하면 됩니다. 실행 환경이 없거나 서버가 시작되지
 않으면 안내를 남깁니다. 명령줄에서는 `--open-browser`를 붙여 같은 동작을 사용할 수 있습니다.
+시작 명령은 `.venv`의 Python이 있으면 이를 우선 사용하고, 없으면 `.venv-viewing`을
+사용합니다. 전체 환경의 실행 실패를 감상 환경으로 숨기지 않습니다. 두 환경은 같은
+앱과 기본 보관함을 사용하므로 전체 설치 후에도 영상·자막·설정이 유지됩니다.
+사용자 지정 보관함은 설치와 시작에 같은 `--data-dir`을 전달하세요.
 
 Gemini 자막을 만들 때는 **start-media-clarity-gemini.cmd를 더블클릭**하세요.
 창에서 API 키를 붙여 넣고 Enter를 누르면 화면에 키를 표시하지 않고 이번 실행에
@@ -89,7 +101,8 @@ Gemini 자막을 만들 때는 **start-media-clarity-gemini.cmd를 더블클릭*
 키 입력은 API 연결 검사가 아닙니다. 영상에서 Gemini 작업을 시작해야 번역 요청을 보냅니다.
 명령줄에서는 `--prompt-gemini-key`를 사용하세요. 키 값 자체를 명령줄 인자로 넣지 마세요.
 
-설치 상태를 한 번에 보려면 **check-media-clarity.cmd를 더블클릭**하세요.
+전체 자막 환경의 설치 상태를 한 번에 보려면 **check-media-clarity.cmd를 더블클릭**하세요.
+감상용 설치만 했다면 위의 `.venv-viewing` 기본 `doctor` 명령을 사용하세요.
 Python 3.12·64비트, 두 requirements 파일의 지정 버전, FFmpeg/ffprobe의 실제 실행,
 선택 장치의 모델 파일 구조·네이티브 실행 환경을 순서대로 확인합니다. 앞 단계가 막히면
 모델 검사는 건너뛰고 필요한 패키지와 진단 코드를 보여줍니다. 설치·다운로드·API 호출은
@@ -106,7 +119,15 @@ Gemini 연결은 이 검사와 별도로 확인해야 합니다.
 완료 모델과 중단된 `.partial` 파일은 보존합니다. 설치된 런타임이 부족하면 복원을 시작하지
 않습니다. 의존 패키지 설치나 API 연결까지 수행하는 설치 프로그램은 아닙니다.
 
-macOS/Linux:
+Linux에서도 같은 상한이 있는 감상용 설치를 사용할 수 있습니다:
+
+```sh
+python3.12 scripts/install_runtime.py --viewing-only
+.venv-viewing/bin/python -m media_clarity doctor
+.venv-viewing/bin/python -m media_clarity --open-browser
+```
+
+macOS 또는 수동 개발 환경 준비(위 설치 도우미의 시간·재시도 상한은 적용되지 않음):
 
 ```sh
 python3.12 -m venv .venv
