@@ -13,6 +13,7 @@ let pendingItemEntry = null;
 let toastTimer, saveTimer;
 const positionSaves = new Map();
 let libraryReadVersion=0;
+let libraryLoaded=false, connectingLibrary=false, connectedLibrary=false;
 const video = $("video"), dialog = $("player-dialog");
 $("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
@@ -90,14 +91,14 @@ async function boundedApi(path,options,wait,timeoutMessage){
 function time(seconds) { seconds = Math.max(0, Math.floor(seconds || 0)); const h = Math.floor(seconds / 3600), m = Math.floor(seconds % 3600 / 60), s = seconds % 60; return h ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${m}:${String(s).padStart(2,"0")}`; }
 function continuing(item) { return item.position > 0 && item.position < Math.max(1, item.duration - 2); }
 function render() {
-  $("nav-count").textContent = String(items.length);
+  $("nav-count").textContent = libraryLoaded ? String(items.length) : "—";
   const query = $("search").value.trim().normalize("NFKC").toLocaleLowerCase();
   const recommended = filter === "recommended";
   const visible = (recommended ? recommendedItems : items).filter(i => (filter !== "continue" || continuing(i)) && i.title.normalize("NFKC").toLocaleLowerCase().includes(query));
   if (filter === "continue") visible.sort((a,b) => (b.watched_at || "").localeCompare(a.watched_at || ""));
   const heading = recommended ? "추천" : filter === "all" ? "보관함" : "이어보기";
   $("library-heading").firstChild.textContent = heading + " ";
-  $("item-count").textContent = String(visible.length);
+  $("item-count").textContent = libraryLoaded ? String(visible.length) : "—";
   $("breadcrumb-current").textContent = heading;
   $("section-description").textContent = recommended ? "추천에 포함한 선호 미지정 영상에서 골랐어요 · 제목과 직접 표시한 선호만 사용" : filter === "all" ? "당신의 다음 감상을 기다리는 영상들" : "머물렀던 장면에서 다시 시작하세요";
   document.querySelector(".sort-label").textContent = recommended ? "선호와 새로운 발견 · 최대 12개" : filter === "all" ? "최근 가져온 순" : "최근 시청한 순";
@@ -125,20 +126,21 @@ function render() {
     const button = card.querySelector("button"); button.setAttribute("aria-label", `${item.title}, ${status.textContent}`); button.addEventListener("click", () => openPlayer(item.id));
     grid.append(card);
   }
-  const empty = !visible.length; $("empty-state").hidden = !empty;
+  const empty = libraryLoaded && !visible.length; $("empty-state").hidden = !empty;
   $("import-empty").hidden = !!query || filter !== "all"; $("format-note").hidden = !!query || filter !== "all";
   $("empty-title").textContent = recommended && recommendationState === "loading" ? "추천을 불러오고 있어요" : recommended && recommendationState === "error" ? "추천을 불러오지 못했어요" : query ? "일치하는 영상이 없어요" : recommended ? "추천할 영상이 아직 없어요" : filter === "continue" ? "이어볼 영상이 아직 없어요" : "첫 번째 영상을 담아보세요";
   $("empty-description").replaceChildren();
   $("empty-description").textContent = recommended && recommendationState === "loading" ? "이 기기에 저장한 선호를 확인하고 있습니다." : recommended && recommendationState === "error" ? recommendationError + " 추천을 다시 선택하면 재시도합니다." : query ? "다른 제목으로 검색해 보세요." : recommended ? "보관함에서 영상을 열고 ‘추천에 포함’을 켜주세요. 선호를 표시한 영상은 기준으로 사용하고, 선호 미지정 영상을 추천합니다." : filter === "continue" ? "영상을 보기 시작하면 마지막 시청 위치가 여기에 남습니다." : "파일을 선택하거나 이곳에 끌어놓으세요. 원본은 그대로 두고, 감상용 사본을 안전하게 보관합니다.";
 }
-async function refresh() {
+async function refresh(wait=null) {
   const version=++libraryReadVersion;
   try{
-    const result=await api("/api/library");
+    const result=wait===null?await api("/api/library"):await boundedApi("/api/library",{},wait,"보관함 연결이 10초를 넘겼습니다. 서버 실행 상태를 확인한 뒤 다시 연결해 주세요.");
     // An older snapshot can finish after an import or another refresh. Only
     // the newest read may replace the visible library or its recommendations.
     if(version!==libraryReadVersion)return;
-    items=result.items;invalidateRecommendations();
+    if(!Array.isArray(result?.items))throw Error("보관함 응답을 읽을 수 없습니다.");
+    items=result.items;libraryLoaded=true;invalidateRecommendations();
     if(filter==="recommended")await refreshRecommendations();else render();
   }catch(e){if(version===libraryReadVersion)throw e;}
 }
@@ -196,7 +198,7 @@ async function savePreference() {
 $("preference-value").addEventListener("change",savePreference);
 $("preference-include").addEventListener("change",savePreference);
 $("preference-retry").addEventListener("click",()=>{if(activeItem)refreshPreference(activeItem);});
-function chooseFile() { if(upload) return toast("현재 가져오기가 끝난 뒤 선택해 주세요."); $("file-input").click(); }
+function chooseFile() { if(!connectedLibrary)return toast("보관함에 먼저 연결해 주세요.",true);if(upload) return toast("현재 가져오기가 끝난 뒤 선택해 주세요."); $("file-input").click(); }
 function showImportRecovery(detail){
   importRecoveryVersion++;
   $("import-recovery-message").textContent=detail+" 원본은 그대로입니다. 서버에서 보관이 끝났을 수도 있습니다. 다시 가져오기 전에 보관함을 확인해 주세요.";
@@ -210,7 +212,7 @@ $("import-check").addEventListener("click",async()=>{
     const result=await boundedApi("/api/library",{},10000,"보관함을 확인하지 못했습니다. 앱 연결을 확인한 뒤 다시 눌러 주세요.");
     if(version!==importRecoveryVersion||upload||read!==libraryReadVersion)return;
     if(!Array.isArray(result.items))throw Error("보관함 응답을 읽을 수 없습니다.");
-    items=result.items;filter="all";$("search").value="";render();
+    items=result.items;libraryLoaded=true;filter="all";$("search").value="";render();
     $("import-recovery-message").textContent="보관함 전체 목록을 다시 불러왔습니다. 영상이 없으면 서버의 파일 확인이 끝난 뒤 다시 확인해 주세요. 이 동작은 영상을 다시 가져오거나 재생 준비를 시작하지 않습니다.";
   }catch(e){if(version===importRecoveryVersion&&read===libraryReadVersion)$("import-recovery-message").textContent=e.message;}
   finally{if(version===importRecoveryVersion){
@@ -219,6 +221,7 @@ $("import-check").addEventListener("click",async()=>{
   }}
 });
 async function importFile(file) {
+  if(!connectedLibrary)return toast("보관함에 먼저 연결해 주세요.",true);
   if(upload) return toast("한 번에 한 개의 영상을 가져올 수 있습니다.");
   if(!file || !file.size) return toast(message("empty_media"),true);
   const version=++importRecoveryVersion;
@@ -554,7 +557,33 @@ window.addEventListener("hashchange",async()=>{
   if(!sessionToken||request!==momentRequest||player!==playerRequest)return;
   await openPlayer(entry.value.item_id,entry.value,entry.kind);
 });
-(async()=>{try{const session=await api("/api/session");sessionToken=session.token;settleMomentSession();const d=session.diagnostics;renderModelSetup(d.models);const notes=[];if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);if(notes.length){$("diagnostic").textContent=notes.join(" ");$("diagnostic").hidden=false;}await refresh();if(initialMoment?.value&&momentRequest===0)await openPlayer(initialMoment.value.item_id,initialMoment.value,initialMoment.kind);}catch(e){$("diagnostic").textContent=e.message;$("diagnostic").hidden=false;}finally{settleMomentSession();$("loading-state").hidden=true;}})();
+async function connectLibrary(){
+  if(connectingLibrary||connectedLibrary)return;
+  connectingLibrary=true;
+  const deadline=performance.now()+10000,hadFocus=document.activeElement===$("connection-retry");
+  $("connection-recovery").hidden=true;$("connection-retry").disabled=true;$("loading-state").hidden=false;
+  try{
+    const session=await boundedApi("/api/session",{},10000,"보관함 연결이 10초를 넘겼습니다. 서버 실행 상태를 확인한 뒤 다시 연결해 주세요.");
+    if(typeof session?.token!=="string"||!session.token||!session.diagnostics)throw Error("앱 응답을 읽을 수 없습니다.");
+    sessionToken=session.token;settleMomentSession();
+    const d=session.diagnostics;renderModelSetup(d.models);const notes=[];
+    if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");
+    if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);
+    $("diagnostic").textContent=notes.join(" ");$("diagnostic").hidden=!notes.length;
+    await refresh(Math.max(1,deadline-performance.now()));
+    if(!libraryLoaded)throw Error("보관함을 아직 확인하지 못했습니다. 다시 연결해 주세요.");
+    connectedLibrary=true;
+    if(hadFocus&&!dialog.open){$("library-heading").tabIndex=-1;$("library-heading").focus();}
+  }catch(e){
+    $("connection-message").textContent=e.message;$("connection-recovery").hidden=false;
+  }finally{
+    connectingLibrary=false;$("connection-retry").disabled=false;$("loading-state").hidden=true;
+    for(const id of ["import-top","import-empty","nav-recommended"])$(id).disabled=!connectedLibrary;
+  }
+  if(connectedLibrary&&initialMoment?.value&&momentRequest===0)await openPlayer(initialMoment.value.item_id,initialMoment.value,initialMoment.kind);
+}
+$("connection-retry").addEventListener("click",connectLibrary);
+connectLibrary();
 
 let subtitleTimer=null, subtitleJob=null, subtitleLoaded=null, subtitleTracks=[], geminiConfigured=false;
 const subtitleCommands=new Map();

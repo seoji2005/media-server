@@ -219,8 +219,23 @@ try {
   mark('initial-navigation');
   await page.goto(base);
   if (phase === 'first') {
+    // First confirm normal initial loading, then fail only this browser's
+    // session read once. The retry must return to the actual HTTP library.
+    await page.locator('#empty-state').waitFor();
+    mark('startup-recovery');
+    await page.route(base+'/api/session', route=>route.fulfill({status:503,
+      contentType:'application/json',body:JSON.stringify({error:'storage_unavailable'})}), {times:1});
+    await page.reload();
+    await page.locator('#connection-retry').waitFor();
+    assert.equal(await page.locator('#empty-state').isVisible(),false);
+    assert.equal(await page.locator('#import-top').isDisabled(),true);
+    await page.locator('#connection-retry').click();
     mark('source-import');
-    await page.locator('#file-input').setInputFiles(source);
+    // Use the enabled product control, not injection into its hidden input.
+    const chooser=page.waitForEvent('filechooser');
+    await page.locator('#import-top').click();
+    await (await chooser).setFiles(source);
+    assert.equal(await page.locator('#connection-recovery').isVisible(),false);
   }
   await page.locator('.card-button').waitFor();
   assert.equal(await page.locator('.card-button').count(), 1);
@@ -381,6 +396,7 @@ try {
   assert.deepEqual(external, []);
   mark('checks-complete');
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
+    startupConnectionRecovery:phase==='first',
     subtitleSearch115NativeCues:phase==='restart', statusRecoveryWithExistingCaption: true, displayTitleAndNormalizedSearch: true, nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   mark('browser-close');

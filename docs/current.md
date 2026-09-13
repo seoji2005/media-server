@@ -1,15 +1,48 @@
 # Current work
 
-Live recovery base: Server `e735d877e8ba5acc725b91d317f843b183ded420`
-(PR55 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34736332834 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
+Live recovery base: Server `3524d738c9377c59faa8794a4e45cde4389b8f4e`
+(PR56/57 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34738936411 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
 this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: preserve the newest requested library snapshot. An older GET that
+Active slice: recover the initial library connection. Failed/unread startup must
+not render an empty-library invitation. Initial session and library reads share
+ten seconds including response bodies, with zero automatic retries. A persistent
+notice offers an explicit read-only retry; import controls wait for initial success.
+Late timed-out responses cannot complete a newer attempt, and query/Continue
+filters remain in the page. Incoming scene links still wait for a valid session.
+The retry does not replay imports, settings writes or preparation commands.
+This covers initial load, not automatic reconnection/token renewal after an
+already-open app's server restarts; that existing path still requests page reload.
+
+Product-JS regression reproduced the misleading empty state before the change.
+Normal/failed/malformed startup, stalled headers/body, shared deadline, duplicate
+clicks, late completion, filters and delayed scene entry pass under mocked HTTP.
+Existing DOM suites pass. Actual Linux loopback HTTP/FFmpeg/SQLite checks inject
+one failure at each temporary app read boundary and then reconnect/restart:
+all DB rows, original bytes, supplied captions, offset and position survive.
+Wrong Host/Origin and stale write tokens remain rejected. No model/API key/private
+data use or security-boundary changes. Work browser limits below remain in force;
+new retry UI native-browser interaction and human viewing are unverified.
+
+Initial CI34739441697 failed: Linux passed Python/DOM but its browser fixture
+injected a hidden file input before initial connection. It now uses the actual
+enabled import button/file chooser and checks one isolated failed session read
+followed by explicit reconnect. This extends the existing CI browser regression;
+it does not use a new Work browser route or relax any timeout/security check.
+Windows failed an older Qwen HTTP fixture's succeeded-state assertion. That test
+started both a real supervisor and a manual synthetic executor for one queued job.
+An isolated launch-failure probe reproduced the competing-owner failure locally;
+the fixture now initializes jobs without that second owner. The original Windows
+error code was not reported, so its exact cause remains unconfirmed; future failed
+assertions include only the opaque error code. Product worker/model code is unchanged.
+Final fixed-HEAD review and mandatory CI results belong to the PR.
+
+Completed in PR57: preserve the newest requested library snapshot. An older GET that
 finishes after a newer successful import/refresh could hide the newly listed item.
 Ordinary refreshes and PR56's explicit import-result check now share one in-page
 request revision. Older successes and errors cannot replace the current list;
@@ -17,11 +50,10 @@ a latest failed read keeps the last displayed list and reports its own error.
 User filters/search stay unchanged except for the explicit full-library check.
 No media/history write, automatic retry, new timeout or browser-storage layer.
 
-This follow-up is based on PR56 HEAD `3007fba3c96e38de07488ac7904e3b4dd86f7aa5`
-because both readers must participate. PR56 itself is preserved. Its final
-CI34737420845 was still queued with no runner assigned on resumption; no rerun or
-CI-gate bypass was performed. Merge PR56 first, then verify this follow-up's actual
-main base and mandatory CI before development merge. Live Git/PR is authoritative.
+PR56/57 passed independent fixed-revision review and CI34737420845/34738588730
+before sequential development merge. The queued runs completed without rerun or
+CI bypass. Both existing Chrome regressions used synthetic 20-second media;
+they do not establish native upload/cancel/recovery or human viewing acceptance.
 
 The new product-JS regression failed on the old response order and passes with
 both ordinary and explicit result checks. Existing UI regressions pass. A real
@@ -31,7 +63,7 @@ The server retains both exact videos and the first item's caption/offset/positio
 after restart. This establishes the delayed-response scenario; DOM ordering is
 mocked, and native browser viewing/upload remains unverified.
 
-Prepared in PR56: interrupt an import's response wait and explicitly check its result.
+Completed in PR56: interrupt an import's response wait and explicitly check its result.
 Upload progress no longer rounds 99.5% into a completed transfer and hides cancel.
 The upload-complete event changes the control to stop waiting; abort does not
 claim server rollback. A persistent recovery notice offers a bounded ten-second,
