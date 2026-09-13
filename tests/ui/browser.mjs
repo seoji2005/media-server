@@ -180,6 +180,73 @@ async function checkCaptionViewing(trackId){
   await page.waitForFunction(()=>!document.querySelector('#subtitle-select').disabled&&document.querySelector('#video track')?.readyState===2);
   assert.match(await video.locator('track').getAttribute('src'),/offset_ms=500$/);
 }
+async function checkCaptionImportRecovery(trackId){
+  const itemId=await video.evaluate(v=>new URL(v.src).pathname.split('/')[3]);
+  const statusURL=`${base}/api/library/${itemId}/subtitles?audio_index=0`;
+  const beforeStatus=await (await page.request.get(statusURL)).json();
+  const snapshot=()=>video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused,track:v.querySelector('track')?.src}));
+  const before=await snapshot(),posts=[];
+  const observe=request=>{if(request.method()==='POST')posts.push(new URL(request.url()).pathname);};
+  const importURL=url=>url.pathname===`/api/library/${itemId}/subtitles`&&url.searchParams.get('format')==='srt';
+  let release,committed,importRequest,receiptFailed=false;const gate=new Promise(resolve=>release=resolve);
+  const failed=request=>{if(request===importRequest)receiptFailed=true;};
+  const handler=async route=>{
+    importRequest=route.request();
+    const result=await route.fetch();committed={status:result.status(),...(await result.json())};
+    await page.evaluate(()=>window.captionImportCommitted=true);
+    await gate;await route.abort('failed');
+  };
+  await page.locator('#subtitle-preparation').evaluate(el=>el.open=true);
+  await page.locator('#subtitle-input').evaluate(el=>{
+    window.captionPickerCancelled=false;
+    el.addEventListener('cancel',()=>window.captionPickerCancelled=true,{once:true});
+  });
+  await page.route(importURL,handler);page.on('request',observe);page.on('requestfailed',failed);
+  try{
+    // Deliver the actual file to the server, then lose only its receipt. Sending
+    // it twice through the UI while pending must still deliver one POST.
+    await page.locator('#subtitle-input').setInputFiles(subtitle);
+    await page.waitForFunction(()=>window.captionImportCommitted===true,null,{timeout:5000});
+    assert.equal(committed.status,201);assert.notEqual(committed.id,trackId,'ordinary imports preserve a new caption version');
+    assert.equal(await page.locator('#subtitle-import').isDisabled(),true);
+    await page.locator('#subtitle-input').setInputFiles(subtitle);
+    assert.equal(await page.locator('#player-dialog').evaluate(el=>el.open),true,'same-file picker cancellation keeps playback open');
+    // Selecting the same native file can emit cancel rather than change. Also
+    // deliver the duplicate change explicitly to exercise the pending guard.
+    await page.locator('#subtitle-input').dispatchEvent('change');assert.equal(posts.length,1);
+    const failure=page.waitForEvent('requestfailed',{predicate:request=>request===importRequest,timeout:5000});
+    release();await failure;await page.locator('#subtitle-refresh').waitFor();
+    assert.equal(await page.locator('#subtitle-import').isDisabled(),true);assert.deepEqual(await snapshot(),before);
+    await page.locator('#subtitle-refresh').click();
+    await page.waitForFunction(()=>!document.querySelector('#subtitle-import').disabled);
+    assert.match(await page.locator('#subtitle-state').textContent(),/자막 목록/);
+    assert.deepEqual(await snapshot(),before);
+    const afterStatus=await (await page.request.get(statusURL)).json();
+    assert.equal(afterStatus.tracks.length,beforeStatus.tracks.length+1,'only one new version is published');
+    assert.deepEqual(afterStatus.tracks.filter(t=>t.id!==committed.id),beforeStatus.tracks);
+    assert.deepEqual({...afterStatus,tracks:beforeStatus.tracks},beforeStatus,'old captions, jobs and viewing settings are unchanged');
+    const canonical=async id=>(await page.request.get(`${base}/api/library/${itemId}/subtitles/${id}.vtt`)).text();
+    assert.equal(await canonical(committed.id),await canonical(trackId));
+    assert.deepEqual(posts,[`/api/library/${itemId}/subtitles`],'recovery neither reimports nor starts translation');
+    console.log(JSON.stringify({phase,captionImportRecovery:true,pickerCancelled:await page.evaluate(()=>window.captionPickerCancelled)}));
+  }catch(error){
+    const state=await page.evaluate(()=>{
+      const command=subtitleCommands.get(activeItem?.id);
+      return {command:!!command,pending:!!command?.pending,uncertain:!!command?.uncertain,
+        importKind:command?.kind==='import',commandError:!!command?.error,
+        stopped:!!subtitleMonitor?.stopped,confirming:!!subtitleMonitor?.confirming,
+        reading:!!subtitleMonitor?.reading,refreshHidden:document.querySelector('#subtitle-refresh').hidden,
+        playerOpen:document.querySelector('#player-dialog').open,activeOwner:!!activeItem,
+        pickerCancelled:!!window.captionPickerCancelled,
+        preparationOpen:document.querySelector('#subtitle-preparation').open};
+    });
+    console.log(JSON.stringify({phase,stage:'caption-import-failure',receiptFailed,pageErrors:errors.length,...state}));
+    throw error;
+  }finally{
+    release();await page.unroute(importURL,handler);page.off('request',observe);page.off('requestfailed',failed);
+    await page.locator('#subtitle-preparation').evaluate(el=>el.open=false);
+  }
+}
 async function checkMomentEntry() {
   const session = await (await page.request.get(`${base}/api/session`)).json();
   const headers = {'X-Media-Token': session.token};
@@ -326,8 +393,10 @@ try {
     await checkObservedResume();
   }
   mark('caption-load');
-  await page.waitForFunction(count => document.querySelector('#subtitle-select').options.length === count, phase === 'first' ? 2 : 4);
-  const trackId = await selector.locator('option').filter({hasText: '가져온 자막'}).getAttribute('value');
+  await page.waitForFunction(count => document.querySelector('#subtitle-select').options.length === count, phase === 'first' ? 2 : 5);
+  // The first phase's lost receipt published a second supplied version. Reopen
+  // must still restore the oldest explicitly selected version and its offset.
+  const trackId = await selector.locator('option').filter({hasText: '가져온 자막'}).last().getAttribute('value');
   if(phase==='restart'){
     await page.waitForFunction(()=>!document.querySelector('#subtitle-select').disabled&&document.querySelector('#video track')?.readyState===2);
     assert.equal(await selector.inputValue(),trackId,'server restart preserves chosen older version instead of newest generated track');
@@ -464,6 +533,7 @@ try {
   mark('caption-viewing');
   if(phase==='first'){mark('session-recovery');await checkSessionRecovery();}
   await checkCaptionViewing(trackId);
+  if(phase==='first')await checkCaptionImportRecovery(trackId);
   if(phase==='restart')await checkSubtitleSearchPages(page,trackId);
   await video.evaluate(v => { v.currentTime = 7; });
   await page.waitForFunction(() => !document.querySelector('#video').seeking);

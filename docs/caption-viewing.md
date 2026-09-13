@@ -94,14 +94,25 @@ neither fixture measures natural long-speech caption quality or target RTX hardw
 
 ## Bounded status and command recovery
 
-Status reads, generation/retranslation/job commands and caption-setting saves now
-have a30-second response/body deadline. A status read waits for already-pending
-caption/command requests (each independently bounded) before starting its own deadline.
+Status reads, caption-file imports, generation/retranslation/job commands and caption-setting saves have a
+30-second response/body deadline. A status read waits for already-pending
+caption-setting/job-command requests (each independently bounded) before starting its own deadline.
 Duplicate clicks while a command is pending send only one request. Pending/uncertain
 command state is retained across item/audio switches in this page's memory. Ambiguous
 responses block another start/resume/restart until an explicit successful status read;
 known precondition rejection such as a missing Gemini key remains correctable directly.
 Neither timeout nor successful reread automatically resubmits a command.
+
+Caption imports show **자막 가져오는 중…** and share the pending/uncertain command
+gate, so duplicate file events cannot send another import or start processing.
+After a lost receipt, **상태 다시 확인** reads the saved caption list and tells the
+viewer to choose the imported result if present. It preserves the current caption,
+Off, offset and playback; it cannot reimport or start translation. A late receipt
+cannot select a caption after recovery, audio/item switching or a newer file choice.
+An ordinary confirmed import still selects its result. Import receipts do not delay
+loading existing captions on an audio change or reopen. Known validation rejection
+allows a corrected file without an ambiguous-save gate. These are in-page controls,
+not cancellation of a server commit or a durable exactly-once import contract.
 
 Polling stops on a read failure,5minutes without a higher saved ASR/translation count
 or later saved ASR time, or10minutes/400reads per monitoring session. Stage/job changes
