@@ -1,15 +1,27 @@
 # Current work
 
-Live recovery base: Server `39df863c2763503527ea7beb24213caa76a0de68`
-(PR53 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34733485605 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
+Live recovery base: Server `7ed0b12dcf99042d131ff7259f5ac8eff6bb6aff`
+(PR54 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34734868386 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
 this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: explicit restart after failed native cleanup. A failed job can still
+Active slice: recover a failed caption-file load without changing viewing settings.
+An inline, explicit reload beside caption selection reads the same selected VTT
+with the same transcript/translation choice and timing offset. It makes no settings,
+position or job write and does not replay/seek the video. The prior Off/reselect
+workaround intentionally reset timing. Detached track events cannot affect a newer
+load or video; native Off and uncertain/pending setting saves still take precedence.
+Mock DOM/media regression failed before the control existed and passed afterward.
+The socket HTTP/FFmpeg/SQLite regression checks an isolated failed VTT read, explicit
+re-reads and app restart against exact caption bytes, every saved DB row and original
+video bytes. Browser playback remains unverified under the limit documented below;
+this is recovery behavior, not subtitle quality or a new model/prompt change.
+
+Completed in PR54: explicit restart after failed native cleanup. A failed job can still
 own a live guardian/compute process while its model cleanup stalls. Resume already
 retired it; restart did not, leaving the replacement job queued behind that process.
 Restart now retires the same job's process before queuing a replacement. The old

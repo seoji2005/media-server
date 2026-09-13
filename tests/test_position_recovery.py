@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from media_clarity.app import create_app
+from media_clarity.storage import MediaError
 
 
 @contextmanager
@@ -78,6 +79,57 @@ class PositionRecoveryTests(unittest.TestCase):
                 self.assertEqual(client.get(prefix+f'/subtitles/{track}.vtt').content,vtt)
                 self.assertEqual(client.get(f'/api/media/{item_id}/content',headers={'Range':'bytes=10-99'}).content,self.raw[10:100])
                 self.assertEqual(client.put(prefix+'/position',json={'position':1,'expected_revision':1},headers=token).status_code,403)
+
+    def test_failed_caption_read_can_reload_without_mutating_view_or_content(self):
+        with tempfile.TemporaryDirectory() as data:
+            root = Path(data) / '자막 재읽기 보관함'
+            def snapshot():
+                with closing(sqlite3.connect(root/'library.sqlite3')) as db, closing(sqlite3.connect(':memory:')) as backup:
+                    db.backup(backup)
+                    return '\n'.join(backup.iterdump())
+            with live_server(root) as client:
+                token = {'X-Media-Token':client.get('/api/session').json()['token']}
+                imported = client.post('/api/import', content=self.raw, headers=token | {
+                    'X-Media-Filename':'sample.mp4','Content-Type':'application/octet-stream'})
+                self.assertEqual(imported.status_code,201,imported.text)
+                item_id = imported.json()['item']['id']
+                prefix = f'/api/library/{item_id}'
+                caption = '1\n00:00:01,000 --> 00:00:02,000\n문장 경계\n\n2\n00:00:02,000 --> 00:00:03,000\n너머 대사\n'
+                supplied = client.post(prefix+'/subtitles',content=caption.encode(),headers=token)
+                self.assertEqual(supplied.status_code,201,supplied.text)
+                track = supplied.json()['id']
+                view = {'audio_index':0,'selection':track,'offset_ms':1500,'revision':0}
+                self.assertEqual(client.put(prefix+'/caption-view',json=view,headers=token).status_code,200)
+                self.assertEqual(client.put(prefix+'/position',json={'position':7.25,'expected_revision':0},headers=token).status_code,200)
+                url = prefix+f'/subtitles/{track}.vtt'
+                original = client.get(url).content
+                expected = client.get(url+'?offset_ms=1500')
+                self.assertEqual(expected.status_code,200)
+                self.assertIn('00:00:02.500 --> 00:00:03.500',expected.text)
+                self.assertIn('00:00:03.500 --> 00:00:04.500',expected.text)
+                self.assertIn('\n문장 경계\n',expected.text)
+                saved = snapshot()
+                # Only this isolated server's caption-read boundary fails once.
+                with patch('media_clarity.jobs.Jobs.track',side_effect=MediaError('fixture_read_unavailable',503)) as fault:
+                    failed = client.get(url+'?offset_ms=1500')
+                    self.assertEqual(failed.status_code,503)
+                    self.assertEqual(fault.call_count,1)
+                for _ in range(2):  # Two explicit reads, no automatic retry loop.
+                    reloaded = client.get(url+'?offset_ms=1500')
+                    self.assertEqual(reloaded.status_code,200)
+                    self.assertEqual(reloaded.content,expected.content)
+                self.assertEqual(client.get(url).content,original)
+                self.assertEqual(snapshot(),saved,'VTT failure/reload must not mutate any saved rows')
+            with live_server(root) as client:
+                self.assertEqual(client.get(url+'?offset_ms=1500').content,expected.content)
+                restored = client.get(prefix).json()
+                self.assertEqual((restored['position'],restored['position_revision']),(7.25,1))
+                restored_view = client.get(prefix+'/subtitles').json()['view']
+                self.assertEqual((restored_view['selection'],restored_view['offset_ms'],restored_view['revision']),(track,1500,1))
+                media = client.get(f'/api/media/{item_id}/content')
+                self.assertEqual(media.status_code,200)
+                self.assertEqual(media.content,self.raw)
+                self.assertEqual(snapshot(),saved,'restart and recovery must preserve original/user data')
 
     def test_newer_save_wins_over_delayed_request_and_survives_upgrade_restart(self):
         with tempfile.TemporaryDirectory() as data:

@@ -603,6 +603,7 @@ function renderCaptionView(){
   $("caption-offset-brief").textContent=offset?`${Math.abs(offset/1000).toFixed(1)}초 ${offset<0?"앞당김":"늦춤"}`:"원래 시간";
   $("caption-view-state").textContent=captionSaving?"자막 설정 저장 중…":captionSaveError?captionSaveError+" 현재 감상에는 적용했지만 저장 여부를 확인하지 못했습니다.":!captionView?"자막 설정을 확인하고 있어요.":captionView.selection===null?"다시 열면 최신 자막을 자동으로 선택합니다.":`오디오 ${(activeItem?.audio_index||0)+1}의 자막 설정을 이 기기에 저장했습니다. 다른 자막을 선택하면 원래 시간으로 시작합니다.`;
   $("caption-view-retry").hidden=!captionSaveError;
+  renderSubtitleRecovery();
 }
 async function saveCaptionView(selection,offset_ms=0,keepNative=false){
   const owner=activeItem;
@@ -678,6 +679,19 @@ function renderPreparationSummary(){
   if($("subtitle-brief").textContent!==label)$("subtitle-brief").textContent=label;
 }
 function subtitleError(text){$("subtitle-state").textContent=text;$("subtitle-brief").textContent="자막 확인 필요";}
+function renderSubtitleRecovery(){
+  const failed=activeItem&&subtitleLoaded&&subtitleSearch.state==="error"&&captionView?.selection!==""&&!captionNativeHidden&&video.querySelector("track")?.track?.mode!=="disabled";
+  $("subtitle-load-recovery").hidden=!failed;
+  $("subtitle-reload").disabled=!failed||!captionView||captionSaving||!!captionSaveError;
+}
+$("subtitle-reload").addEventListener("click",()=>{
+  renderSubtitleRecovery();if($("subtitle-reload").disabled)return;
+  const hadFocus=document.activeElement===$("subtitle-reload");
+  // Re-read only the selected VTT. Reselecting through saveCaptionView resets
+  // its timing; a file-load retry must not mutate the saved viewing choice.
+  loadSubtitle(subtitleLoaded,true);
+  if(hadFocus)$("subtitle-select").focus();
+});
 function loadSubtitle(id,force=false){
   if(!activeItem)return;
   if(subtitleLoaded===id&&!force){renderSubtitleNotes();renderCaptionView();return;}
@@ -804,10 +818,14 @@ function resetSubtitleSearch(clearQuery=false,state="empty"){
   renderSubtitleSearch();
 }
 function renderSubtitleSearch(){
+  renderSubtitleRecovery();
   const results=$("subtitle-results"),status=$("subtitle-search-status"),version=++subtitleSearchRender;results.replaceChildren();results.scrollTop=0;
   $("subtitle-pages").hidden=true;$("subtitle-page-previous").disabled=true;$("subtitle-page-next").disabled=true;
-  const notices={empty:"자막을 선택해 주세요.",loading:"자막을 불러오는 중입니다.",error:"자막을 불러오지 못했습니다. 자막을 다시 선택해 주세요."};
-  if(subtitleSearch.state!=="ready"){status.textContent=notices[subtitleSearch.state];return;}
+  const notices={empty:"자막을 선택해 주세요.",loading:"자막을 불러오는 중입니다.",error:"자막을 불러오지 못했습니다. ‘자막 다시 불러오기’를 눌러 주세요."};
+  if(subtitleSearch.state!=="ready"){
+    status.textContent=subtitleSearch.state==="error"&&video.querySelector("track")?.track?.mode==="disabled"?"플레이어에서 선택한 자막을 켜 주세요.":notices[subtitleSearch.state];
+    return;
+  }
   if(subtitleSearch.owner!==activeItem||subtitleSearch.id!==subtitleLoaded)return;
   if(subtitleSearch.track.mode!=="showing"){subtitleSearch.page=0;status.textContent="플레이어에서 선택한 자막을 켜 주세요.";return;}
   // Search only the selected, already-loaded text track. No query/history API.
