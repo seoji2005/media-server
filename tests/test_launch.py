@@ -90,6 +90,12 @@ raise SystemExit(main())'''
             ready_install = run(install_script)
             self.assertEqual(ready_install.returncode,0,ready_install.stderr.decode('utf-8',errors='replace'))
             self.assertIn(b'--device',ready_install.stdout)
+            self.assertIn(b'--viewing-only',ready_install.stdout)
+            subprocess.run([sys.executable,'-m','venv','--without-pip','--system-site-packages',str(root/'.venv-viewing')],
+                           check=True,capture_output=True,timeout=30)
+            viewing = run()
+            self.assertEqual(viewing.returncode,0,viewing.stderr.decode('utf-8',errors='replace'))
+            self.assertIn(b'--open-browser',viewing.stdout)
             subprocess.run([sys.executable,'-m','venv','--without-pip','--system-site-packages',str(root/'.venv')],
                            check=True,capture_output=True,timeout=30)
             ready = run()

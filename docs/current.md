@@ -1,15 +1,45 @@
 # Current work
 
-Live recovery base: Server `8bbc61e07f971af4e5665ee90757654b542dfb71`
-(PR50 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34696120258 passed. Codespaces PR51 remains separate and open at
+Live recovery base: Server `8f59a27af4314a494f61133326b3a3577dd5a2e6`
+(PR52 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34731920170 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
 this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: two reproduced viewing reliability defects. Qwen PCM decoding now
+Active slice: model-free first viewing installation. `install-media-clarity.cmd
+--viewing-only` prepares the separate `.venv-viewing` from the exact base runtime
+pins, with a 600-second total / 120-second byte-idle limit and zero retries.
+The ordinary start command prefers an existing `.venv` Python, then `.venv-viewing`.
+Both use the same actual UI/API/library; model configuration and full runtimes stay
+unchanged. Full subtitle setup remains a separate opt-in command. See
+[installation](runtime-install.md) and the first-run README commands.
+
+Actual Linux Python 3.12 installation succeeded in a fresh path containing Korean,
+spaces, `&` and `!`. The installed environment had no Torch/Transformers. Its actual
+HTTP app served the product UI, imported a generated 12-second MP4 and two supplied
+caption cues, then preserved 7.25-second position / revision 1, caption selection
+and +500 ms offset across app shutdown/startup. Full original bytes and 90 HTTP
+Range bytes matched. SQLite integrity and a consistent backup passed. Re-running
+the installer validated the environment without changing the existing venv or
+library file sizes, mtimes or SHA256s. No keys, models or private media were used.
+This checks HTTP/storage and installation, not browser playback or sentence-search UI.
+
+At the fixed recovery revisions above, a separate current Fetch → Server test
+passed seven cases in 4.188 seconds, bounded at 120 seconds with zero automatic
+retries. It used freshly compiled Fetch (166 source blobs checked) and actual
+download/HTTP/FFmpeg/SQLite/Native framing. Duplicate delivery and explicit
+lost-receipt retry preserved position revision 2, captions, −250 ms offset and
+preferences; a same-title second video retained distinct correct IDs and bytes.
+Wrong library/file/hash and stale position revision returned 409. Actual Server
+process restart plus Native server-entry restored the exact video and 90 Range
+bytes. Both DB integrity checks passed; original source trees and receipts stayed
+unchanged and owned processes exited. Browser extension operation, human viewing
+and Windows/RTX remain separate unverified gates.
+
+Completed in PR52: two reproduced viewing reliability defects. Qwen PCM decoding now
 rejects error-level FFmpeg output even with exit 0, before model calls or new
 checkpoints. It retains only an error flag, with a drained pipe and no diagnostic
 text in memory/logs/files. Valid shorter/delayed audio keeps its historical PCM;
@@ -128,7 +158,7 @@ Initial failed manifest transcription, missing native preflight and the separate
 child's non-inherited audit hook were corrected; failures/reviews remain in saved
 evidence and PR48. Existing full-size reuse is not new full-size Windows restoration.
 
-## Active slice: bounded runtime installation
+## Existing full runtime installation
 
 `install-media-clarity.cmd` / `scripts/install_runtime.py` prepares a fresh repository
 `.venv` and optionally chains the original pinned cache restore and final setup

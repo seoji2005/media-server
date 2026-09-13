@@ -1,11 +1,45 @@
 # Runtime installation and saved model restoration
 
 Use Python 3.12 (64-bit x86) and install trusted FFmpeg/ffprobe on PATH first.
-This helper supports Windows and Linux. It creates this checkout's `.venv` at its
+This helper supports Windows and Linux. It creates this checkout's selected venv at its
 final path; it never moves a venv or upgrades an existing one. Other original
 environments, media, DBs and corrections are not installation targets.
 
+## Start with viewing
+
 Windows PowerShell:
+
+```powershell
+.\install-media-clarity.cmd --viewing-only
+.\.venv-viewing\Scripts\python -m media_clarity doctor
+.\start-media-clarity.cmd
+```
+
+This prepares `.venv-viewing` using only the exact pins in `requirements.txt`.
+Import, playback, supplied SRT/VTT selection, timing adjustment, sentence search
+and viewing-state storage use the actual app and normal library. Torch,
+Transformers, model weights, GPU, API keys and inference are not prerequisites.
+Model/device settings are neither inspected nor changed. Device selection and
+cache-restore arguments cannot be combined with `--viewing-only`.
+
+The limit is 600 seconds total / 120 seconds of installation-byte idle, with zero
+connection/resume retries. The final isolated check has a 30-second bound and
+verifies Python 3.12/64-bit, this venv, exact runtime package versions and imports
+FastAPI/uvicorn. It does not call the model diagnostic. Existing `.venv-viewing`
+is checked without pip or bytecode writes; a partial environment stays intact.
+The initial free-space prerequisite is 1 GiB; this is not a media storage allowance.
+
+On Linux use `python3.12 scripts/install_runtime.py --viewing-only`, then
+`.venv-viewing/bin/python -m media_clarity --open-browser`.
+The Windows start command prefers `.venv` when its Python exists, otherwise
+`.venv-viewing`. It never retries a failed full-runtime launch in the viewing venv.
+Both use the same default library; pass the same `--data-dir` on install and launch
+for a custom library. Stop the app before preparing either environment.
+
+## Add subtitle generation
+
+Run without `--viewing-only` to prepare the separate `.venv`. It preserves
+`.venv-viewing` and the same media, captions, viewing position and preferences:
 
 ```powershell
 .\install-media-clarity.cmd
@@ -37,7 +71,7 @@ Existing platform proxy/TLS settings are retained; pip indexes/config/targets ar
 isolated. No alternate mirror, route, source build or automatic model download is
 attempted on failure.
 
-Installation is limited to 1800 seconds total and 120 seconds without changes in
+Full-runtime installation is limited to 1800 seconds total and 120 seconds without changes in
 the byte counts of installation files. Quiet native checks have their own 75-second
 outer bound and the existing 60-second diagnostic. Optional restore plus final
 diagnostic has a separate 1320-second total / 90-second byte-progress idle limit.
@@ -57,12 +91,13 @@ resume loop; other pip versions must expose `--resume-retries` or stop before tr
 No implicit pip upgrade is performed.
 
 On failure, `.setup-cache/install-*` retains completed wheels and temporary assets;
-`.venv` retains its current files. There is no automatic repair/resume of a partial
+the selected `.venv` or `.venv-viewing` retains its current files. There is no automatic repair/resume of a partial
 environment. A later invocation validates an existing environment without calling
 pip; invalid/mismatched environments stop. Preserve them and use a fresh checkout
 for a new installation. Validation disables bytecode writes in both its isolated
 interpreter and the separate native probe, including cache-free existing environments.
-Reuse currently requires the selected exact Torch build.
+Full-runtime reuse requires the selected exact Torch build; viewing reuse checks
+only the exact base runtime pins.
 The app/worker locks prevent setting/package work during active app/model jobs.
 Restore reacquires its own locks and stops if another app starts during handoff.
 
