@@ -335,6 +335,21 @@ try {
   assert.equal(await page.locator('#player-title').textContent(),displayTitle);
   assert.equal(await page.locator('#player-title').evaluate(el=>el.children.length),0,'title is literal text');
   assert.deepEqual(await video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused,track:v.querySelector('track').src})),beforeTitle,'rename preserves loaded playback and caption');
+  // Repeated saved-title reads preserve the draft and never send a title write.
+  const titleWrites=[],observeTitle=request=>{if(request.method()==='PUT'&&request.url().endsWith('/title'))titleWrites.push(true);};
+  page.on('request',observeTitle);
+  await page.locator('#title-input').fill('아직 저장하지 않은 제목');
+  for(let read=0;read<2;read++){
+    const response=page.waitForResponse(r=>r.request().method()==='GET'&&/\/api\/library\/[a-f0-9]{32}$/.test(r.url()));
+    await page.locator('#title-reload').click();await response;
+    await page.waitForFunction(()=>!document.querySelector('#title-reload').disabled);
+    assert.equal(await page.locator('#title-input').inputValue(),'아직 저장하지 않은 제목');
+    assert.equal(await page.locator('#player-title').textContent(),displayTitle);
+  }
+  assert.deepEqual(titleWrites,[]);page.off('request',observeTitle);
+  assert.deepEqual(await video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused,track:v.querySelector('track').src})),beforeTitle,'saved-title reads preserve playback and caption');
+  await page.locator('#title-input').fill(displayTitle);
+  console.log(JSON.stringify({phase,titleDraftReread:true}));
   if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
     await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
     await page.locator('#title-input').scrollIntoViewIfNeeded();

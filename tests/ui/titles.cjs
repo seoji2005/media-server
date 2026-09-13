@@ -40,6 +40,17 @@ function search(value){el('search').value=value;el('search').dispatchEvent(new w
   assert.equal(video.src,source);assert.equal(video.currentTime,7);assert.equal(loads,loaded,'rename does not restart playback');
   search('kyoto');assert.equal(d.querySelectorAll('.media-card').length,1);
   search('한글');assert.equal(d.querySelectorAll('.media-card').length,1);search('');
+  // Reading saved metadata must not erase a draft, even before its first save.
+  el('title-input').value='아직 저장하지 않은 제목';items[0].title='saved elsewhere';
+  const readOnlyCount=saves().length;
+  el('title-reload').click();await settle();
+  assert.equal(el('title-input').value,'아직 저장하지 않은 제목','checking saved title must preserve an unsaved draft');
+  assert.equal(el('player-title').textContent,'saved elsewhere');
+  el('title-reload').click();await settle();assert.equal(el('title-input').value,'아직 저장하지 않은 제목');
+  assert.equal(saves().length,readOnlyCount);assert.equal(video.src,source);assert.equal(video.currentTime,7);assert.equal(loads,loaded);
+  // With no draft, a read should still display the newer saved title.
+  el('title-input').value='saved elsewhere';items[0].title='latest saved title';
+  el('title-reload').click();await settle();assert.equal(el('title-input').value,'latest saved title');
   // Audio switching keeps the editor and its pending title save bound to this item.
   defer=true;await submit('title during audio switch');const audioSave=pending;
   el('audio-select').value='1';el('audio-select').dispatchEvent(new w.Event('change'));el('audio-apply').click();await settle();
@@ -50,6 +61,7 @@ function search(value){el('search').value=value;el('search').dispatchEvent(new w
   // A conflicting edit keeps the draft and requires reading the current title.
   items[0].title='other window';await submit('my draft');assert(el('title-save').disabled);assert.equal(el('title-input').value,'my draft');
   el('title-reload').click();await settle();assert.equal(el('player-title').textContent,'other window');assert.equal(el('title-input').value,'my draft');assert(!el('title-save').disabled);
+  el('title-reload').click();await settle();assert.equal(el('title-input').value,'my draft','a second recovery check must also retain the draft');
   await submit('my draft');assert.equal(JSON.parse(saves().at(-1).options.body).expected_title,'other window');
   // A committed write with no response does not retry or erase the draft.
   defer=true;await submit('committed without reply');const old=pending;

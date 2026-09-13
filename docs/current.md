@@ -157,6 +157,27 @@ setup/everyday launch, real Fetch download to exact-video playback, 40–120-min
 interruption/recovery, then enhancement, search/recommendations and target viewing.
 Preserve original media, completed results and all user corrections.
 
+### Prepared title-draft follow-up (PR60)
+
+At main833815507aa5ab43bca3eb28ee2fb710b3fbf029, saved-title reads could erase
+an edited draft before its first save or on a repeated failed-save state check.
+The follow-up refreshes the saved conflict baseline and display title while
+preserving edited input; untouched input still receives the latest saved title.
+It adds no writes, retries, browser storage, media load or caption changes.
+
+The regression failed on the previous product JS and passes after the fix.
+The entire DOM suite and five existing ASGI/FFmpeg/SQLite title tests passed
+(1.762 seconds). Fresh independent review found no actionable issue, including
+separate delayed/duplicate/timed-out and other-item probes. The existing synthetic
+Chrome CI adds two actual reads with unchanged draft/playback and no title PUT;
+its fixed-revision result belongs to PR60. Work browser restrictions still apply.
+
+PR59 is separately Ready at ec7eda07e29c072ceea4fd155923fa036c5e576c, with
+independent review and CI34741423772 passing on Ubuntu/Windows including Chrome.
+Automatic approval review rejected its merge for lack of explicit authorization
+in the current continuation. No alternative merge route was used. PR60 is based
+on main and preserves PR59/PR51; development merge and release remain separate.
+
 ## Actual product and quality evidence
 
 The current Work installed the repository runtime (Torch 2.8.0+cpu, Transformers
