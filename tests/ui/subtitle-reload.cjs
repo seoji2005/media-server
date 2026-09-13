@@ -64,6 +64,7 @@ w.eval(fs.readFileSync(path.join(root,'media_clarity/static/app.js'),'utf8')+'\n
   confirmed.dispatchEvent(new w.Event('error'));assert.equal(retry.disabled,false);
   confirmed.track.mode='disabled';video.textTracks.dispatchEvent(new w.Event('change'));await tick();
   assert.equal(views.get('a').selection,'');assert.equal(notice.hidden,true,'native Off must hide recovery and stay Off');
+  assert.match(d.getElementById('subtitle-search-status').textContent,/자막을 켜/,'native Off must not direct users to a hidden reload button');
   retry.click();assert.equal(video.querySelector('track'),confirmed);
   await w.qa.closePlayer();await w.qa.openPlayer('b');await tick();
   const next=native(video.querySelector('track'));next.dispatchEvent(new w.Event('load'));

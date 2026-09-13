@@ -822,7 +822,10 @@ function renderSubtitleSearch(){
   const results=$("subtitle-results"),status=$("subtitle-search-status"),version=++subtitleSearchRender;results.replaceChildren();results.scrollTop=0;
   $("subtitle-pages").hidden=true;$("subtitle-page-previous").disabled=true;$("subtitle-page-next").disabled=true;
   const notices={empty:"자막을 선택해 주세요.",loading:"자막을 불러오는 중입니다.",error:"자막을 불러오지 못했습니다. ‘자막 다시 불러오기’를 눌러 주세요."};
-  if(subtitleSearch.state!=="ready"){status.textContent=notices[subtitleSearch.state];return;}
+  if(subtitleSearch.state!=="ready"){
+    status.textContent=subtitleSearch.state==="error"&&video.querySelector("track")?.track?.mode==="disabled"?"플레이어에서 선택한 자막을 켜 주세요.":notices[subtitleSearch.state];
+    return;
+  }
   if(subtitleSearch.owner!==activeItem||subtitleSearch.id!==subtitleLoaded)return;
   if(subtitleSearch.track.mode!=="showing"){subtitleSearch.page=0;status.textContent="플레이어에서 선택한 자막을 켜 주세요.";return;}
   // Search only the selected, already-loaded text track. No query/history API.
