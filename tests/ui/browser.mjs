@@ -195,7 +195,7 @@ async function checkMomentEntry() {
   const entry = {...reference, start_ms: 3000, end_ms: 4500};
   const writes = [], preparations = [];
   const observe = request => {
-    if (request.method() === 'PUT' && request.url().endsWith('/position')) writes.push(true);
+    if (request.method() === 'PUT' && request.url() === path + '/position') writes.push(request);
     if (request.method() === 'POST' && request.url().endsWith('/playback')) preparations.push(true);
     assert(!request.url().includes('#moment='), 'fragment must never reach HTTP');
   };
@@ -233,14 +233,45 @@ async function checkMomentEntry() {
   await page.evaluate(hash => { location.hash = hash; }, fragment(entry));
   await entered(3);
   // Playing explicitly releases position saving; opening/seek/close did not.
-  await video.evaluate(v => v.play());
-  await page.waitForFunction(() => document.querySelector('#video').currentTime > 3.3);
-  await video.evaluate(v => v.pause());
-  await page.locator('#player-close').click();
-  await page.waitForFunction(() => !document.querySelector('#player-dialog').open);
-  assert(writes.length > 0);
-  const played = await (await page.request.get(path)).json();
-  assert(played.position > 3.3 && played.position < 6);
+  // Hold the first write until close to exercise the app's immediate-close
+  // contract. A sent request or a hidden dialog does not acknowledge a commit.
+  let releasePosition;
+  const positionGate = new Promise(resolve => { releasePosition = resolve; });
+  const holdPosition = async route => { await positionGate; await route.continue(); };
+  await page.route(path + '/position', holdPosition, {times: 1});
+  try {
+    await video.evaluate(v => {
+      window.momentPausedAt = null;
+      const stop = () => {
+        if(v.currentTime <= 3.3) return;
+        v.removeEventListener('timeupdate', stop);v.pause();window.momentPausedAt = v.currentTime;
+      };
+      v.addEventListener('timeupdate', stop);
+      return v.play();
+    });
+    await page.waitForFunction(() => window.momentPausedAt !== null);
+    const pausedAt = await video.evaluate(v => { if(!v.paused) throw Error('moment must pause'); return window.momentPausedAt; });
+    assert(pausedAt > 3.3 && pausedAt < 6, `moment pause outside expected range: ${pausedAt}`);
+    await page.locator('#player-close').click();
+    await page.waitForFunction(() => !document.querySelector('#player-dialog').open);
+    assert(writes.length > 0);
+    const beforeCommit = await (await page.request.get(path)).json();
+    assert.equal(beforeCommit.position, before.position, 'closed player can still have an uncommitted write');
+    releasePosition();
+    const matchesPause = request => request.method() === 'PUT' && request.url() === path + '/position'
+      && request.postDataJSON()?.position === pausedAt;
+    const request = writes.find(matchesPause) || await page.waitForRequest(matchesPause, {timeout: 5000});
+    const committed = await request.response();
+    assert.equal(committed?.status(), 200, 'paused position write must succeed');
+    const saved = await committed.json();
+    assert.equal(saved.position, pausedAt, 'write response must confirm the actual pause');
+    const played = await (await page.request.get(path)).json();
+    assert.equal(played.position, pausedAt, 'read after the commit must retain the actual pause');
+    assert.equal(played.position_revision, saved.position_revision);
+    console.log(JSON.stringify({phase,momentPositionCommit:true}));
+  } finally {
+    releasePosition();await page.unroute(path + '/position', holdPosition);
+  }
   assert.equal(preparations.length, 0);
   page.off('request', observe);
   // Keep the existing first→restart resume fixture at seven seconds.
