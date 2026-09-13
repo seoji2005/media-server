@@ -318,6 +318,7 @@ try {
   assert.deepEqual(titleWrites,[]);page.off('request',observeTitle);
   assert.deepEqual(await video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused,track:v.querySelector('track').src})),beforeTitle,'saved-title reads preserve playback and caption');
   await page.locator('#title-input').fill(displayTitle);
+  console.log(JSON.stringify({phase,titleDraftReread:true}));
   if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
     await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
     await page.locator('#title-input').scrollIntoViewIfNeeded();
@@ -410,7 +411,7 @@ try {
   assert.deepEqual(external, []);
   mark('checks-complete');
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
-    startupConnectionRecovery:phase==='first', titleDraftReread:true,
+    startupConnectionRecovery:phase==='first',
     subtitleSearch115NativeCues:phase==='restart', statusRecoveryWithExistingCaption: true, displayTitleAndNormalizedSearch: true, nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   mark('browser-close');
