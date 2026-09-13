@@ -1,36 +1,50 @@
 # Current work
 
-Live recovery base: Server `833815507aa5ab43bca3eb28ee2fb710b3fbf029`
-(PR58 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34740129406 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
+Live recovery base: Server `deff1ff07f94587a6d6a6e8c97f69dc3fbcbf818`
+(PR59/60 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34743155629 passed Ubuntu but failed Windows Chrome after its
+Python/DOM checks passed; see the active slice below. Fetch main CI34691909315
+passed. Codespaces PR51 remains separate and open at
 this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: explicit session recovery after a server restart rejects a write.
-The page offers an in-app reconnect control in the current viewing/settings dialog
-or library. One bounded ten-second session GET checks the original server/library
-identity before accepting a new token. Unknown/different identity is refused;
-Host/Origin/token checks remain enforced. No automatic retry, media reload, setting
-refresh or replay of a rejected import/save/model command is introduced. Existing
-unsaved drafts and viewing state remain in this page; each feature still confirms
-its own uncertain saved state. A current-token rejection from fetch or import XHR
-shows recovery; obsolete/aborted fetch responses cannot reopen the notice.
+Active slice: observe the paused-position commit in the existing Chrome check.
+Main CI34743155629 passed 351 Python tests on both OSes (Ubuntu 3/Windows 2 skips)
+and all DOM checks. Windows failed the restart-phase moment-entry assertion that
+the stored position was between 3.3 and 6 seconds. That assertion did not print
+the observed position, so the historical failure's exact cause is unconfirmed.
 
-The session response reads existing companion identity rows without schema/write
-changes. A normal-then-expired-token DOM regression first reproduced the missing
-recovery action, then passed same-library/mismatch, deadline, duplicate click,
-late completion, modal movement, unchanged position/caption/offset/title draft and
-no replay checks. Existing DOM suites passed. Actual Linux HTTP/FFmpeg/SQLite tests
-restart a temporary server over the same root, verify a new token and stable
-identity, reject old-token/Host/Origin requests, and compare consistent backups,
-original bytes, supplied caption/offset/position before an explicit new save.
-Two focused HTTP tests passed in 3.408 seconds. No model/API key/private data use.
-The existing CI Chrome regression now tests an isolated stale request credential
-followed by real session reads; its fixed-HEAD outcome belongs to the PR. This is
-separate from actual HTTP restart and from Windows11/RTX/human viewing acceptance.
+The fixture treated a sent PUT and closed dialog as proof that the write committed,
+although closing intentionally returns before the write. A product-JS/mock-HTTP
+probe reproduces this boundary: close is immediate, an early read sees 10 seconds
+instead of the intended 3.5, and the old assertion fails. Waiting for the actual
+write confirms 3.5 seconds; the unchanged position DOM regression also passes.
+
+The Chrome check now pauses on native timeupdate, retains the 3.3–6-second bound,
+and explicitly holds its first position request until after the dialog closes.
+A pre-commit read must still show the old position. After releasing that same
+request, the exact paused-position request must receive HTTP200 and matching
+position; the following GET must match position and revision. No request is
+replayed or injected as a substitute save. Existing outer browser/CI limits remain.
+This changes only the test and docs, not product persistence/media/privacy behavior.
+Native Windows verification belongs to the follow-up PR. No Work browser rerun.
+
+PR59 and PR60 passed independent review and fixed-HEAD Ubuntu/Windows/Chrome CI
+before sequential merge. Their combined main tree26b64c70692206bfa34278343822458e0e73c61a
+matches the checked virtual merge. The owner explicitly approved these merges and
+future reviewed, passing-CI Media Server development merges without repeated
+confirmation on September 13; the exact instruction is now in AGENTS.md and merge
+commit messages. Earlier approval-review rejections are historical and resolved.
+
+Completed in PR59: same-library session reconnection preserves current playback,
+caption settings and title drafts while refreshing only the rejected credential.
+Existing per-feature uncertain-save checks remain explicit; no replay or media
+reload is added. Independent review and CI34741423772 passed. Actual temporary
+HTTP/FFmpeg/SQLite restart preserves identity, media and user settings; the separate
+Chrome test uses one stale credential, not an in-browser server-process restart.
 
 Completed in PR58: initial session and library reads share ten seconds including
 response bodies, with zero automatic retries and an explicit reconnect action.
@@ -157,26 +171,11 @@ setup/everyday launch, real Fetch download to exact-video playback, 40–120-min
 interruption/recovery, then enhancement, search/recommendations and target viewing.
 Preserve original media, completed results and all user corrections.
 
-### Prepared title-draft follow-up (PR60)
-
-At main833815507aa5ab43bca3eb28ee2fb710b3fbf029, saved-title reads could erase
-an edited draft before its first save or on a repeated failed-save state check.
-The follow-up refreshes the saved conflict baseline and display title while
-preserving edited input; untouched input still receives the latest saved title.
-It adds no writes, retries, browser storage, media load or caption changes.
-
-The regression failed on the previous product JS and passes after the fix.
-The entire DOM suite and five existing ASGI/FFmpeg/SQLite title tests passed
-(1.762 seconds). Fresh independent review found no actionable issue, including
-separate delayed/duplicate/timed-out and other-item probes. The existing synthetic
-Chrome CI adds two actual reads with unchanged draft/playback and no title PUT;
-its fixed-revision result belongs to PR60. Work browser restrictions still apply.
-
-PR59 is separately Ready at ec7eda07e29c072ceea4fd155923fa036c5e576c, with
-independent review and CI34741423772 passing on Ubuntu/Windows including Chrome.
-Automatic approval review rejected its merge for lack of explicit authorization
-in the current continuation. No alternative merge route was used. PR60 is based
-on main and preserves PR59/PR51; development merge and release remain separate.
+Completed in PR60: saved-title reads retain edited drafts before the first save
+and across repeated recovery checks, while refreshing the saved conflict baseline.
+Untouched input still receives the saved title. Independent review and CI34742736043
+passed on both OSes including first/restart Chrome reads. Product write/API/storage,
+media and caption behavior are unchanged.
 
 ## Actual product and quality evidence
 
