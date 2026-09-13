@@ -532,7 +532,7 @@ async function closePlayer() {
   if(!await waitForPosition(pending)&&!dialog.open)toast("시청 위치를 저장하고 있습니다. 저장 확인 전에 새로고침하면 마지막 위치를 잃을 수 있습니다.");
 }
 $("player-close").addEventListener("click",closePlayer);
-dialog.addEventListener("cancel",e=>{e.preventDefault();closePlayer();});
+dialog.addEventListener("cancel",e=>{if(e.target!==dialog)return;e.preventDefault();closePlayer();});
 $("restart-video").addEventListener("click",()=>{video.currentTime=0;savePosition();video.play().catch(()=>{});});
 video.addEventListener("play",()=>{entryAwaitingPlay=false;});
 video.addEventListener("timeupdate",()=>{if(!saveTimer) saveTimer=setTimeout(()=>{saveTimer=null;savePosition();},4000);});

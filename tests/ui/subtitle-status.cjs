@@ -63,6 +63,19 @@ async function fixture({initialReadError=false,empty=false}={}){
 (async()=>{
   {
     const f=await fixture();try{
+      f.importMode='headers';await f.importFile();const before=f.snapshot();
+      f.el('subtitle-input').dispatchEvent(new f.w.Event('cancel',{bubbles:true}));await settle();
+      assert(f.el('player-dialog').open,'cancelling a caption picker must not close playback');
+      assert.deepEqual(f.snapshot(),before);assert(f.el('subtitle-import').disabled);
+      f.fire(30000);await settle();await settle();
+      assert(!f.el('subtitle-refresh').hidden,'picker cancellation retains uncertain-import recovery');
+      const escape=new f.w.Event('cancel',{cancelable:true});
+      f.el('player-dialog').dispatchEvent(escape);await settle();
+      assert(escape.defaultPrevented);assert(!f.el('player-dialog').open,'dialog cancellation still closes playback');
+    }finally{f.close();}
+  }
+  {
+    const f=await fixture();try{
       f.captionMode='hold';f.el('caption-later').click();await settle();f.fire(30000);await settle();
       assert(!f.el('caption-view-retry').hidden);
       f.importMode='headers';await f.importFile();const held=f.held.find(x=>x.kind==='import');

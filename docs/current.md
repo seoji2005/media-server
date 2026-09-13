@@ -18,6 +18,9 @@ and cannot reimport, select a result or start a job. Confirmed normal imports st
 select their result. A request revision also prevents an older file's late status
 read from replacing a newer file choice. Existing captions remain readable during
 pending imports after audio changes/reopen. No API/schema/model/prompt change.
+Native CI exposed a related file-picker cancel bubbling into the player's dialog
+cancel handler. Only cancellation targeted at the dialog now closes playback;
+canceling a caption picker preserves the player and pending-import recovery.
 Fixed-revision review and native Chrome evidence belong to the follow-up PR; the
 blocked Work browser route remains stopped.
 

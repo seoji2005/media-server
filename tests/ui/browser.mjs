@@ -197,6 +197,10 @@ async function checkCaptionImportRecovery(trackId){
     await gate;await route.abort('failed');
   };
   await page.locator('#subtitle-preparation').evaluate(el=>el.open=true);
+  await page.locator('#subtitle-input').evaluate(el=>{
+    window.captionPickerCancelled=false;
+    el.addEventListener('cancel',()=>window.captionPickerCancelled=true,{once:true});
+  });
   await page.route(importURL,handler);page.on('request',observe);page.on('requestfailed',failed);
   try{
     // Deliver the actual file to the server, then lose only its receipt. Sending
@@ -205,7 +209,11 @@ async function checkCaptionImportRecovery(trackId){
     await page.waitForFunction(()=>window.captionImportCommitted===true,null,{timeout:5000});
     assert.equal(committed.status,201);assert.notEqual(committed.id,trackId,'ordinary imports preserve a new caption version');
     assert.equal(await page.locator('#subtitle-import').isDisabled(),true);
-    await page.locator('#subtitle-input').setInputFiles(subtitle);assert.equal(posts.length,1);
+    await page.locator('#subtitle-input').setInputFiles(subtitle);
+    assert.equal(await page.locator('#player-dialog').evaluate(el=>el.open),true,'same-file picker cancellation keeps playback open');
+    // Selecting the same native file can emit cancel rather than change. Also
+    // deliver the duplicate change explicitly to exercise the pending guard.
+    await page.locator('#subtitle-input').dispatchEvent('change');assert.equal(posts.length,1);
     const failure=page.waitForEvent('requestfailed',{predicate:request=>request===importRequest,timeout:5000});
     release();await failure;await page.locator('#subtitle-refresh').waitFor();
     assert.equal(await page.locator('#subtitle-import').isDisabled(),true);assert.deepEqual(await snapshot(),before);
@@ -220,7 +228,7 @@ async function checkCaptionImportRecovery(trackId){
     const canonical=async id=>(await page.request.get(`${base}/api/library/${itemId}/subtitles/${id}.vtt`)).text();
     assert.equal(await canonical(committed.id),await canonical(trackId));
     assert.deepEqual(posts,[`/api/library/${itemId}/subtitles`],'recovery neither reimports nor starts translation');
-    console.log(JSON.stringify({phase,captionImportRecovery:true}));
+    console.log(JSON.stringify({phase,captionImportRecovery:true,pickerCancelled:await page.evaluate(()=>window.captionPickerCancelled)}));
   }catch(error){
     const state=await page.evaluate(()=>{
       const command=subtitleCommands.get(activeItem?.id);
@@ -228,6 +236,8 @@ async function checkCaptionImportRecovery(trackId){
         importKind:command?.kind==='import',commandError:!!command?.error,
         stopped:!!subtitleMonitor?.stopped,confirming:!!subtitleMonitor?.confirming,
         reading:!!subtitleMonitor?.reading,refreshHidden:document.querySelector('#subtitle-refresh').hidden,
+        playerOpen:document.querySelector('#player-dialog').open,activeOwner:!!activeItem,
+        pickerCancelled:!!window.captionPickerCancelled,
         preparationOpen:document.querySelector('#subtitle-preparation').open};
     });
     console.log(JSON.stringify({phase,stage:'caption-import-failure',receiptFailed,pageErrors:errors.length,...state}));
