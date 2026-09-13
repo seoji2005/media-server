@@ -1,46 +1,45 @@
 # Current work
 
-Live recovery base: Server `3524d738c9377c59faa8794a4e45cde4389b8f4e`
-(PR56/57 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34738936411 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
+Live recovery base: Server `833815507aa5ab43bca3eb28ee2fb710b3fbf029`
+(PR58 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34740129406 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
 this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: recover the initial library connection. Failed/unread startup must
-not render an empty-library invitation. Initial session and library reads share
-ten seconds including response bodies, with zero automatic retries. A persistent
-notice offers an explicit read-only retry; import controls wait for initial success.
-Late timed-out responses cannot complete a newer attempt, and query/Continue
-filters remain in the page. Incoming scene links still wait for a valid session.
-The retry does not replay imports, settings writes or preparation commands.
-This covers initial load, not automatic reconnection/token renewal after an
-already-open app's server restarts; that existing path still requests page reload.
+Active slice: explicit session recovery after a server restart rejects a write.
+The page offers an in-app reconnect control in the current viewing/settings dialog
+or library. One bounded ten-second session GET checks the original server/library
+identity before accepting a new token. Unknown/different identity is refused;
+Host/Origin/token checks remain enforced. No automatic retry, media reload, setting
+refresh or replay of a rejected import/save/model command is introduced. Existing
+unsaved drafts and viewing state remain in this page; each feature still confirms
+its own uncertain saved state. A current-token rejection from fetch or import XHR
+shows recovery; obsolete/aborted fetch responses cannot reopen the notice.
 
-Product-JS regression reproduced the misleading empty state before the change.
-Normal/failed/malformed startup, stalled headers/body, shared deadline, duplicate
-clicks, late completion, filters and delayed scene entry pass under mocked HTTP.
-Existing DOM suites pass. Actual Linux loopback HTTP/FFmpeg/SQLite checks inject
-one failure at each temporary app read boundary and then reconnect/restart:
-all DB rows, original bytes, supplied captions, offset and position survive.
-Wrong Host/Origin and stale write tokens remain rejected. No model/API key/private
-data use or security-boundary changes. Work browser limits below remain in force;
-new retry UI native-browser interaction and human viewing are unverified.
+The session response reads existing companion identity rows without schema/write
+changes. A normal-then-expired-token DOM regression first reproduced the missing
+recovery action, then passed same-library/mismatch, deadline, duplicate click,
+late completion, modal movement, unchanged position/caption/offset/title draft and
+no replay checks. Existing DOM suites passed. Actual Linux HTTP/FFmpeg/SQLite tests
+restart a temporary server over the same root, verify a new token and stable
+identity, reject old-token/Host/Origin requests, and compare consistent backups,
+original bytes, supplied caption/offset/position before an explicit new save.
+Two focused HTTP tests passed in 3.408 seconds. No model/API key/private data use.
+The existing CI Chrome regression now tests an isolated stale request credential
+followed by real session reads; its fixed-HEAD outcome belongs to the PR. This is
+separate from actual HTTP restart and from Windows11/RTX/human viewing acceptance.
 
-Initial CI34739441697 failed: Linux passed Python/DOM but its browser fixture
-injected a hidden file input before initial connection. It now uses the actual
-enabled import button/file chooser and checks one isolated failed session read
-followed by explicit reconnect. This extends the existing CI browser regression;
-it does not use a new Work browser route or relax any timeout/security check.
-Windows failed an older Qwen HTTP fixture's succeeded-state assertion. That test
-started both a real supervisor and a manual synthetic executor for one queued job.
-An isolated launch-failure probe reproduced the competing-owner failure locally;
-the fixture now initializes jobs without that second owner. The original Windows
-error code was not reported, so its exact cause remains unconfirmed; future failed
-assertions include only the opaque error code. Product worker/model code is unchanged.
-Final fixed-HEAD review and mandatory CI results belong to the PR.
+Completed in PR58: initial session and library reads share ten seconds including
+response bodies, with zero automatic retries and an explicit reconnect action.
+An unread library cannot be mistaken for an empty one; imports wait for initial
+success, and query/Continue filters and incoming scene links survive recovery.
+Independent review and CI34739865007 passed after correcting the browser import
+fixture and isolating its manual synthetic Qwen executor. Earlier failures and
+limits are preserved in PR58. Its actual Chrome startup recovery/import/playback
+checks use synthetic twenty-second media, not subjective quality acceptance.
 
 Completed in PR57: preserve the newest requested library snapshot. An older GET that
 finishes after a newer successful import/refresh could hide the newly listed item.

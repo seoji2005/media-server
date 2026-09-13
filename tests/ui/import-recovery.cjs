@@ -78,5 +78,9 @@ const el=id=>d.getElementById(id),file=new w.File(['x'.repeat(1000)],'한글 영
   assert.equal(requests.filter(r=>r.method==='POST'&&r.url.includes(earlier.id)).length,1,'a newer upload cannot suppress preparation of an already confirmed earlier import');
   assert.equal(el('upload-status').hidden,false);assert.equal(el('import-top').disabled,true);
   subsequent.finish({item,duplicate:true});await tick();
+  await w.qa.importFile(file);const expired=uploads.at(-1),count=uploads.length;
+  expired.finish({error:'session_required'},403);await tick();
+  assert.equal(el('session-recovery').hidden,false,'XHR imports must expose the same session recovery as fetch writes');
+  assert.equal(uploads.length,count,'expired upload is not retried');
   console.log('PASS import DOM: normal import, exact upload progress, interruptible response wait, ambiguous completion, explicit read-only result check, timeout and stale callback isolation (mock XHR/HTTP).');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{if(releaseRead)releaseRead();w.close();});

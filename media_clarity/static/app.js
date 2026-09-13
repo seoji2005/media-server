@@ -14,9 +14,11 @@ let toastTimer, saveTimer;
 const positionSaves = new Map();
 let libraryReadVersion=0;
 let libraryLoaded=false, connectingLibrary=false, connectedLibrary=false;
+let sessionIdentity=null, reconnectingSession=false;
 const video = $("video"), dialog = $("player-dialog");
-$("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
+$("settings-open").addEventListener("click",()=>{$("settings-dialog").showModal();placeSessionRecovery();});
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
+for(const modal of [dialog,$("settings-dialog")])modal.addEventListener("close",placeSessionRecovery);
 const errors = {
   position_changed:"다른 저장으로 시청 위치가 바뀌었습니다. 지금 위치는 이 창에 남아 있습니다. 다시 재생하거나 이동하면 저장을 시도합니다.",
   invalid_title:"제목을 180자 이내로 입력해 주세요. 줄바꿈과 제어 문자는 사용할 수 없습니다.",
@@ -49,7 +51,7 @@ const errors = {
   invalid_audio_track: "선택할 수 없는 오디오입니다. 영상의 오디오 목록을 다시 확인해 주세요.",
   processing_audio_conflict: "다른 오디오의 자막 작업이 남아 있습니다. 해당 작업을 완료한 뒤 새 자막을 만들어 주세요.",
   preference_changed: "다른 저장으로 선호가 바뀌었습니다. 저장 상태를 다시 확인해 주세요.",
-  local_origin_required: "이 기기의 로컬 주소에서 다시 열어주세요.", session_required: "앱이 재시작되었습니다. 페이지를 새로고침해 주세요.",
+  local_origin_required: "이 기기의 로컬 주소에서 다시 열어주세요.", session_required: "앱이 재시작되었습니다. 화면의 ‘앱 다시 연결’을 눌러 주세요.",
   unsupported_container: "지원하지 않는 형식입니다. MP4·MKV 또는 WebM 영상을 선택해 주세요.", unsupported_codec: "현재 브라우저 감상용 코덱을 지원하지 않습니다. H.264/AAC MP4 또는 VP8·VP9 WebM이 필요합니다.",
   unsupported_hevc: "HEVC 영상은 아직 재생용 변환을 지원하지 않습니다. 원본을 변경하지 않았습니다.",
   unsupported_video_depth: "10-bit 또는 4:2:0 이외의 영상 색 형식은 아직 지원하지 않습니다.",
@@ -70,13 +72,45 @@ const errors = {
 };
 function message(code) { return errors[code] || "작업을 완료하지 못했습니다. 다시 시도해 주세요."; }
 function toast(text, error = false) { const host=$("settings-dialog").open?$("settings-dialog"):dialog.open?dialog:document.body; host.append($("toast")); clearTimeout(toastTimer); $("toast").textContent = text; $("toast").classList.toggle("error", error); $("toast").hidden = false; toastTimer = setTimeout(() => $("toast").hidden = true, error ? 8500 : 4500); }
+function identityKey(value){
+  return value?.version===1&&value.product==="media-server"&&[value.server_id,value.library_id].every(id=>typeof id==="string"&&/^[a-f0-9]{32}$/.test(id))?`${value.server_id}:${value.library_id}`:null;
+}
+function placeSessionRecovery(){
+  const notice=$("session-recovery");if(notice.hidden)return;
+  const anchor=$("settings-dialog").open?document.querySelector(".settings-header"):dialog.open?document.querySelector(".player-header"):$("diagnostic");
+  anchor.after(notice);
+}
+function showSessionRecovery(){
+  if(!$("session-recovery").hidden)return;
+  $("session-message").textContent="앱이 재시작되어 저장 요청을 처리하지 못했습니다. 같은 보관함에 다시 연결할 수 있습니다.";
+  $("session-recovery").hidden=false;placeSessionRecovery();
+}
+$("session-reconnect").addEventListener("click",async()=>{
+  if(reconnectingSession||$("session-recovery").hidden)return;
+  reconnectingSession=true;const button=$("session-reconnect"),hadFocus=document.activeElement===button;
+  button.disabled=true;$("session-message").textContent="같은 보관함인지 확인하고 있어요. 이전 요청을 다시 보내지 않습니다.";
+  try{
+    const session=await boundedApi("/api/session",{},10000,"앱 연결을 10초 안에 확인하지 못했습니다. 서버를 실행한 뒤 다시 눌러 주세요.");
+    if(!sessionIdentity||identityKey(session?.identity)!==sessionIdentity)throw Error("다른 보관함이거나 같은 보관함인지 확인할 수 없습니다. 이 창의 저장 미확인 내용은 남겨 두고, 원래 보관함을 실행해 주세요.");
+    if(typeof session.token!=="string"||!session.token)throw Error("앱 응답을 읽을 수 없습니다.");
+    // Refresh only the session credential. Do not reload media/settings or
+    // replay a rejected write; each feature retains its own recovery state.
+    sessionToken=session.token;$("session-recovery").hidden=true;
+    toast("앱에 다시 연결했습니다. 저장 미확인 항목은 각각 확인해 주세요.");
+    if(hadFocus)($("settings-dialog").open?$("settings-close"):dialog.open?$("player-close"):$("nav-all")).focus({preventScroll:true});
+  }catch(e){$("session-message").textContent=e.message;}
+  finally{reconnectingSession=false;button.disabled=false;}
+});
 async function api(path, options = {}) {
-  let response;
-  try { response = await fetch(path, { ...options, headers: { "X-Media-Token": sessionToken, ...(options.headers || {}) } }); }
+  let response;const headers={"X-Media-Token":sessionToken,...(options.headers||{})},sentToken=headers["X-Media-Token"];
+  try { response = await fetch(path, { ...options, headers }); }
   catch { throw new Error("앱에 연결할 수 없습니다. 로컬 서버가 실행 중인지 확인해 주세요."); }
   let result;
   try { result = await response.json(); } catch { throw new Error("앱 응답을 읽을 수 없습니다."); }
-  if (!response.ok) throw Object.assign(new Error(subtitleMessages[result.error] || message(result.error)), {code:result.error});
+  if (!response.ok){
+    if(result.error==="session_required"&&sentToken&&sentToken===sessionToken&&!options.signal?.aborted)showSessionRecovery();
+    throw Object.assign(new Error(subtitleMessages[result.error] || message(result.error)), {code:result.error});
+  }
   return result;
 }
 async function boundedApi(path,options,wait,timeoutMessage){
@@ -232,7 +266,8 @@ async function importFile(file) {
   $("upload-progress").value = 0; $("upload-percent").textContent = "0%"; $("upload-cancel").hidden = false;
   $("upload-cancel").setAttribute("aria-label","가져오기 취소");$("upload-cancel").title="가져오기 취소";
   $("import-top").disabled = true; $("import-empty").disabled = true;
-  xhr.open("POST","/api/import"); xhr.setRequestHeader("Content-Type","application/octet-stream"); xhr.setRequestHeader("X-Media-Token",sessionToken); xhr.setRequestHeader("X-Media-Filename",encodeURIComponent(file.name));
+  const importToken=sessionToken;
+  xhr.open("POST","/api/import"); xhr.setRequestHeader("Content-Type","application/octet-stream"); xhr.setRequestHeader("X-Media-Token",importToken); xhr.setRequestHeader("X-Media-Filename",encodeURIComponent(file.name));
   xhr.upload.addEventListener("progress",e=>{
     if(upload!==xhr||sent||!e.lengthComputable||e.total<=0)return;
     const percent=Math.min(99,Math.floor(e.loaded/e.total*100));
@@ -254,7 +289,10 @@ async function importFile(file) {
       // item's normal preparation after a delayed library read.
       try{await refresh();if(result.item.unavailable_reason==="rendition_required")await preparePlayback(result.item.id);}
       catch(e){if(version===importRecoveryVersion)showImportRecovery(e.message);}
-    }else showImportRecovery(message(result?.error));
+    }else{
+      if(result?.error==="session_required"&&importToken===sessionToken)showSessionRecovery();
+      showImportRecovery(message(result?.error));
+    }
   });
   for(const event of ["error","timeout"])xhr.addEventListener(event,()=>{if(upload===xhr)showImportRecovery("가져오기 응답을 확인하지 못했습니다. 앱 연결을 확인해 주세요.");});
   xhr.addEventListener("abort",()=>{if(upload===xhr)showImportRecovery(sent?"서버 응답 대기를 중단했습니다.":"가져오기 요청을 중단했습니다.");});
@@ -346,7 +384,7 @@ async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false
     entryAwaitingPlay=Boolean(entry); activeItem=item; $("player-title").textContent=item.title; renderAudio(item);resetTitle(item);
     $("video-error").hidden=true; $("save-state").textContent=continuing(item) ? `${time(item.position)}에서 이어보기` : "준비 중";
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
-    resetSubtitles(); video.src=`/api/media/${id}/content${audioQuery(item)}`; dialog.showModal(); dialog.scrollTop=0; refreshSubtitles(item);
+    resetSubtitles(); video.src=`/api/media/${id}/content${audioQuery(item)}`; dialog.showModal();placeSessionRecovery(); dialog.scrollTop=0; refreshSubtitles(item);
     refreshPreference(item);
     video.addEventListener("loadedmetadata", function restore(){ if(activeItem!==item) return; const start=moment?moment.start_ms/1000:continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=!moment&&pendingPosition&&!pendingPosition.saved?`${time(start)} · 이 창에 남은 위치 · 저장 미확인`:moment?`${time(start)} 장면 · 재생 버튼을 눌러 시작하세요`:start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
     // Autoplay is optional; browser policy may require the native play button.
@@ -565,7 +603,7 @@ async function connectLibrary(){
   try{
     const session=await boundedApi("/api/session",{},10000,"보관함 연결이 10초를 넘겼습니다. 서버 실행 상태를 확인한 뒤 다시 연결해 주세요.");
     if(typeof session?.token!=="string"||!session.token||!session.diagnostics)throw Error("앱 응답을 읽을 수 없습니다.");
-    sessionToken=session.token;settleMomentSession();
+    sessionToken=session.token;sessionIdentity=identityKey(session.identity);settleMomentSession();
     const d=session.diagnostics;renderModelSetup(d.models);const notes=[];
     if(!d.ffprobe||!d.ffmpeg)notes.push("FFmpeg와 ffprobe를 설치한 뒤 앱을 다시 시작해 주세요. 현재 영상 가져오기가 제한될 수 있습니다.");
     if(d.recovered_copies)notes.push(`중단된 가져오기 사본 ${d.recovered_copies}개를 복구 폴더에 보존했습니다. 보관함에 자동 추가되지 않았으며 원본에서 다시 가져올 수 있습니다.`);

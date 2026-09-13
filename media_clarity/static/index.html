@@ -48,6 +48,11 @@
           <div class="welcome-art" aria-hidden="true"><div class="art-frame frame-back"></div><div class="art-frame frame-front"><div class="art-orbit"></div><span class="art-play">▶</span></div></div>
         </section>
         <div class="notice" id="diagnostic" role="status" hidden></div>
+        <section class="notice" id="session-recovery" hidden>
+          <p id="session-message" role="status"></p>
+          <p>현재 화면과 입력은 유지합니다. 다시 연결한 뒤 저장 미확인 항목을 확인해 주세요.</p>
+          <button class="button button-secondary" id="session-reconnect" type="button">앱 다시 연결</button>
+        </section>
         <section class="notice" id="connection-recovery" hidden>
           <p id="connection-message" role="status"></p>
           <p>보관함을 아직 확인하지 못했습니다. 서버를 실행한 뒤 다시 연결해 주세요.</p>
