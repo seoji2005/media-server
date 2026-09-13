@@ -1,24 +1,38 @@
 # Current work
 
-Live recovery base: Server `2c02120491e38268020d815a7228cba7610b08f4`
-(PR49 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server had no open PR at this slice's recovery on September 12. PR49 runtime setup
-and Fetch PR23 Unicode Windows registration are merged with passing CI.
-PR46 session-key launch and PR45 timing-warning correction are also merged.
-Git/PR state is authoritative; historical failed revisions and reviews remain in Git
-and preserved evidence. Synthetic CI is not model, viewing or target-device acceptance.
+Live recovery base: Server `8bbc61e07f971af4e5665ee90757654b542dfb71`
+(PR50 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34696120258 passed. Codespaces PR51 remains separate and open at
+this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: literal subtitle search across at most two consecutive cues, with no
-overlap and a maximum 0.5-second gap. Preserve text, adjusted timestamps, selected
-track isolation and query privacy. Existing single-cue results and pagination remain.
-DOM checks cover boundary/no-space/Unicode cases and stale clicks; the existing
-synthetic browser fixture adds a cross-cue search/seek with +500 ms. This is search
-usability, not ASR quality or new model/prompt tuning. Review and CI status belong
-to the live PR. See [caption viewing](caption-viewing.md).
+Active slice: two reproduced viewing reliability defects. Qwen PCM decoding now
+rejects error-level FFmpeg output even with exit 0, before model calls or new
+checkpoints. It retains only an error flag, with a drained pipe and no diagnostic
+text in memory/logs/files. Valid shorter/delayed audio keeps its historical PCM;
+there is no video-length equality heuristic or model/prompt change. This is a
+bounded corruption check, not proof against every damaged container.
+
+Position saves use a SQLite revision, one active request plus the newest pending
+intent per item, five-second request bounds and immediate dialog close. A timed-out
+write can still finish on the server; atomic revision checks reject stale writes.
+The UI re-reads after uncertain responses before submitting a newer intent. Unsent
+positions stay in this page and are labelled unconfirmed; refresh/browser exit can
+lose an unconfirmed position. No browser-storage durability claim or automatic
+retry of a failed request is added. Legacy position API calls remain accepted.
+Schema 11 adds a position revision without rewriting existing history or media;
+older app versions fail closed on a newer database.
+
+Checks cover generated intact/truncated MP4, valid short/delayed audio, actual HTTP
+handlers and SQLite preservation/restart, and delayed/lost responses under mocked
+DOM/media. The socket HTTP fixture also starts/stops the real app and verifies
+restored position/revision, supplied captions, offset and exact Range bytes.
+Fixed-revision independent review and required Ubuntu/Windows CI belong to the PR.
+Work browser playback remains blocked as described below. No new inference,
+subjective subtitle quality, actual Windows 11/RTX or Fetch acceptance is claimed.
 
 The owner wants to use the app on October 19. Target October 5 for integration,
 October 11 for stabilization and October 12–18 for buffer; these are targets,

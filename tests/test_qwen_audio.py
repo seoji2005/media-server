@@ -138,3 +138,114 @@ with decoded_audio(Path(sys.argv[1]),67,0) as (stream,count):
                     self.assertRaises(MediaError):
                 with qwen.decoded_audio(self.source,duration,index):self.fail('bad input yielded')
             create.assert_not_called()
+
+    def test_error_output_is_drained_even_when_decoder_exits_successfully(self):
+        # A noisy decoder must neither deadlock a full pipe nor retain diagnostics.
+        def noisy(args, **kwargs):
+            return subprocess.Popen([sys.executable, '-c',
+                "import os; os.write(1,b'\\0'*64000); os.write(2,b'private diagnostic'*65536)"],
+                stdin=kwargs['stdin'], stdout=kwargs['stdout'], stderr=kwargs['stderr']).wait(timeout=10)
+        def run(*args, **kwargs):
+            return subprocess.CompletedProcess([], noisy(*args, **kwargs))
+        with patch('media_clarity.qwen.subprocess.run', side_effect=run), \
+                self.assertRaisesRegex(MediaError, '^invalid_media$'):
+            with qwen.decoded_audio(self.source, 67, 0):
+                self.fail('error-level diagnostics were ignored')
+
+
+class IncompleteAudioTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp = tempfile.TemporaryDirectory(prefix='audio integrity ')
+        cls.root = Path(cls.temp.name)
+        cls.full = cls.root / '정상 영상.mp4'
+        subprocess.run(['ffmpeg','-v','error','-f','lavfi','-i','testsrc2=size=160x90:rate=12',
+            '-f','lavfi','-i','sine=frequency=440:sample_rate=48000',
+            '-t','12','-c:v','libx264','-c:a','aac','-movflags','+faststart',str(cls.full)],
+            check=True,capture_output=True,timeout=30)
+        cls.partial = cls.root / '중단 영상.mp4'
+        raw = cls.full.read_bytes()
+        cls.partial.write_bytes(raw[:len(raw)//2])
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.temp.cleanup()
+
+    def test_actual_partial_mp4_never_yields_pcm_or_starts_recognition(self):
+        digest = hashlib.sha256(self.partial.read_bytes()).hexdigest()
+        with qwen.decoded_audio(self.full, 12, 0) as (_, count):
+            self.assertGreater(count / 16000, 11.9)
+        speech = object.__new__(qwen.QwenSpeech)
+        with patch.object(speech, 'recognize') as recognize, \
+                self.assertRaisesRegex(MediaError, '^invalid_media$'):
+            list(speech.transcribe_parts(self.partial, 12, 0, []))
+        recognize.assert_not_called()
+        self.assertEqual(hashlib.sha256(self.partial.read_bytes()).hexdigest(), digest)
+
+    def test_valid_shorter_and_delayed_audio_are_not_rejected_as_incomplete(self):
+        for extension in ('mp4', 'mkv'):
+            source = self.root / ('짧은 음성.' + extension)
+            subprocess.run(['ffmpeg','-v','error','-f','lavfi','-i','color=size=32x32:rate=1:duration=12',
+                '-itsoffset','1.25','-f','lavfi','-i','sine=duration=4:sample_rate=48000',
+                '-c:v','libx264','-c:a','aac',str(source)],check=True,capture_output=True,timeout=30)
+            with qwen.decoded_audio(source, 12, 0) as (_, count):
+                self.assertGreater(count / 16000, 5)
+                self.assertLess(count / 16000, 5.5)
+
+    def test_http_job_failure_preserves_imported_captions_and_position_after_restart(self):
+        from fastapi.testclient import TestClient
+        from media_clarity.app import create_app
+        from media_clarity.jobs import Jobs, execute
+        from tests.test_gemini import reply
+        from urllib.parse import quote
+
+        class Speech(qwen.QwenSpeech):
+            def __init__(self, root): pass
+            def identity(self): return 'synthetic-words-real-decoder'
+            def recognize(self, samples): return 'Hello.', 'English'
+            def align(self, *args):
+                return [{'text':'Hello','start':.1,'end':1.,'raw_start':.1,'raw_end':1.}]
+            def close(self): pass
+
+        with tempfile.TemporaryDirectory() as data:
+            app = create_app(Path(data) / '체험 보관함')
+            with TestClient(app, base_url='http://127.0.0.1:8765') as client, \
+                    patch.dict(os.environ, {'GEMINI_API_KEY':'synthetic-key'}), \
+                    patch('media_clarity.jobs.speech_preflight'), \
+                    patch('media_clarity.gemini.request', side_effect=reply) as provider:
+                token = {'X-Media-Token':client.get('/api/session').json()['token']}
+                for path in (self.full, self.partial):
+                    raw = path.read_bytes()
+                    response = client.post('/api/import', content=raw, headers=token | {
+                        'X-Media-Filename':quote(path.name),'Content-Type':'application/octet-stream'})
+                    self.assertEqual(response.status_code, 201, response.text)
+                    item_id = response.json()['item']['id']
+                    caption = b'1\n00:00:01,000 --> 00:00:02,000\nUser caption.\n'
+                    track = client.post(f'/api/library/{item_id}/subtitles', content=caption,
+                        headers=token | {'Content-Type':'application/octet-stream','X-Media-Filename':'user.srt'})
+                    self.assertEqual(track.status_code, 201, track.text)
+                    self.assertEqual(client.put(f'/api/library/{item_id}/position',json={'position':2.25},headers=token).status_code,200)
+                    jobs = Jobs(app.state.store)
+                    queued = client.post(f'/api/library/{item_id}/subtitle-jobs/regenerate', headers=token)
+                    self.assertEqual(queued.status_code, 202, queued.text)
+                    jid = queued.json()['id']
+                    provider.reset_mock()
+                    execute(app.state.store, jid, Speech)
+                    status = client.get(f'/api/library/{item_id}/subtitles').json()
+                    row = jobs.row(jid)
+                    if path == self.full:
+                        self.assertEqual(row['state'], 'succeeded')
+                        self.assertEqual(len(status['tracks']), 2)
+                        self.assertTrue(provider.called)
+                    else:
+                        self.assertEqual((row['state'],row['error'],row['asr_until']), ('failed','invalid_media',0))
+                        self.assertEqual(len(status['tracks']), 1)
+                        self.assertEqual(row['transcript'], None)
+                        provider.assert_not_called()
+                    managed = app.state.store.file_path(app.state.store._row(item_id))
+                    self.assertEqual(managed.read_bytes(), raw)
+            with TestClient(create_app(Path(data) / '체험 보관함'), base_url='http://127.0.0.1:8765') as client:
+                self.assertEqual(client.get(f'/api/library/{item_id}').json()['position'], 2.25)
+                status = client.get(f'/api/library/{item_id}/subtitles').json()
+                self.assertEqual(len(status['tracks']), 1)
+                self.assertEqual(status['jobs'][0]['state'], 'failed')

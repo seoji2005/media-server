@@ -384,6 +384,6 @@ with patch('media_clarity.gemini.request',side_effect=transport):
             db.execute('PRAGMA user_version=7')
         self.store.start()
         with self.store.db() as db:
-            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],10)
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],11)
             for table,rows in before.items():
                 self.assertEqual([dict(r) for r in db.execute(f'SELECT * FROM {table}')],rows)
