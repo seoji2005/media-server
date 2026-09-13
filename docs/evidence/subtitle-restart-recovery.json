@@ -1,0 +1,60 @@
+{
+  "date": "2026-09-13",
+  "base_main": "39df863c2763503527ea7beb24213caa76a0de68",
+  "scope": "failed-job restart cleanup and synthetic long-timeline durability",
+  "regression": {
+    "command": "python -m unittest tests.test_subtitles.SubtitleTests.test_restart_retires_failed_cleanup_and_preserves_its_saved_results -q",
+    "before": "FAIL: failed cleanup still blocks the supervisor queue",
+    "after": "pass"
+  },
+  "local_python_suite": {
+    "command": "python -m unittest discover -s tests -q",
+    "tests": 346,
+    "skips": 3,
+    "seconds": 112.777,
+    "exit_code": 0
+  },
+  "long_run": {
+    "seconds": 8.845,
+    "timeline_seconds": 7200,
+    "synthetic_spans": 240,
+    "synthetic_source_units": 3600,
+    "batches_per_complete_job": 450,
+    "normal_path": "passed",
+    "pause_and_process_restart": "passed",
+    "saved_asr_prefix": 90,
+    "saved_translation_prefix": 1600,
+    "restart_retires_failed_cleanup": "passed",
+    "sqlite_publish_failure_then_no_recompute_resume": "passed",
+    "original_and_user_track_and_viewing_state_preserved": true,
+    "backup_integrity": "ok",
+    "owned_hold_descendants_stopped": true,
+    "automatic_retries": 0,
+    "source_sha256": "068a0d6377bd6f93b9c0b41aa71b82c36446596af13e5e4c5ff1b56e05d572ad",
+    "limits": [
+      "synthetic timeline and model/API output",
+      "actual HTTP/worker/guardian/FFmpeg/SQLite",
+      "SQLite trigger simulates publication write failure; not physical disk exhaustion",
+      "no real Qwen/Gemini, natural long dialogue, browser playback, Windows or RTX acceptance"
+    ]
+  },
+  "method": {
+    "wall_limit_seconds": 180,
+    "provider": "current Gemini profile/prompt/serializer/parser with synthetic transport; no real credential or remote request",
+    "speech": "synthetic current-profile evidence passed through real Qwen evidence validation and job checkpoints",
+    "media": "generated silent 32x32 H.264/AAC, 1fps, 7200 seconds; not natural long dialogue",
+    "process_observation": "subreaper waitpid plus kill(pid,0), within the spawning PID namespace",
+    "backups": "SQLite backup at pause, partial translation, restart, blocked publication and final completion"
+  },
+  "preliminary_harness_failures": [
+    "First harness stopped on an uninitialized state-query variable; synthetic input retained.",
+    "Next harness completed restart but misread process state through a different /proc PID namespace.",
+    "A further run re-injected the synthetic provider fault through shared control state. Final harness uses atomic controller writes and process-local stalled-cleanup state."
+  ],
+  "harness_sha256": {
+    "run.py": "bce402c531d165b633d7cc7abe64f0bfe64fca0a9068367a1164a062dc31f9b5",
+    "server.py": "a6bf2729c6418aba2e6909c44dcb96f5f5296cf1c6d04fa19585fd76a4ea5a3f",
+    "synthetic_backend.py": "9b0141de18a56db41e221e76fac1c317e900086531037e9cba9455835ab60522",
+    "sitecustomize.py": "9b2149b0215287f59023a198cf4be30dda24531a30daec89056e49185d97b78e"
+  }
+}

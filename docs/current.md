@@ -1,33 +1,36 @@
 # Current work
 
-Live recovery base: Server `8f59a27af4314a494f61133326b3a3577dd5a2e6`
-(PR52 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34731920170 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
+Live recovery base: Server `39df863c2763503527ea7beb24213caa76a0de68`
+(PR53 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34733485605 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
 this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: model-free first viewing installation. `install-media-clarity.cmd
---viewing-only` prepares the separate `.venv-viewing` from the exact base runtime
-pins, with a 600-second total / 120-second byte-idle limit and zero retries.
-The ordinary start command prefers an existing `.venv` Python, then `.venv-viewing`.
-Both use the same actual UI/API/library; model configuration and full runtimes stay
-unchanged. Full subtitle setup remains a separate opt-in command. See
-[installation](runtime-install.md) and the first-run README commands.
+Active slice: explicit restart after failed native cleanup. A failed job can still
+own a live guardian/compute process while its model cleanup stalls. Resume already
+retired it; restart did not, leaving the replacement job queued behind that process.
+Restart now retires the same job's process before queuing a replacement. The old
+job, saved spans/batches and all subtitle versions remain preserved. A real child
+regression failed before this fix and passed after it. Independent review and the
+fixed revision's required CI belong to the PR.
 
-Actual Linux Python 3.12 installation succeeded in a fresh path containing Korean,
-spaces, `&` and `!`. The installed environment had no Torch/Transformers. Its actual
-HTTP app served the product UI, imported a generated 12-second MP4 and two supplied
-caption cues, then preserved 7.25-second position / revision 1, caption selection
-and +500 ms offset across app shutdown/startup. Full original bytes and 90 HTTP
-Range bytes matched. SQLite integrity and a consistent backup passed. Re-running
-the installer validated the environment without changing the existing venv or
-library file sizes, mtimes or SHA256s. No keys, models or private media were used.
-This checks HTTP/storage and installation, not browser playback or sentence-search UI.
+A bounded Linux HTTP/worker/guardian/FFmpeg/SQLite run passed on a synthetic
+120-minute timeline: 240 synthetic spans, 3,600 source units and 450 saved batches.
+Pause plus Server process restart reused 90 saved spans; translation failure reused
+1,600 saved units. Restart retired stalled cleanup, and an injected SQLite publish
+failure resumed without new translation calls. Existing results, a user-supplied
+caption, position, offset and original bytes stayed intact; consistent backups and
+owned descendant cleanup passed. These are synthetic model/provider outputs, not
+two-hour inference or viewing acceptance. See [evidence](evidence/subtitle-restart-recovery.json).
 
-At the fixed recovery revisions above, a separate current Fetch → Server test
+PR53 added the model-free `.venv-viewing` installer and normal launcher selection;
+actual Linux installation/reuse and HTTP storage checks passed. See
+[installation](runtime-install.md) for first-run and full-model setup commands.
+
+At Server `8f59a27` and Fetch `b9fad12`, a separate Fetch → Server test
 passed seven cases in 4.188 seconds, bounded at 120 seconds with zero automatic
 retries. It used freshly compiled Fetch (166 source blobs checked) and actual
 download/HTTP/FFmpeg/SQLite/Native framing. Duplicate delivery and explicit

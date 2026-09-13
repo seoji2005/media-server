@@ -40,6 +40,12 @@ class FixtureModel:
     def close(self):
         pass
 
+class ClosingFixtureModel(FixtureModel):
+    def close(self):
+        # Failure is already durable, but native resource cleanup has stalled.
+        (self.root/'closing').touch()
+        time.sleep(20)
+
 class SubtitleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -108,6 +114,48 @@ class SubtitleTests(unittest.TestCase):
                 self.assertEqual(launch.call_count, 1)
             finally:
                 self.jobs.close()
+
+    def test_restart_retires_failed_cleanup_and_preserves_its_saved_results(self):
+        job_id = self.enqueue()
+        (self.root/'fail').touch()
+        track = self.jobs.import_srt(self.item['id'], SRT.encode())
+        old_track = self.jobs.track(self.item['id'], track)
+        code = ('from pathlib import Path;import sys;from media_clarity.storage import Store;'
+                'from media_clarity.jobs import execute;'
+                'from tests.test_subtitles import ClosingFixtureModel;'
+                'execute(Store(Path(sys.argv[1])),sys.argv[2],ClosingFixtureModel)')
+        child = subprocess.Popen([sys.executable, '-c', code, str(self.root), job_id],
+                                 stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL, start_new_session=os.name != 'nt')
+        self.jobs.active, self.jobs.process = job_id, child
+        try:
+            deadline = time.monotonic()+10
+            while not (self.root/'closing').exists() and time.monotonic() < deadline:
+                self.assertIsNone(child.poll()); time.sleep(.02)
+            self.assertTrue((self.root/'closing').exists())
+            before = self.jobs.row(job_id)
+            self.assertEqual((before['state'],before['completed']), ('failed',1))
+            with self.store.db() as db:
+                batches = [tuple(r) for r in db.execute('SELECT * FROM subtitle_batches WHERE job_id=?', (job_id,))]
+            with patch('media_clarity.models.local_models'):
+                self.jobs.action(job_id, 'restart')
+            self.assertIsNotNone(child.poll(), 'failed cleanup still blocks the supervisor queue')
+            self.assertTrue(child.stdin.closed)
+            self.assertIsNone(self.jobs.process); self.assertIsNone(self.jobs.active)
+            after = self.jobs.row(job_id)
+            self.assertEqual(after['state'], 'superseded')
+            self.assertEqual({k:v for k,v in after.items() if k != 'state'},
+                             {k:v for k,v in before.items() if k != 'state'})
+            with self.store.db() as db:
+                self.assertEqual([tuple(r) for r in db.execute('SELECT * FROM subtitle_batches WHERE job_id=?', (job_id,))], batches)
+            self.assertEqual(self.jobs.track(self.item['id'], track), old_track)
+            queued = [r for r in self.jobs.status(self.item['id'])['jobs'] if r['state']=='queued']
+            self.assertEqual(len(queued),1); self.assertNotEqual(queued[0]['id'],job_id)
+        finally:
+            if child.poll() is None:
+                child.kill(); child.wait(timeout=5)
+            if not child.stdin.closed:
+                child.stdin.close()
 
     def test_quick_pause_resume_is_not_failed_by_the_stopped_guardian(self):
         job_id = self.enqueue()
