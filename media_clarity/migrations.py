@@ -3,7 +3,7 @@ from .storage import MediaError
 import re
 import uuid
 
-VERSION = 10
+VERSION = 11
 
 
 def companion_identity(db):
@@ -204,6 +204,8 @@ def migrate(db):
                 revision INTEGER NOT NULL DEFAULT 0 CHECK(revision>=0),
                 PRIMARY KEY(item_id,audio_index)
             )''')
+        if version < 11:
+            _add(db, 'items', 'position_revision', 'INTEGER NOT NULL DEFAULT 0 CHECK(position_revision>=0)')
         # Existing malformed identities, including old draft v6, never regenerate.
         companion_identity(db)
         db.execute(f'PRAGMA user_version={VERSION}')

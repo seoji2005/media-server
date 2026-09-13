@@ -9,11 +9,13 @@ let titleView=null;
 const preparingPlayback = new Set();
 let playerRequest = 0, entryAwaitingPlay = false;
 let pendingItemEntry = null;
-let toastTimer, saveTimer, saveChain = Promise.resolve(), lastQueuedPosition = null;
+let toastTimer, saveTimer;
+const positionSaves = new Map();
 const video = $("video"), dialog = $("player-dialog");
 $("settings-open").addEventListener("click",()=>$("settings-dialog").showModal());
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
 const errors = {
+  position_changed:"다른 저장으로 시청 위치가 바뀌었습니다. 지금 위치는 이 창에 남아 있습니다. 다시 재생하거나 이동하면 저장을 시도합니다.",
   invalid_title:"제목을 180자 이내로 입력해 주세요. 줄바꿈과 제어 문자는 사용할 수 없습니다.",
   title_changed:"다른 창에서 제목이 바뀌었습니다. 저장된 제목을 불러와 확인해 주세요.",
   invalid_item_entry:"영상 연결 정보를 확인할 수 없습니다. 보낸 앱에서 다시 열어 주세요.",
@@ -258,12 +260,28 @@ async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false
     }
     for(const panel of ["audio-panel","subtitle-preparation","subtitle-search-panel","preference-panel"])$(panel).open=false;
     resetPreviews();
-    entryAwaitingPlay=Boolean(entry); activeItem=item; lastQueuedPosition=null; $("player-title").textContent=item.title; renderAudio(item);resetTitle(item);
+    const positionState=positionSaves.get(id);
+    if(positionState&&!positionState.running){
+      if(positionState.latest?.saved&&positionState.revision>(item.position_revision??0)){
+        // This GET may have captured history before the closing player's write
+        // committed. Keep our confirmed revision; the response cannot undo it.
+        item.position=Math.min(item.duration,positionState.latest.position);
+        item.position_revision=positionState.revision;
+      }else{
+        positionState.revision=item.position_revision??0;
+        if(positionState.latest?.saved)positionState.latest=null;
+      }
+    }
+    const pendingPosition=positionState?.latest;
+    if(!moment&&pendingPosition&&!pendingPosition.saved&&pendingPosition.audio_index===item.audio_index){
+      item.position=Math.min(item.duration,pendingPosition.position);
+    }
+    entryAwaitingPlay=Boolean(entry); activeItem=item; $("player-title").textContent=item.title; renderAudio(item);resetTitle(item);
     $("video-error").hidden=true; $("save-state").textContent=continuing(item) ? `${time(item.position)}에서 이어보기` : "준비 중";
     if(item.thumbnail) video.poster=`/api/media/${id}/thumbnail`; else video.removeAttribute("poster");
     resetSubtitles(); video.src=`/api/media/${id}/content${audioQuery(item)}`; dialog.showModal(); dialog.scrollTop=0; refreshSubtitles(item);
     refreshPreference(item);
-    video.addEventListener("loadedmetadata", function restore(){ if(activeItem!==item) return; const start=moment?moment.start_ms/1000:continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=moment?`${time(start)} 장면 · 재생 버튼을 눌러 시작하세요`:start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
+    video.addEventListener("loadedmetadata", function restore(){ if(activeItem!==item) return; const start=moment?moment.start_ms/1000:continuing(item)?item.position:0; if(start>0&&Number.isFinite(video.duration)) video.currentTime=Math.min(start,video.duration); $("save-state").textContent=!moment&&pendingPosition&&!pendingPosition.saved?`${time(start)} · 이 창에 남은 위치 · 저장 미확인`:moment?`${time(start)} 장면 · 재생 버튼을 눌러 시작하세요`:start>0?`${time(start)}에서 이어보기`:"재생 버튼을 눌러 시작하세요"; }, {once:true});
     // Autoplay is optional; browser policy may require the native play button.
     if(!entry) video.play().catch(()=>{});
   } catch(e) {
@@ -338,10 +356,10 @@ $("audio-apply").addEventListener("click",async()=>{
   $("audio-select").disabled=true;$("audio-apply").disabled=true;$("audio-state").textContent="오디오를 준비하고 있어요. 지금 영상은 계속 감상할 수 있습니다.";
   try{
     const ready=await api(`/api/library/${owner.id}/audio/${index}`,{method:"POST"});if(activeItem!==owner)return;
-    const position=video.currentTime,playing=!video.paused;video.pause();await savePosition();if(activeItem!==owner)return;
+    const position=video.currentTime,playing=!video.paused;video.pause();await waitForPosition(savePosition());if(activeItem!==owner)return;
     // The editor belongs to the library item, including while its audio changes.
     ready.title=owner.title;if(titleView?.owner===owner)titleView.owner=ready;
-    activeItem=ready;lastQueuedPosition=null;renderAudio(ready);resetSubtitles();refreshPreference(ready);$("video-error").hidden=true;
+    activeItem=ready;renderAudio(ready);resetSubtitles();refreshPreference(ready);$("video-error").hidden=true;
     video.addEventListener("loadedmetadata",()=>{if(activeItem!==ready)return;video.currentTime=Math.min(position,ready.duration);savePosition();if(playing)video.play().catch(()=>{});},{once:true});
     video.src=`/api/media/${owner.id}/content${audioQuery(ready)}`;video.load();refreshSubtitles(ready);
     $("audio-state").textContent=`오디오 ${index+1}로 변경했습니다. 진행 중인 자막 작업은 시작할 때 선택한 음성을 유지합니다.`;
@@ -349,18 +367,64 @@ $("audio-apply").addEventListener("click",async()=>{
   }catch(e){if(activeItem===owner){$("audio-state").textContent=e.message+" 현재 재생은 유지됩니다.";$("audio-select").disabled=false;$("audio-apply").disabled=false;if(hadFocus&&document.activeElement===document.body)$("audio-apply").focus();}}
 });
 function savePosition(keepalive=false) {
-  if(entryAwaitingPlay||!activeItem||!Number.isFinite(video.currentTime)||video.readyState<1) return saveChain;
-  const id=activeItem.id, audio_index=activeItem.audio_index, position=Math.min(activeItem.duration,Math.max(0,video.currentTime));
-  if(lastQueuedPosition===position) return saveChain;
-  lastQueuedPosition=position; $("save-state").textContent="시청 위치 저장 중…";
-  // Serialize saves so a delayed older write cannot overwrite a later seek/pause.
-  saveChain=saveChain.catch(()=>{}).then(()=>api(`/api/library/${id}/position`,{method:"PUT",keepalive,headers:{"Content-Type":"application/json"},body:JSON.stringify({position,audio_index})})).then(()=>{
-    const item=items.find(i=>i.id===id); if(item){item.position=position;item.watched_at=new Date().toISOString();}
-    if(activeItem?.id===id) $("save-state").textContent=`${time(position)} 저장됨`;
-  }).catch(e=>{lastQueuedPosition=null;if(activeItem?.id===id) $("save-state").textContent="저장 실패 · 연결 확인";toast(e.message,true);});
-  return saveChain;
+  if(entryAwaitingPlay||!activeItem||!Number.isFinite(video.currentTime)||video.readyState<1) return Promise.resolve();
+  const owner=activeItem, id=owner.id, audio_index=owner.audio_index;
+  const position=Math.min(owner.duration,Math.max(0,video.currentTime));
+  let state=positionSaves.get(id);
+  if(!state){state={id,revision:owner.position_revision??0,latest:null,pending:null,running:false,promise:Promise.resolve()};positionSaves.set(id,state);}
+  if(state.latest?.position===position&&state.latest.audio_index===audio_index&&!state.latest.failed) return state.promise;
+  const intent={position,audio_index,owner,saved:false,failed:false};
+  state.latest=state.pending=intent;
+  $("save-state").textContent="시청 위치 저장 중…";
+  // One active write and one newest pending intent per item. Another video never
+  // waits for this item's connection, and repeated seeks cannot grow a backlog.
+  if(!state.running)state.promise=flushPosition(state);
+  return state.promise;
 }
-async function closePlayer() { playerRequest++; resetPreviews(); video.pause(); clearTimeout(saveTimer); saveTimer=null; await savePosition(); activeItem=null; resetSubtitles(); resetPreference(); resetTitle(); video.removeAttribute("src"); video.load(); dialog.close(); if(filter === "recommended") refreshRecommendations(); else render(); }
+async function flushPosition(state){
+  state.running=true;
+  try{
+    while(state.pending){
+      const intent=state.pending;state.pending=null;
+      try{
+        // Abort cannot undo a server write. Re-read after an uncertain response,
+        // and let SQLite reject any late write using an older revision.
+        if(state.revision===null){
+          const current=await boundedApi(`/api/library/${state.id}`,{},5000,"저장된 시청 위치를 확인하지 못했습니다.");
+          state.revision=current.position_revision??0;
+        }
+        const saved=await boundedApi(`/api/library/${state.id}/position`,{method:"PUT",keepalive:true,
+          headers:{"Content-Type":"application/json"},body:JSON.stringify({position:intent.position,audio_index:intent.audio_index,expected_revision:state.revision})},
+          5000,"시청 위치 저장을 확인하지 못했습니다. 이 창에는 마지막 위치가 남아 있지만 새로고침하면 잃을 수 있습니다.");
+        state.revision=saved.position_revision??null;intent.saved=true;
+        if(state.latest===intent){
+          const item=items.find(i=>i.id===state.id);if(item){item.position=intent.position;item.watched_at=new Date().toISOString();}
+          if(activeItem?.id===state.id&&activeItem.audio_index===intent.audio_index)$("save-state").textContent=`${time(intent.position)} 저장됨`;
+          if(!dialog.open&&filter!=="recommended")render();
+        }
+      }catch(e){
+        state.revision=null;intent.failed=true;
+        if(state.latest===intent){
+          if(activeItem?.id===state.id&&activeItem.audio_index===intent.audio_index)$("save-state").textContent="위치 저장 미확인 · 새로고침 전 연결 확인";
+          if(!activeItem||activeItem.id===state.id)toast(e.message,true);
+        }
+      }
+    }
+  }finally{state.running=false;}
+}
+async function waitForPosition(pending){
+  let timer;
+  try{return await Promise.race([pending.then(()=>true),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),1000);})]);}
+  finally{clearTimeout(timer);}
+}
+async function closePlayer() {
+  playerRequest++;resetPreviews();video.pause();clearTimeout(saveTimer); saveTimer=null;
+  const pending=savePosition();
+  activeItem=null;resetSubtitles();resetPreference();resetTitle();video.removeAttribute("src");video.load();dialog.close();
+  if(filter === "recommended")refreshRecommendations();else render();
+  // Close immediately; only callers that need a fresh history read wait briefly.
+  if(!await waitForPosition(pending)&&!dialog.open)toast("시청 위치를 저장하고 있습니다. 저장 확인 전에 새로고침하면 마지막 위치를 잃을 수 있습니다.");
+}
 $("player-close").addEventListener("click",closePlayer);
 dialog.addEventListener("cancel",e=>{e.preventDefault();closePlayer();});
 $("restart-video").addEventListener("click",()=>{video.currentTime=0;savePosition();video.play().catch(()=>{});});

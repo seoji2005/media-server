@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unicodedata
 
@@ -286,6 +287,27 @@ def evidence_result(evidence, clip):
 
 
 @contextmanager
+def decoder_errors():
+    """Drain error-level diagnostics without retaining private text or growing RAM/disk."""
+    read_fd, write_fd = os.pipe()
+    failed = [False]
+    with os.fdopen(read_fd, 'rb') as reader, os.fdopen(write_fd, 'wb') as writer:
+        def drain():
+            try:
+                while reader.read(4096):
+                    failed[0] = True
+            except OSError:
+                failed[0] = True
+        thread = threading.Thread(target=drain, daemon=True)
+        thread.start()
+        try:
+            yield writer, failed
+        finally:
+            writer.close()
+            thread.join()
+
+
+@contextmanager
 def decoded_audio(path, duration, audio_index):
     """Spool PCM beside the owned input; retain only one speech window in RAM.
 
@@ -313,8 +335,12 @@ def decoded_audio(path, duration, audio_index):
                     '-ac','1','-ar','16000','-af','aresample=async=1:first_pts=0',
                     '-fs',str(limit+4),'-f','f32le','pipe:1']
             try:
-                result = subprocess.run(args, stdin=subprocess.DEVNULL, stdout=output,
-                    stderr=subprocess.DEVNULL, timeout=max(120,min(1800,math.ceil(duration/2))))
+                # Demuxers can report a truncated file at error level yet exit 0.
+                # Reject that partial PCM before ASR/checkpoint publication. Do not
+                # compare against video length: a valid audio track may end earlier.
+                with decoder_errors() as (diagnostics, failed):
+                    result = subprocess.run(args, stdin=subprocess.DEVNULL, stdout=output,
+                        stderr=diagnostics, timeout=max(120,min(1800,math.ceil(duration/2))))
             except FileNotFoundError:
                 raise MediaError('ffmpeg_unavailable', 503) from None
             except subprocess.TimeoutExpired:
@@ -322,7 +348,7 @@ def decoded_audio(path, duration, audio_index):
             size = output.seek(0, os.SEEK_END)
             if result.returncode and shutil.disk_usage(path.parent).free < RESERVE:
                 raise MediaError('insufficient_space', 507)
-            if result.returncode or not size or size % 4 or size > limit:
+            if result.returncode or failed[0] or not size or size % 4 or size > limit:
                 raise MediaError('invalid_media', 422)
             count = size // 4
             if count > math.ceil(duration * SAMPLE_RATE):

@@ -499,7 +499,7 @@ class Store:
             if exc.code not in {"managed_file_missing", "managed_file_changed", "rendition_required"}:
                 raise
             unavailable_reason = exc.code
-        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "watched_at", "duration", "size", "width", "height", "sha256", "preparation", "preparation_error", "audio_index")} | {"available": unavailable_reason is None, "unavailable_reason": unavailable_reason, "thumbnail": bool(row["thumbnail"]), "mime": playback['mime'] if unavailable_reason is None else row['mime'], 'duration':playback['duration'] if unavailable_reason is None else row['duration'], 'audio_tracks':json.loads(row['audio_tracks']) if row['audio_tracks'] is not None else None, 'preparation':playback['preparation'] if unavailable_reason is None else row['preparation']}
+        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "position_revision", "watched_at", "duration", "size", "width", "height", "sha256", "preparation", "preparation_error", "audio_index")} | {"available": unavailable_reason is None, "unavailable_reason": unavailable_reason, "thumbnail": bool(row["thumbnail"]), "mime": playback['mime'] if unavailable_reason is None else row['mime'], 'duration':playback['duration'] if unavailable_reason is None else row['duration'], 'audio_tracks':json.loads(row['audio_tracks']) if row['audio_tracks'] is not None else None, 'preparation':playback['preparation'] if unavailable_reason is None else row['preparation']}
 
     def playback_row(self, item_id, audio_index=None):
         source = self._row(item_id)
@@ -538,7 +538,7 @@ class Store:
             db.commit()
         return dict(saved)
 
-    def save_position(self, item_id: str, position, audio_index=None) -> dict:
+    def save_position(self, item_id: str, position, audio_index=None, expected_revision=None) -> dict:
         row = self._row(item_id)
         try:
             duration = self.playback_row(item_id,audio_index)['duration']
@@ -548,7 +548,14 @@ class Store:
             duration = row['duration']  # Existing history can survive pending preparation.
         if type(position) not in (int, float) or not math.isfinite(position) or not 0 <= position <= duration:
             raise MediaError("invalid_position", 422)
+        if expected_revision is not None and (type(expected_revision) is not int or not 0 <= expected_revision < 2**53-1):
+            raise MediaError('invalid_position', 422)
         with self.db() as db:
-            db.execute("UPDATE items SET position=?, watched_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?", (position, item_id))
+            saved = db.execute("""UPDATE items SET position=?, position_revision=position_revision+1,
+                watched_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                WHERE id=? AND (? IS NULL OR position_revision=?) RETURNING position,position_revision""",
+                (position, item_id, expected_revision, expected_revision)).fetchone()
+            if saved is None:
+                raise MediaError('position_changed', 409)
             db.commit()
-        return {"position": position}
+        return dict(saved)

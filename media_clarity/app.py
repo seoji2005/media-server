@@ -389,9 +389,11 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             body = json.loads(payload)
         except (ValueError, UnicodeError):
             raise MediaError("invalid_request", 422) from None
-        if type(body) is not dict or set(body) not in ({"position"}, {"position","audio_index"}):
+        if (type(body) is not dict or 'position' not in body
+                or set(body) - {'position', 'audio_index', 'expected_revision'}
+                or ('expected_revision' in body and type(body['expected_revision']) is not int)):
             raise MediaError("invalid_request", 422)
-        return await run_in_threadpool(store.save_position, item_id, body["position"], body.get('audio_index'))
+        return await run_in_threadpool(store.save_position, item_id, body["position"], body.get('audio_index'), body.get('expected_revision'))
 
     @app.get("/api/library/{item_id}/subtitles")
     def subtitles(item_id: str, audio_index: int | None = None):
