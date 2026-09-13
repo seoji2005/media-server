@@ -1,6 +1,6 @@
 """Real HTTP handlers and SQLite ordering/restart, with isolated delayed writes."""
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import hashlib
 from pathlib import Path
 import sqlite3
@@ -128,7 +128,7 @@ class PositionRecoveryTests(unittest.TestCase):
                 item=client.get(f'/api/library/{item_id}').json()
                 self.assertEqual((item['position'],item['position_revision']),(7.25,1))
             # Model the previous schema on this disposable library, preserving data.
-            with sqlite3.connect(root/'library.sqlite3') as db:
+            with closing(sqlite3.connect(root/'library.sqlite3')) as db, db:
                 db.execute('ALTER TABLE items DROP COLUMN position_revision')
                 db.execute('PRAGMA user_version=10')
             with TestClient(create_app(root),base_url='http://127.0.0.1:8765') as client:
