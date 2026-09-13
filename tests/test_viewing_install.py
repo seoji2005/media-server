@@ -76,7 +76,11 @@ class ViewingInstallTests(unittest.TestCase):
             repo,data,args=self.fixture(Path(temp));target=repo/'.venv-viewing'
             subprocess.run([sys.executable,'-I','-m','venv','--copies','--without-pip',str(target)],check=True,capture_output=True,timeout=30)
             python=target/('Scripts/python.exe' if os.name=='nt' else 'bin/python')
-            site=Path(subprocess.check_output([str(python),'-I','-c',"import sysconfig;print(sysconfig.get_path('purelib'))"],text=True,timeout=10).strip())
+            # -I ignores PYTHONUTF8; Windows pipes may use an ANSI code page.
+            # ASCII JSON preserves the Korean path without relying on that page.
+            site=Path(json.loads(subprocess.check_output([str(python),'-I','-c',
+                "import json,sysconfig;print(json.dumps(sysconfig.get_path('purelib')))"],
+                encoding='ascii',timeout=10)))
             for name in ('fastapi','uvicorn'):
                 (site/(name+'.py')).write_text('# synthetic import\n')
                 dist=site/(name+'-1.0.dist-info');dist.mkdir()
