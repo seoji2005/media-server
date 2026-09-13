@@ -29,6 +29,19 @@ Wrong Host/Origin and stale write tokens remain rejected. No model/API key/priva
 data use or security-boundary changes. Work browser limits below remain in force;
 new retry UI native-browser interaction and human viewing are unverified.
 
+Initial CI34739441697 failed: Linux passed Python/DOM but its browser fixture
+injected a hidden file input before initial connection. It now uses the actual
+enabled import button/file chooser and checks one isolated failed session read
+followed by explicit reconnect. This extends the existing CI browser regression;
+it does not use a new Work browser route or relax any timeout/security check.
+Windows failed an older Qwen HTTP fixture's succeeded-state assertion. That test
+started both a real supervisor and a manual synthetic executor for one queued job.
+An isolated launch-failure probe reproduced the competing-owner failure locally;
+the fixture now initializes jobs without that second owner. The original Windows
+error code was not reported, so its exact cause remains unconfirmed; future failed
+assertions include only the opaque error code. Product worker/model code is unchanged.
+Final fixed-HEAD review and mandatory CI results belong to the PR.
+
 Completed in PR57: preserve the newest requested library snapshot. An older GET that
 finishes after a newer successful import/refresh could hide the newly listed item.
 Ordinary refreshes and PR56's explicit import-result check now share one in-page

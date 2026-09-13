@@ -209,7 +209,10 @@ class IncompleteAudioTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as data:
             app = create_app(Path(data) / '체험 보관함')
-            with TestClient(app, base_url='http://127.0.0.1:8765') as client, \
+            # This fixture executes the synthetic backend itself. A live
+            # supervisor would race it for the same HTTP-enqueued job.
+            with patch.object(Jobs, 'start', lambda jobs: jobs.init(recover=True)), \
+                    TestClient(app, base_url='http://127.0.0.1:8765') as client, \
                     patch.dict(os.environ, {'GEMINI_API_KEY':'synthetic-key'}), \
                     patch('media_clarity.jobs.speech_preflight'), \
                     patch('media_clarity.gemini.request', side_effect=reply) as provider:
@@ -234,7 +237,7 @@ class IncompleteAudioTests(unittest.TestCase):
                     status = client.get(f'/api/library/{item_id}/subtitles').json()
                     row = jobs.row(jid)
                     if path == self.full:
-                        self.assertEqual(row['state'], 'succeeded')
+                        self.assertEqual(row['state'], 'succeeded', row['error'])
                         self.assertEqual(len(status['tracks']), 2)
                         self.assertTrue(provider.called)
                     else:
