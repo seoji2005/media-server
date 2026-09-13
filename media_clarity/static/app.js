@@ -310,7 +310,13 @@ async function preparePlayback(id) {
   preparingPlayback.add(id); render(); toast("원본 보관을 마쳤습니다. 재생용 사본을 준비하고 있어요.");
   try { await api(`/api/library/${id}/playback`,{method:"POST"}); toast("재생 준비를 마쳤습니다."); return true; }
   catch(e) { toast(e.message + " 보관된 원본은 유지됩니다.",true); return false; }
-  finally { preparingPlayback.delete(id); await refresh(); }
+  finally {
+    // Settle the old list snapshot before opening so it cannot undo new viewing
+    // progress. A failed/bounded-out read cannot replace the preparation result.
+    try { await refresh(10000); }
+    catch(e) { toast("보관함 목록을 갱신하지 못했습니다. "+e.message,true); }
+    finally { preparingPlayback.delete(id);render(); }
+  }
 }
 async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false) {
   if(!entry) momentRequest++;

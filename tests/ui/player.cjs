@@ -7,17 +7,23 @@ const source = fs.readFileSync(`${repo}/media_clarity/static/app.js`, 'utf8');
 async function run(js) {
   const dom = new JSDOM(html, {url:'http://127.0.0.1:8765', runScripts:'outside-only'});
   const w=dom.window, d=w.document, timers=new Map(), writes=[];
-  let timerId=0, preparationFailed=false;
+  let timerId=0, preparationFailed=false, listFailure=false, holdList=false, releaseList;
+  let preparationWrites=0;
   const library=[{id:'fixture-a',title:'<img src=x onerror=alert(1)> 영상',duration:25,position:8.25,width:640,height:360,available:true,thumbnail:false}, {id:'fixture-b',title:'다른 영상',duration:25,position:0,width:640,height:360,available:true,thumbnail:false}];
   w.setTimeout=(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;};
   w.clearTimeout=id=>timers.delete(id);
   w.fetch=async (path,opts={})=>{
     let result;
     if(path==='/api/session') result={token:'synthetic-token',diagnostics:{ffprobe:true,ffmpeg:true,recovered_copies:0}};
-    else if(path==='/api/library') result={items:library.map(x=>({...x}))};
+    else if(path==='/api/library') {
+      if(listFailure){listFailure=false;throw Error('fixture list unavailable');}
+      result={items:library.map(x=>({...x}))};
+      if(holdList){holdList=false;return {ok:true,json:()=>new Promise(resolve=>{releaseList=()=>resolve(result);})};}
+    }
     else {const id=path.split('/')[3], item=library.find(x=>x.id===id); assert(item,path);
       if(path.split('?')[0].endsWith('/subtitles')) result={jobs:[],tracks:[]};
       else if(path.endsWith('/playback')) {
+        preparationWrites++;
         assert.equal(opts.method,'POST');assert.equal(opts.headers['X-Media-Token'],'synthetic-token');
         if(!preparationFailed){preparationFailed=true;item.preparation_error='media_timeout';return {ok:false,json:async()=>({error:'media_timeout'})};}
         item.available=true;item.unavailable_reason=null;item.preparation_error=null;result={...item};
@@ -69,12 +75,34 @@ async function run(js) {
   await w.__qa.closePlayer();
   assert.equal(d.querySelectorAll('.media-card .missing').length,2,'media error must update the cached library state');
   library[1].unavailable_reason='rendition_required';library[1].preparation='audio_mp4';
-  await w.__qa.openPlayer('fixture-b');assert.equal(dialog.open,false);
+  await w.__qa.openPlayer('fixture-b');await settle();assert.equal(dialog.open,false);
   assert.match(d.getElementById('toast').textContent,/보관된 원본은 유지/);
   assert.match(d.getElementById('library-grid').textContent,/재생 준비 실패/);
   await w.__qa.openPlayer('fixture-b');assert.equal(dialog.open,true);
   assert.match(d.getElementById('player-meta').textContent,/AAC 스테레오/);
   await w.__qa.closePlayer();
+  // A completed preparation must open even when its secondary list refresh
+  // fails. Reading a list cannot turn a successful POST into failed playback.
+  library[1].available=false;library[1].unavailable_reason='rendition_required';
+  listFailure=true;const beforePreparation=preparationWrites;
+  await w.__qa.openPlayer('fixture-b');
+  assert.equal(dialog.open,true,'list failure cannot prevent a successfully prepared video from opening');
+  assert.equal(preparationWrites,beforePreparation+1,'list failure must not replay preparation');
+  assert.doesNotMatch(d.getElementById('library-grid').textContent,/사본 준비 중/);
+  await w.__qa.closePlayer();
+  // The response body may hang indefinitely; opening waits only for the bound.
+  library[1].available=false;library[1].unavailable_reason='rendition_required';holdList=true;
+  let opened=false;const opening=w.__qa.openPlayer('fixture-b').then(()=>{opened=true;});
+  await settle();assert.equal(opened,false,'settle the old list before new viewing writes');
+  const deadline=[...timers].find(([,t])=>t.ms===10000);assert(deadline,'post-preparation list read is bounded');
+  timers.delete(deadline[0]);deadline[1].fn();await settle();
+  await opening;assert.equal(dialog.open,true);assert.match(d.getElementById('toast').textContent,/목록/);
+  video.currentTime=6;video.dispatchEvent(new w.Event('seeked'));await settle();
+  await w.__qa.closePlayer();
+  assert.match(d.getElementById('library-grid').textContent,/0:06부터 이어보기/);
+  const afterPreparation=preparationWrites;releaseList();await settle();
+  assert.equal(preparationWrites,afterPreparation);assert.equal(dialog.open,false);
+  assert.match(d.getElementById('library-grid').textContent,/0:06부터 이어보기/,'expired list cannot undo newly saved progress');
   w.close();return {checks:['safe title text','library search','continue filter','metadata resume','close and reopen autosave','ordered seek/pause writes','missing-file feedback','changed-file feedback','media error refreshes library'],writes};
 }
 (async()=>{

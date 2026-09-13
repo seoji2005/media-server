@@ -11,7 +11,27 @@ acceptance remain separate.
 
 ## October order
 
-Active slice: bounded recommendation/preference recovery. Recommendation and saved
+Active follow-up: a successful playback-copy POST was overridden by a failed
+secondary library refresh in `finally`; a stalled list body prevented opening
+indefinitely. Card refresh now has a ten-second library-read bound, catches its
+own error, and releases the preparation label when that read settles.
+The confirmed preparation result still controls opening; no preparation retry,
+media/API/storage change or change to the conversion time allowance is added.
+This branch follows the reviewed PR65 tree, which remains unmerged while its
+existing CI34749522449 is queued without jobs. It does not bypass that gate.
+
+The product-JS regression reproduced the failed-open behavior before the fix.
+An initial background-read fix passed the existing DOM tests, but independent
+review reproduced a late successful list overwriting newly saved six-second
+progress. That approach was replaced: settle the bounded old snapshot before
+opening, preserving existing read/write order. Regression covers failed/stalled
+list reads, late expired responses, one preparation POST and preserved new progress.
+The existing synthetic VP9 native
+fixture now injects one list503 after real preparation, then requires native
+decoding, supplied captions and preserved original identity; execution remains
+pending CI. Fixed-revision independent review belongs to the follow-up change.
+
+Pending PR65: bounded recommendation/preference recovery. Recommendation and saved
 preference reads previously waited indefinitely, as did preference writes; reopening
 could then wait forever for the pending write. Reuse the existing request guard:
 reads share ten seconds through response-body parsing, writes thirty seconds. Failed
