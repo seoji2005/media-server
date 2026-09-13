@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "node player.cjs && node import-recovery.cjs && node position-save.cjs && node subtitles.cjs && node subtitle-search.cjs && node subtitle-reload.cjs && node caption-view.cjs && node audio.cjs && node previews.cjs && node scenes.cjs && node preparation.cjs && node recommendations.cjs && node titles.cjs && node subtitle-status.cjs"
+    "test": "node player.cjs && node library-refresh.cjs && node import-recovery.cjs && node position-save.cjs && node subtitles.cjs && node subtitle-search.cjs && node subtitle-reload.cjs && node caption-view.cjs && node audio.cjs && node previews.cjs && node scenes.cjs && node preparation.cjs && node recommendations.cjs && node titles.cjs && node subtitle-status.cjs"
   },
   "devDependencies": {
     "jsdom": "30.0.1",
