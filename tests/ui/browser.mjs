@@ -81,6 +81,39 @@ async function armResumeObservation() {
     }, {once: true});
   });
 }
+async function checkPreferenceRecovery(){
+  const id=await video.evaluate(v=>new URL(v.src).pathname.split('/')[3]);
+  const url=`${base}/api/library/${id}/preference`;
+  const saved=await (await page.request.get(url)).json(),writes=[];
+  const snapshot=()=>video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused,track:v.querySelector('track')?.src}));
+  const before=await snapshot();let committed;
+  const observe=request=>{if(request.method()==='PUT'&&request.url()===url)writes.push(request);};
+  // Commit the real SQLite write and lose only its reply. Recovery must read
+  // that version, without replaying a write or disturbing native playback.
+  const handler=async route=>{
+    if(route.request().method()!=='PUT')return route.continue();
+    const response=await route.fetch();assert.equal(response.status(),200);
+    committed=await response.json();await route.abort('failed');
+  };
+  await page.locator('#preference-panel').evaluate(el=>el.open=true);
+  await page.waitForFunction(()=>!document.querySelector('#preference-controls').disabled);
+  await page.route(url,handler);page.on('request',observe);
+  try{
+    await page.locator('#preference-include').setChecked(!saved.included);
+    await page.locator('#preference-retry').waitFor();
+    assert.equal(await page.locator('#preference-controls').isDisabled(),true);
+    assert.equal(committed.revision,saved.revision+1);
+    await page.locator('#preference-retry').click();
+    await page.waitForFunction(()=>!document.querySelector('#preference-controls').disabled);
+    assert.equal(await page.locator('#preference-include').isChecked(),!saved.included);
+    assert.deepEqual(await (await page.request.get(url)).json(),committed);
+    assert.equal(writes.length,1);assert.deepEqual(await snapshot(),before);
+    console.log(JSON.stringify({phase,preferenceLostReceiptRecovery:true,preferenceWrites:writes.length}));
+  }finally{
+    await page.unroute(url,handler);page.off('request',observe);
+    await page.locator('#preference-panel').evaluate(el=>el.open=false);
+  }
+}
 async function checkObservedResume() {
   try {
     await page.waitForFunction(() => {
@@ -422,6 +455,7 @@ try {
   assert(observed.cues.includes('한국어 자막 재생 확인'), 'active native Korean cue required');
   mark('subtitle-status-recovery');
   await checkSubtitleStatusRecovery();
+  if(phase==='first'){mark('preference-recovery');await checkPreferenceRecovery();}
   const displayTitle='ＣＩ 한글 <literal>';
   if(phase==='restart')assert.equal(await page.locator('#player-title').textContent(),displayTitle,'display title survives server restart');
   await page.locator('#title-panel > summary').click();

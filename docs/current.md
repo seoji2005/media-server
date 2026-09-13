@@ -1,37 +1,47 @@
 # Current work
 
-Live recovery base: Server `6287fa827630fd83c0eb1ae127bb269da815981c`
-(PR63 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server PR CI34747667722 and merged main CI34747951010 passed Windows/Ubuntu
-Python, DOM and Chrome checks. Fetch main CI34691909315 passed. Codespaces PR51
-is being ported from its old base onto this exact current product tree. Git/PR state
-is authoritative.
-Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
-approvals persist. Release and subjective quality acceptance remain separate.
+Live recovery base: Server `3cc580fa7449c145e91462068f3fb57f1bafa1b4`
+(PR64 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server PR64 CI34748855621 passed Windows/Ubuntu Python, DOM and both native Chrome
+fixtures at head557034288519f2899d0423146483514508ec0fd1. The merged main tree matches
+that tested tree. Superseded PR51 is closed and its old branch is preserved.
+Git/PR state is authoritative. Existing cost/allowed-public-egress and reviewed,
+passing-CI development-merge approvals persist. Release and subjective quality
+acceptance remain separate.
 
 ## October order
 
-Active slice: port the reviewed Private Codespaces viewing environment onto current
-main without losing subsequent viewing, recovery or caption-import behavior. It uses
+Active slice: bounded recommendation/preference recovery. Recommendation and saved
+preference reads previously waited indefinitely, as did preference writes; reopening
+could then wait forever for the pending write. Reuse the existing request guard:
+reads share ten seconds through response-body parsing, writes thirty seconds. Failed
+saves retain disabled editing until a saved-state read; no write is automatically
+retried. Existing item/request versions and SQLite revisions reject stale responses
+and late writes. No ranking, API, schema, storage or model change.
+
+The new product-JS regression fails on the old code's absent read deadline. After
+fixing a test selector typo, the complete DOM suite passes: stalled headers/bodies,
+read-only recovery, late inclusion versus newer exclusion, reopening during a save
+and zero automatic retry. Eight existing Python recommendation tests pass in 5.430s
+with actual FFmpeg/SQLite and in-process HTTP, including restart/original/caption/
+position preservation and stale-write rejection. A native CI check loses a committed
+preference write's receipt and checks read-only recovery without disturbing playback;
+its execution and fixed-revision independent review belong to the follow-up PR.
+
+Completed in PR64: port the reviewed Private Codespaces viewing environment onto
+current main, retaining subsequent viewing/recovery/caption-import behavior. It uses
 the current UI/API and a separate repeatable synthetic library with Python 3.12 and
-FFmpeg. It does not install models, use GPU/provider keys, run paid inference or use
-Fetch. The HTTPS origin, session checks and local-only default remain enforced.
-Actual Codespace creation, GitHub account authentication and port forwarding remain
-unverified until separately exercised; local and simulated-edge checks stay labeled.
-The ported current tree passes all 364 Linux/Python tests, the complete DOM suite,
-13 focused Codespaces tests and an actual loopback HTTP/SQLite/FFmpeg restart check.
-Review found that hiding the whole preparation panel also hid permitted manual caption
-imports. The integration now exposes SRT/VTT import while hiding and server-blocking
-only inference controls; its native UI check imports one synthetic caption.
-The blocked Work browser route remains stopped; native integration evidence belongs
-to the new PR's fixed-head Windows/Ubuntu CI.
-Initial port CI34748607408 passed the ordinary Chrome fixture, then its new Codespaces
-fixture failed when DevTools evicted an already-consumed POST response body. The test
-now observes the app-confirmed new caption selection and saved VTT instead. Its next
-run, CI34748745873, overlapped cancellation of the obsolete revision and failed both
-matrix jobs before any step ran, with no job log. This is runner/startup evidence,
-not a product failure; required executable CI remains pending without rerunning either
-old revision.
+FFmpeg. Manual SRT/VTT import stays available; inference controls and server APIs
+remain blocked in this mode. Current exact-origin/session/local-only checks remain.
+CI34748855621 passed all 364 Python tests, DOM and actual synthetic Chrome checks on
+both OSes, including one manual caption import and first/restart native restoration
+of approximately 18.25 seconds and +500ms. Page external request counts were zero.
+Initial CI34748607408 failed the new fixture after DevTools evicted a POST body;
+observation now uses the confirmed selection and separately saved VTT. CI34748745873
+failed before job steps with no logs; its startup cause remains unconfirmed. Neither
+old run was retried. Actual Codespace creation, image build, account authentication
+and Private HTTPS forwarding remain unverified. The blocked Work browser route
+remains stopped; native evidence above is ordinary synthetic GitHub CI.
 
 Completed in PR63: recover caption-file imports without duplicate delivery or stale selection.
 The existing unbounded handler sent two POSTs for duplicate pending file events.

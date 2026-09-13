@@ -182,7 +182,7 @@ function invalidateRecommendations() { recommendationVersion++; recommendedItems
 async function refreshRecommendations() {
   const version=++recommendationVersion; recommendedItems=[]; recommendationState="loading"; render();
   try {
-    const result=await api("/api/recommendations");
+    const result=await boundedApi("/api/recommendations",{},10000,"추천을 10초 안에 불러오지 못했습니다. 서버 연결을 확인해 주세요.");
     if(version!==recommendationVersion)return;
     recommendedItems=result.items; recommendationState="ready";
   } catch(e) { if(version!==recommendationVersion)return; recommendationState="error"; recommendationError=e.message; }
@@ -205,7 +205,7 @@ async function refreshPreference(owner) {
     const pending=pendingPreferences.get(owner.id);
     if(pending)await pending.catch(()=>{});
     if(activeItem!==owner || version!==preferenceVersion)return;
-    const value=await api(`/api/library/${owner.id}/preference`);
+    const value=await boundedApi(`/api/library/${owner.id}/preference`,{},10000,"저장된 선호를 10초 안에 확인하지 못했습니다. 서버 연결을 확인한 뒤 다시 눌러 주세요.");
     if(activeItem!==owner || version!==preferenceVersion)return;
     showPreference(value);
   } catch(e) { if(activeItem!==owner || version!==preferenceVersion)return; $("preference-state").textContent=e.message; $("preference-retry").hidden=false; }
@@ -216,7 +216,7 @@ async function savePreference() {
   const value={included:$("preference-include").checked,preference:$("preference-value").value,revision:savedPreference.revision};
   $("preference-controls").disabled=true; $("preference-state").textContent="선호 저장 중…";
   invalidateRecommendations(); render();
-  const pending=api(`/api/library/${owner.id}/preference`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(value)});
+  const pending=boundedApi(`/api/library/${owner.id}/preference`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(value)},30000,"선호 저장 응답을 확인하지 못했습니다. 서버에는 저장됐을 수 있습니다.");
   pendingPreferences.set(owner.id,pending);
   try {
     const saved=await pending;
