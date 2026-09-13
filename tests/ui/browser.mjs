@@ -34,6 +34,37 @@ await page.route('**/*', route => {
   return route.continue();
 });
 const video = page.locator('#video');
+async function checkSessionRecovery(){
+  await video.evaluate(v=>v.pause());
+  await page.locator('#title-panel > summary').click();
+  const title=await page.locator('#title-input').inputValue();
+  await page.locator('#title-input').fill('연결 복구 확인용 입력');
+  const snapshot=()=>page.evaluate(()=>({time:document.querySelector('#video').currentTime,
+    src:document.querySelector('#video').src,track:document.querySelector('#video track')?.src,
+    selection:document.querySelector('#subtitle-select').value,
+    offset:document.querySelector('#caption-offset-brief').textContent,
+    draft:document.querySelector('#title-input').value}));
+  const before=await snapshot();
+  // Only this browser request carries an expired credential. The real server
+  // rejects it; reconnect reads the genuine session and never replays the title.
+  await page.route(base+'/api/library/*/title',route=>route.continue({
+    headers:{...route.request().headers(),'x-media-token':'expired-fixture'}}),{times:1});
+  await page.locator('#title-save').click();
+  await page.locator('#session-reconnect').waitFor();
+  assert.equal(await page.locator('#player-dialog #session-recovery').isVisible(),true);
+  const writes=[];const observe=request=>{if(!['GET','HEAD'].includes(request.method()))writes.push(true);};
+  page.on('request',observe);
+  await page.locator('#session-reconnect').click();
+  await page.locator('#session-recovery').waitFor({state:'hidden'});
+  assert.deepEqual(await snapshot(),before,'reconnect preserves viewing and unsaved draft');
+  assert.deepEqual(writes,[],'reconnect cannot replay any write');page.off('request',observe);
+  assert.equal(await page.locator('#title-save').isDisabled(),true);
+  // The feature's own explicit state check remains required before editing.
+  await page.locator('#title-reload').click();
+  await page.waitForFunction(()=>!document.querySelector('#title-save').disabled);
+  await page.locator('#title-input').fill(title);
+  await page.locator('#title-panel > summary').click();
+}
 async function armResumeObservation() {
   const items = (await (await page.request.get(`${base}/api/library`)).json()).items;
   assert.equal(items.length, 1);
@@ -372,6 +403,7 @@ try {
   await selector.selectOption(trackId);
   await page.waitForFunction(() => [...document.querySelector('#video').textTracks].some(t => t.mode === 'showing'));
   mark('caption-viewing');
+  if(phase==='first'){mark('session-recovery');await checkSessionRecovery();}
   await checkCaptionViewing(trackId);
   if(phase==='restart')await checkSubtitleSearchPages(page,trackId);
   await video.evaluate(v => { v.currentTime = 7; });
@@ -397,6 +429,7 @@ try {
   mark('checks-complete');
   console.log(JSON.stringify({phase, browser: browser.version(), channel: executablePath ? 'explicit executable' : channel,
     startupConnectionRecovery:phase==='first',
+    expiredSessionRecovery:phase==='first',
     subtitleSearch115NativeCues:phase==='restart', statusRecoveryWithExistingCaption: true, displayTitleAndNormalizedSearch: true, nativeCaption: true, captionOffsetAndSearch: true, nativeOffReopen:true, captionSettingsRestart:phase==='restart', freshGeminiSelectionMissingKey: phase === 'first', transcriptSwitchAndSearch: phase === 'restart', retranslationMissingSetup: phase === 'restart', geminiSelectionMissingKey: phase === 'restart', momentPausedEntry: true, momentPositionPreserved: true, decodedFrames: observed.frames, resumeSeconds: 7, range206: true, externalPageRequests: 0}));
 } finally {
   mark('browser-close');

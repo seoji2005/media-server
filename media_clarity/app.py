@@ -139,7 +139,11 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 
     @app.get("/api/session")
     def session():
-        return {"token": token, "diagnostics": {**store.diagnostics(), 'models':model_configuration(store.root)}}
+        from .migrations import companion_identity
+        with store.db() as db:
+            identity = companion_identity(db)
+        return {"token": token, "identity": identity,
+                "diagnostics": {**store.diagnostics(), 'models':model_configuration(store.root)}}
 
     @app.post("/api/models/diagnostics")
     def model_diagnostics():
