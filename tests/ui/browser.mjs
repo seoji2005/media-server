@@ -201,7 +201,7 @@ async function checkCaptionImportRecovery(trackId){
     // it twice through the UI while pending must still deliver one POST.
     await page.locator('#subtitle-input').setInputFiles(subtitle);
     await page.waitForFunction(()=>window.captionImportCommitted===true,null,{timeout:5000});
-    assert.equal(committed.status,201);assert.equal(committed.id,trackId,'duplicate receipt reuses the original caption');
+    assert.equal(committed.status,201);assert.notEqual(committed.id,trackId,'ordinary imports preserve a new caption version');
     assert.equal(await page.locator('#subtitle-import').isDisabled(),true);
     await page.locator('#subtitle-input').setInputFiles(subtitle);assert.equal(posts.length,1);
     release();await page.locator('#subtitle-refresh').waitFor();
@@ -210,7 +210,12 @@ async function checkCaptionImportRecovery(trackId){
     await page.waitForFunction(()=>!document.querySelector('#subtitle-import').disabled);
     assert.match(await page.locator('#subtitle-state').textContent(),/자막 목록/);
     assert.deepEqual(await snapshot(),before);
-    assert.deepEqual(await (await page.request.get(statusURL)).json(),beforeStatus);
+    const afterStatus=await (await page.request.get(statusURL)).json();
+    assert.equal(afterStatus.tracks.length,beforeStatus.tracks.length+1,'only one new version is published');
+    assert.deepEqual(afterStatus.tracks.filter(t=>t.id!==committed.id),beforeStatus.tracks);
+    assert.deepEqual({...afterStatus,tracks:beforeStatus.tracks},beforeStatus,'old captions, jobs and viewing settings are unchanged');
+    const canonical=async id=>(await page.request.get(`${base}/api/library/${itemId}/subtitles/${id}.vtt`)).text();
+    assert.equal(await canonical(committed.id),await canonical(trackId));
     assert.deepEqual(posts,[`/api/library/${itemId}/subtitles`],'recovery neither reimports nor starts translation');
     console.log(JSON.stringify({phase,captionImportRecovery:true}));
   }finally{
@@ -364,8 +369,10 @@ try {
     await checkObservedResume();
   }
   mark('caption-load');
-  await page.waitForFunction(count => document.querySelector('#subtitle-select').options.length === count, phase === 'first' ? 2 : 4);
-  const trackId = await selector.locator('option').filter({hasText: '가져온 자막'}).getAttribute('value');
+  await page.waitForFunction(count => document.querySelector('#subtitle-select').options.length === count, phase === 'first' ? 2 : 5);
+  // The first phase's lost receipt published a second supplied version. Reopen
+  // must still restore the oldest explicitly selected version and its offset.
+  const trackId = await selector.locator('option').filter({hasText: '가져온 자막'}).last().getAttribute('value');
   if(phase==='restart'){
     await page.waitForFunction(()=>!document.querySelector('#subtitle-select').disabled&&document.querySelector('#video track')?.readyState===2);
     assert.equal(await selector.inputValue(),trackId,'server restart preserves chosen older version instead of newest generated track');
