@@ -1,6 +1,7 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 let sessionToken = "", items = [], filter = "all", activeItem = null, upload = null;
+let importRecoveryVersion=0;
 let recommendedItems = [], recommendationState = "idle", recommendationError = "", recommendationVersion = 0;
 let preferenceVersion = 0, savedPreference = null;
 const pendingPreferences = new Map();
@@ -185,20 +186,67 @@ $("preference-value").addEventListener("change",savePreference);
 $("preference-include").addEventListener("change",savePreference);
 $("preference-retry").addEventListener("click",()=>{if(activeItem)refreshPreference(activeItem);});
 function chooseFile() { if(upload) return toast("현재 가져오기가 끝난 뒤 선택해 주세요."); $("file-input").click(); }
+function showImportRecovery(detail){
+  importRecoveryVersion++;
+  $("import-recovery-message").textContent=detail+" 원본은 그대로입니다. 서버에서 보관이 끝났을 수도 있습니다. 다시 가져오기 전에 보관함을 확인해 주세요.";
+  $("import-recovery").hidden=false;$("import-check").disabled=false;
+}
+$("import-check").addEventListener("click",async()=>{
+  if(upload||$("import-recovery").hidden||$("import-check").disabled)return;
+  const version=importRecoveryVersion;
+  $("import-check").disabled=true;$("import-recovery-message").textContent="보관함 목록을 확인하고 있어요. 영상을 다시 전송하지 않습니다.";
+  try{
+    const result=await boundedApi("/api/library",{},10000,"보관함을 확인하지 못했습니다. 앱 연결을 확인한 뒤 다시 눌러 주세요.");
+    if(version!==importRecoveryVersion||upload)return;
+    if(!Array.isArray(result.items))throw Error("보관함 응답을 읽을 수 없습니다.");
+    items=result.items;filter="all";$("search").value="";render();
+    $("import-recovery-message").textContent="보관함 전체 목록을 다시 불러왔습니다. 영상이 없으면 서버의 파일 확인이 끝난 뒤 다시 확인해 주세요. 이 동작은 영상을 다시 가져오거나 재생 준비를 시작하지 않습니다.";
+  }catch(e){if(version===importRecoveryVersion)$("import-recovery-message").textContent=e.message;}
+  finally{if(version===importRecoveryVersion)$("import-check").disabled=false;}
+});
 async function importFile(file) {
   if(upload) return toast("한 번에 한 개의 영상을 가져올 수 있습니다.");
   if(!file || !file.size) return toast(message("empty_media"),true);
+  const version=++importRecoveryVersion;
+  $("import-recovery").hidden=true;$("import-check").disabled=false;
   const xhr = new XMLHttpRequest(); upload = xhr;
+  let sent=false;
   $("upload-status").hidden = false; $("upload-title").textContent = file.name; $("upload-detail").textContent = "원본을 그대로 두고 감상용 사본을 가져오고 있어요";
   $("upload-progress").value = 0; $("upload-percent").textContent = "0%"; $("upload-cancel").hidden = false;
+  $("upload-cancel").setAttribute("aria-label","가져오기 취소");$("upload-cancel").title="가져오기 취소";
   $("import-top").disabled = true; $("import-empty").disabled = true;
   xhr.open("POST","/api/import"); xhr.setRequestHeader("Content-Type","application/octet-stream"); xhr.setRequestHeader("X-Media-Token",sessionToken); xhr.setRequestHeader("X-Media-Filename",encodeURIComponent(file.name));
-  xhr.upload.addEventListener("progress", e => { if(e.lengthComputable){ const percent=Math.round(e.loaded/e.total*100); $("upload-progress").value=percent; $("upload-percent").textContent=`${percent}%`; if(percent===100){ $("upload-detail").textContent="파일 무결성과 재생 형식을 확인하고 있어요. 긴 영상은 잠시 걸릴 수 있습니다."; $("upload-percent").textContent="확인 중"; $("upload-cancel").hidden=true; } } });
-  xhr.addEventListener("load", async () => { let result; try {result=JSON.parse(xhr.responseText);} catch {toast("앱 응답을 읽을 수 없습니다.",true); return;} if(xhr.status>=200&&xhr.status<300){ toast(result.duplicate ? "이미 보관함에 있는 영상입니다. 기존 시청 기록을 유지했어요." : "보관함에 영상을 담았습니다."); try {await refresh(); if(result.item?.unavailable_reason === "rendition_required") await preparePlayback(result.item.id);} catch(e){toast(e.message,true);} } else toast(message(result.error),true); });
-  xhr.addEventListener("error", () => toast("가져오기가 중단되었습니다. 앱 연결과 원본 파일 상태를 확인해 주세요.",true));
-  xhr.addEventListener("abort", () => toast("가져오기를 취소했습니다. 원본은 그대로입니다."));
-  xhr.addEventListener("loadend", () => { upload=null; $("upload-status").hidden=true; $("import-top").disabled=false; $("import-empty").disabled=false; $("file-input").value=""; });
-  xhr.send(file);
+  xhr.upload.addEventListener("progress",e=>{
+    if(upload!==xhr||sent||!e.lengthComputable||e.total<=0)return;
+    const percent=Math.min(99,Math.floor(e.loaded/e.total*100));
+    $("upload-progress").value=percent;$("upload-percent").textContent=`${percent}%`;
+  });
+  xhr.upload.addEventListener("load",()=>{
+    if(upload!==xhr)return;sent=true;
+    $("upload-progress").value=100;$("upload-percent").textContent="확인 중";
+    $("upload-detail").textContent="전송 완료 · 파일 무결성과 재생 형식을 확인하고 있어요. 응답 대기를 중단해도 서버에서 보관될 수 있습니다.";
+    $("upload-cancel").setAttribute("aria-label","서버 응답 대기 중단");$("upload-cancel").title="서버 응답 대기 중단";
+  });
+  xhr.addEventListener("load",async()=>{
+    if(upload!==xhr)return;
+    let result;try{result=JSON.parse(xhr.responseText);}catch{showImportRecovery("앱 응답을 읽을 수 없습니다.");return;}
+    if(xhr.status>=200&&xhr.status<300){
+      if(!result?.item||typeof result.item.id!=="string"||!/^[a-f0-9]{32}$/.test(result.item.id)){showImportRecovery("가져오기 결과를 확인하지 못했습니다.");return;}
+      toast(result.duplicate?"이미 보관함에 있는 영상입니다. 기존 시청 기록을 유지했어요.":"보관함에 영상을 담았습니다.");
+      try{await refresh();if(version===importRecoveryVersion&&result.item.unavailable_reason==="rendition_required")await preparePlayback(result.item.id);}
+      catch(e){if(version===importRecoveryVersion)showImportRecovery(e.message);}
+    }else showImportRecovery(message(result?.error));
+  });
+  for(const event of ["error","timeout"])xhr.addEventListener(event,()=>{if(upload===xhr)showImportRecovery("가져오기 응답을 확인하지 못했습니다. 앱 연결을 확인해 주세요.");});
+  xhr.addEventListener("abort",()=>{if(upload===xhr)showImportRecovery(sent?"서버 응답 대기를 중단했습니다.":"가져오기 요청을 중단했습니다.");});
+  const releaseUpload=()=>{
+    if(upload!==xhr)return;
+    const hadFocus=document.activeElement===$("upload-cancel");
+    upload=null;$("upload-status").hidden=true;$("import-top").disabled=false;$("import-empty").disabled=false;$("file-input").value="";
+    if(hadFocus)$("import-top").focus();
+  };
+  xhr.addEventListener("loadend",releaseUpload);
+  try{xhr.send(file);}catch{showImportRecovery("가져오기 요청을 보내지 못했습니다.");releaseUpload();}
 }
 async function preparePlayback(id) {
   if(preparingPlayback.has(id)) { toast("재생용 사본을 준비하고 있어요. 완료 후 다시 선택해 주세요."); return false; }
