@@ -233,7 +233,9 @@ async function importFile(file) {
     if(xhr.status>=200&&xhr.status<300){
       if(!result?.item||typeof result.item.id!=="string"||!/^[a-f0-9]{32}$/.test(result.item.id)){showImportRecovery("가져오기 결과를 확인하지 못했습니다.");return;}
       toast(result.duplicate?"이미 보관함에 있는 영상입니다. 기존 시청 기록을 유지했어요.":"보관함에 영상을 담았습니다.");
-      try{await refresh();if(version===importRecoveryVersion&&result.item.unavailable_reason==="rendition_required")await preparePlayback(result.item.id);}
+      // A newer upload owns the notice, but cannot suppress this confirmed
+      // item's normal preparation after a delayed library read.
+      try{await refresh();if(result.item.unavailable_reason==="rendition_required")await preparePlayback(result.item.id);}
       catch(e){if(version===importRecoveryVersion)showImportRecovery(e.message);}
     }else showImportRecovery(message(result?.error));
   });

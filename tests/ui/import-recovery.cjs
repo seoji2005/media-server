@@ -70,5 +70,13 @@ const el=id=>d.getElementById(id),file=new w.File(['x'.repeat(1000)],'한글 영
   uploads.at(-1).finish({item:needsPreparation,duplicate:false});await tick();await tick();
   assert.equal(requests.filter(r=>r.method==='POST').length,1,'normal successful import still prepares its required playback copy once');
   assert.equal(needsPreparation.available,true);
+  const earlier={...item,id:'c'.repeat(32),available:false,unavailable_reason:'rendition_required'};
+  library.push(earlier);holdRead=true;await w.qa.importFile(file);
+  uploads.at(-1).finish({item:earlier,duplicate:false});await tick();
+  await w.qa.importFile(file);const subsequent=uploads.at(-1);
+  releaseRead();await tick();await tick();
+  assert.equal(requests.filter(r=>r.method==='POST'&&r.url.includes(earlier.id)).length,1,'a newer upload cannot suppress preparation of an already confirmed earlier import');
+  assert.equal(el('upload-status').hidden,false);assert.equal(el('import-top').disabled,true);
+  subsequent.finish({item,duplicate:true});await tick();
   console.log('PASS import DOM: normal import, exact upload progress, interruptible response wait, ambiguous completion, explicit read-only result check, timeout and stale callback isolation (mock XHR/HTTP).');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{if(releaseRead)releaseRead();w.close();});
