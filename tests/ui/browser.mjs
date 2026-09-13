@@ -319,6 +319,12 @@ async function checkCaptionImportRecovery(trackId){
   }
 }
 async function checkMomentEntry() {
+  // Closing hides the player immediately; the preceding resume check can still
+  // be committing its final pause. Settle that setup before taking the baseline
+  // or navigating away. A failed save must fail this gate, not become a baseline.
+  await page.waitForFunction(() => [...positionSaves.values()].every(state =>
+    !state.running && !state.pending && state.latest?.saved && !state.latest.failed),
+    null, {timeout: 5000});
   const session = await (await page.request.get(`${base}/api/session`)).json();
   const headers = {'X-Media-Token': session.token};
   const items = (await (await page.request.get(`${base}/api/library`)).json()).items;

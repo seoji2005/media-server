@@ -31,6 +31,13 @@ compares the displayed fields with the real saved revision. Native execution and
 fixed-revision independent review belong to this slice's PR. The blocked Work
 browser route remains stopped; no private media or model inference was used.
 
+Initial PR67 CI34759827174 passed Python364 and DOM on both OSes and the new native
+late-library check on both. Windows completed all checks; Ubuntu's later restart
+moment-entry assertion sampled its baseline before the preceding close's position
+write committed (7.001268 versus 7.00305 seconds). The native fixture now waits for
+confirmed completion of preceding saves before sampling/navigating; its exact
+no-write assertions remain intact. Final fixed-revision CI belongs to PR67.
+
 Completed in PR65: recommendation/preference reads are bounded at ten seconds and
 writes at thirty, including response bodies. Uncertain saves require saved-state
 reads without automatic replay. Both OSes confirmed native lost-receipt recovery
