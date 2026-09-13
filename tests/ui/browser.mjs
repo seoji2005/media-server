@@ -81,6 +81,41 @@ async function armResumeObservation() {
     }, {once: true});
   });
 }
+async function checkLibraryEditSnapshot(originalTitle){
+  const id=await video.evaluate(v=>new URL(v.src).pathname.split('/')[3]);
+  const before=await video.evaluate(v=>({time:v.currentTime,src:v.src,track:v.querySelector('track')?.src,paused:v.paused}));
+  let release;const gate=new Promise(resolve=>release=resolve);
+  const handler=async route=>{
+    const response=await route.fetch();assert.equal(response.status(),200);
+    const body=await response.text();
+    await page.evaluate(()=>window.oldLibraryCaptured=true);
+    await gate;await route.fulfill({status:200,contentType:'application/json',body});
+  };
+  await page.route(base+'/api/library',handler,{times:1});
+  try{
+    await page.evaluate(()=>{window.oldLibraryCaptured=false;window.libraryEditReadDone=false;refresh().then(()=>window.libraryEditReadDone=true);});
+    await page.waitForFunction(()=>window.oldLibraryCaptured);
+    const title='지연 목록 뒤에도 남을 제목';
+    await page.locator('#title-input').fill(title);await page.locator('#title-save').click();
+    await page.waitForFunction(t=>document.querySelector('#player-title').textContent===t,title);
+    await video.evaluate(v=>v.currentTime=6.5);
+    await page.waitForFunction(i=>items.find(item=>item.id===i)?.position===6.5,id);
+    const saved=await (await page.request.get(base+'/api/library/'+id)).json();
+    assert.equal(saved.title,title);assert.equal(saved.position,6.5);
+    release();await page.waitForFunction(()=>window.libraryEditReadDone);
+    const listed=await page.evaluate(i=>{const item=items.find(row=>row.id===i);return {title:item.title,position:item.position,revision:item.position_revision};},id);
+    assert.deepEqual(listed,{title,position:6.5,revision:saved.position_revision});
+    assert.equal(await page.locator('.media-card h3').textContent(),title);
+    assert.deepEqual(await video.evaluate(v=>({src:v.src,track:v.querySelector('track')?.src,paused:v.paused})),
+      {src:before.src,track:before.track,paused:before.paused});
+    // Restore this fixture's established title and position for later checks.
+    await page.locator('#title-input').fill(originalTitle);await page.locator('#title-save').click();
+    await page.waitForFunction(t=>document.querySelector('#player-title').textContent===t,originalTitle);
+    await video.evaluate((v,t)=>v.currentTime=t,before.time);
+    await page.waitForFunction(t=>!document.querySelector('#video').seeking&&Math.abs(document.querySelector('#video').currentTime-t)<.01,before.time);
+    console.log(JSON.stringify({phase,lateLibraryPreservesConfirmedTitleAndPosition:true}));
+  }finally{release();await page.unroute(base+'/api/library',handler);}
+}
 async function checkPreferenceRecovery(){
   const id=await video.evaluate(v=>new URL(v.src).pathname.split('/')[3]);
   const url=`${base}/api/library/${id}/preference`;
@@ -284,6 +319,12 @@ async function checkCaptionImportRecovery(trackId){
   }
 }
 async function checkMomentEntry() {
+  // Closing hides the player immediately; the preceding resume check can still
+  // be committing its final pause. Settle that setup before taking the baseline
+  // or navigating away. A failed save must fail this gate, not become a baseline.
+  await page.waitForFunction(() => [...positionSaves.values()].every(state =>
+    !state.running && !state.pending && state.latest?.saved && !state.latest.failed),
+    null, {timeout: 5000});
   const session = await (await page.request.get(`${base}/api/session`)).json();
   const headers = {'X-Media-Token': session.token};
   const items = (await (await page.request.get(`${base}/api/library`)).json()).items;
@@ -487,6 +528,7 @@ try {
   assert.deepEqual(await video.evaluate(v=>({src:v.src,time:v.currentTime,paused:v.paused,track:v.querySelector('track').src})),beforeTitle,'saved-title reads preserve playback and caption');
   await page.locator('#title-input').fill(displayTitle);
   console.log(JSON.stringify({phase,titleDraftReread:true}));
+  if(phase==='first')await checkLibraryEditSnapshot(displayTitle);
   if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
     await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
     await page.locator('#title-input').scrollIntoViewIfNeeded();

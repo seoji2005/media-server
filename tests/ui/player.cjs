@@ -18,7 +18,7 @@ async function run(js) {
     else if(path==='/api/library') {
       if(listFailure){listFailure=false;throw Error('fixture list unavailable');}
       result={items:library.map(x=>({...x}))};
-      if(holdList){holdList=false;return {ok:true,json:()=>new Promise(resolve=>{releaseList=()=>resolve(result);})};}
+      if(holdList){holdList=false;return {ok:true,json:()=>new Promise(resolve=>{releaseList=(value=result)=>resolve(value);})};}
     }
     else {const id=path.split('/')[3], item=library.find(x=>x.id===id); assert(item,path);
       if(path.split('?')[0].endsWith('/subtitles')) result={jobs:[],tracks:[]};
@@ -28,7 +28,8 @@ async function run(js) {
         if(!preparationFailed){preparationFailed=true;item.preparation_error='media_timeout';return {ok:false,json:async()=>({error:'media_timeout'})};}
         item.available=true;item.unavailable_reason=null;item.preparation_error=null;result={...item};
       }
-      else if(opts.method==='PUT'){const position=JSON.parse(opts.body).position; writes.push({id,position});item.position=position;result={...item};}
+      else if(path.endsWith('/title')&&opts.method==='PUT'){item.title=JSON.parse(opts.body).title;result={...item};}
+      else if(opts.method==='PUT'){const position=JSON.parse(opts.body).position; writes.push({id,position});item.position=position;item.position_revision=(item.position_revision||0)+1;result={...item};}
       else result={...item};
     }
     return {ok:true,json:async()=>result};
@@ -39,7 +40,7 @@ async function run(js) {
   video.play=()=>Promise.resolve(); video.pause=()=>video.dispatchEvent(new w.Event('pause')); video.load=()=>{video.currentTime=0;};
   const dialog=d.getElementById('player-dialog');dialog.showModal=()=>dialog.open=true;dialog.close=()=>dialog.open=false;
   const settle=async()=>{await new Promise(resolve=>setImmediate(resolve));};
-  w.eval(js+"\nglobalThis.__qa={openPlayer,closePlayer,refresh};"); await settle();
+  w.eval(js+"\nglobalThis.__qa={openPlayer,closePlayer,refresh,showImportRecovery};"); await settle();
   assert.equal(d.querySelectorAll('.media-card').length,2,d.getElementById('diagnostic').textContent);
   assert.equal(d.querySelector('.media-card h3').textContent,library[0].title);
   assert.equal(d.querySelector('.media-card h3 img'),null,'title must render as text');
@@ -103,6 +104,43 @@ async function run(js) {
   const afterPreparation=preparationWrites;releaseList();await settle();
   assert.equal(preparationWrites,afterPreparation);assert.equal(dialog.open,false);
   assert.match(d.getElementById('library-grid').textContent,/0:06부터 이어보기/,'expired list cannot undo newly saved progress');
+  // A successful old list response is different from an expired one. Retain
+  // confirmed title/progress edits while still accepting new rows in that list.
+  await w.__qa.openPlayer('fixture-b');
+  library.push({id:'fixture-c',title:'목록에서 새로 찾은 영상',duration:25,position:0,width:640,height:360,available:true,thumbnail:false});
+  holdList=true;const stale=w.__qa.refresh();await settle();
+  const rename=async title=>{d.getElementById('title-input').value=title;d.getElementById('title-form').dispatchEvent(new w.Event('submit',{cancelable:true}));await settle();};
+  await rename('새로 저장한 제목');
+  video.currentTime=11;video.dispatchEvent(new w.Event('seeked'));await settle();
+  await w.__qa.closePlayer();
+  assert.match(d.getElementById('library-grid').textContent,/새로 저장한 제목/);
+  releaseList();await stale;
+  assert.match(d.getElementById('library-grid').textContent,/새로 저장한 제목/,'old list cannot replace confirmed title');
+  assert.match(d.getElementById('library-grid').textContent,/0:11부터 이어보기/,'old list cannot replace confirmed progress');
+  assert.match(d.getElementById('library-grid').textContent,/목록에서 새로 찾은 영상/,'do not discard new rows with the old fields');
+  await w.__qa.openPlayer('fixture-b');
+  holdList=true;const repeated=w.__qa.refresh();await settle();
+  await rename('중간 제목');const intermediate={items:library.map(x=>({...x}))};
+  await rename('새로 저장한 제목');releaseList(intermediate);await repeated;
+  assert.doesNotMatch(d.getElementById('library-grid').textContent,/중간 제목/,'changing back to the read-start title is still a newer confirmed edit');
+  // The explicit import-result read uses the same protection and stays read-only.
+  w.__qa.showImportRecovery('fixture');holdList=true;d.getElementById('import-check').click();await settle();
+  await rename('확인 중 저장한 제목');video.currentTime=13;video.dispatchEvent(new w.Event('seeked'));await settle();
+  const writeCount=writes.length;releaseList();await settle();
+  assert.equal(writes.length,writeCount,'list completion sends no write');
+  assert.match(d.getElementById('library-grid').textContent,/확인 중 저장한 제목/);
+  assert.match(d.getElementById('library-grid').textContent,/0:13부터 이어보기/);
+  // A higher server revision wins even if this read began before our save.
+  holdList=true;const newerServer=w.__qa.refresh();await settle();
+  video.currentTime=14;video.dispatchEvent(new w.Event('seeked'));await settle();
+  library[1].position=19;library[1].position_revision++;
+  releaseList({items:library.map(x=>({...x}))});await newerServer;
+  assert.match(d.getElementById('library-grid').textContent,/0:19부터 이어보기/,'newer server position revision remains authoritative');
+  await w.__qa.closePlayer();
+  // A read started after the edits remains authoritative for external changes.
+  library[1].title='다른 창의 새 제목';library[1].position=15;library[1].position_revision++;
+  await w.__qa.refresh();assert.match(d.getElementById('library-grid').textContent,/다른 창의 새 제목/);
+  assert.match(d.getElementById('library-grid').textContent,/0:15부터 이어보기/);
   w.close();return {checks:['safe title text','library search','continue filter','metadata resume','close and reopen autosave','ordered seek/pause writes','missing-file feedback','changed-file feedback','media error refreshes library'],writes};
 }
 (async()=>{
