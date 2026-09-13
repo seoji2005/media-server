@@ -98,6 +98,10 @@
     </details>
     <section class="subtitle-panel" aria-label="자막과 장면 탐색">
       <div class="subtitle-heading"><label for="subtitle-select">자막</label><select id="subtitle-select"><option value="">자막 끄기</option></select></div>
+      <div id="subtitle-load-recovery" hidden>
+        <p role="status">자막을 불러오지 못했습니다. 앱 연결을 확인한 뒤 다시 불러오세요. 선택한 자막과 시간 보정은 유지됩니다.</p>
+        <button class="button button-secondary" id="subtitle-reload" type="button">자막 다시 불러오기</button>
+      </div>
       <details class="watch-option" id="caption-view-panel">
         <summary>자막 감상 설정<span id="caption-offset-brief">원래 시간</span></summary>
         <div class="option-content">
