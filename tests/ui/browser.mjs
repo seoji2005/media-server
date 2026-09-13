@@ -101,7 +101,10 @@ async function checkPreferenceRecovery(){
   try{
     await page.locator('#preference-include').setChecked(!saved.included);
     await page.locator('#preference-retry').waitFor();
-    assert.equal(await page.locator('#preference-controls').isDisabled(),true);
+    // Check native controls: Playwright's enabled-state check does not treat
+    // the fieldset container itself as an interactive disabled element.
+    assert.equal(await page.locator('#preference-include').isDisabled(),true);
+    assert.equal(await page.locator('#preference-value').isDisabled(),true);
     assert.equal(committed.revision,saved.revision+1);
     await page.locator('#preference-retry').click();
     await page.waitForFunction(()=>!document.querySelector('#preference-controls').disabled);
