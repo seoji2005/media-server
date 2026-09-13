@@ -25,6 +25,13 @@ imports. The integration now exposes SRT/VTT import while hiding and server-bloc
 only inference controls; its native UI check imports one synthetic caption.
 The blocked Work browser route remains stopped; native integration evidence belongs
 to the new PR's fixed-head Windows/Ubuntu CI.
+Initial port CI34748607408 passed the ordinary Chrome fixture, then its new Codespaces
+fixture failed when DevTools evicted an already-consumed POST response body. The test
+now observes the app-confirmed new caption selection and saved VTT instead. Its next
+run, CI34748745873, overlapped cancellation of the obsolete revision and failed both
+matrix jobs before any step ran, with no job log. This is runner/startup evidence,
+not a product failure; required executable CI remains pending without rerunning either
+old revision.
 
 Completed in PR63: recover caption-file imports without duplicate delivery or stale selection.
 The existing unbounded handler sent two POSTs for duplicate pending file events.
