@@ -1,8 +1,8 @@
 # Current work
 
-Live recovery base: Server `e25f04b0fd476f09ddf6bed38c9a797e4a514d7d`
-(PR59–61 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34744119204 passed Windows/Ubuntu Python, DOM and Chrome checks.
+Live recovery base: Server `36490d36c5c6f4ff001f6b39b54b69722db0109d`
+(PR62 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34745268715 passed Windows/Ubuntu Python, DOM and Chrome checks.
 Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
 this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
@@ -10,17 +10,21 @@ approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: make prepared Korean captions directly usable beside caption selection.
-Imported foreign captions and source views correctly remain selected after a new
-translation arrives, but the generic completion notice leaves the viewer to find
-the Korean result in the version list. An explicit latest-Korean action now selects
-the newest available Korean track for this audio, including from Off, without
-opening preparation or running a job. Existing choices and timing stay until the
-click; ordinary caption selection then resets timing and preserves playback.
-Pending/uncertain caption saves retain their existing recovery gate. Imported-source
-translation and source-caption labels no longer imply a prior translation or ASR.
-No API/schema/model/prompt change. Fixed-revision review and native Chrome evidence
-belong to this slice's PR; the blocked Work browser route remains stopped.
+Active slice: recover caption-file imports without duplicate delivery or stale selection.
+The existing unbounded handler sent two POSTs for duplicate pending file events.
+Imports now reuse the 30-second command/receipt guard, show a pending label and offer
+an explicit saved-list read after an uncertain response. That read preserves viewing
+and cannot reimport, select a result or start a job. Confirmed normal imports still
+select their result. A request revision also prevents an older file's late status
+read from replacing a newer file choice. Existing captions remain readable during
+pending imports after audio changes/reopen. No API/schema/model/prompt change.
+Fixed-revision review and native Chrome evidence belong to the follow-up PR; the
+blocked Work browser route remains stopped.
+
+Completed in PR62: explicit latest-Korean selection beside viewing controls and
+accurate imported-source/translation labels. Selection changes only on click;
+existing persistence/recovery is reused. Independent review, PR CI34744997244 and
+merged main CI34745268715 passed on both OSes, including native synthetic captions.
 
 Completed in PR61: the Chrome moment check now observes the actual position commit
 after immediate close. Earlier main CI34743155629 passed Python/DOM on both OSes
