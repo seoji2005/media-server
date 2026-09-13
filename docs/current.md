@@ -1,15 +1,33 @@
 # Current work
 
-Live recovery base: Server `7ed0b12dcf99042d131ff7259f5ac8eff6bb6aff`
-(PR54 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server main CI34734868386 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
+Live recovery base: Server `e735d877e8ba5acc725b91d317f843b183ded420`
+(PR55 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Server main CI34736332834 and Fetch main CI34691909315 passed. Codespaces PR51 remains separate and open at
 this September 13 recovery; its work is preserved. Git/PR state is authoritative.
 Existing cost/allowed-public-egress and reviewed, passing-CI development-merge
 approvals persist. Release and subjective quality acceptance remain separate.
 
 ## October order
 
-Active slice: recover a failed caption-file load without changing viewing settings.
+Active slice: interrupt an import's response wait and explicitly check its result.
+Upload progress no longer rounds 99.5% into a completed transfer and hides cancel.
+The upload-complete event changes the control to stop waiting; abort does not
+claim server rollback. A persistent recovery notice offers a bounded ten-second,
+read-only full-library check with zero retries, including when existing search or
+Continue filters would hide the imported video. It cannot upload or prepare a copy.
+Stale XHR/read callbacks cannot release a newer upload or replace its notice.
+Normal successful imports still prepare required playback copies. No server/storage
+or security boundary changes, automatic upload retry or new upload size/time cap.
+
+The regression reproduced the old cancellation failure with product JS and mock
+XHR. A real socket HTTP/FFmpeg/SQLite test disconnects after all bytes arrive while
+the isolated final-import boundary waits: an early list is empty, but the server
+then commits. Explicit duplicate delivery and app restart preserve the same item,
+user caption/offset/position, every DB row, exact original bytes and empty staging.
+Native browser upload/cancel and Windows 11 hardware remain unverified; existing
+browser restrictions below still apply. Fixed-review/CI results belong to the PR.
+
+Completed in PR55: recover a failed caption-file load without changing viewing settings.
 An inline, explicit reload beside caption selection reads the same selected VTT
 with the same transcript/translation choice and timing offset. It makes no settings,
 position or job write and does not replay/seek the video. The prior Off/reselect

@@ -57,6 +57,10 @@
           <div class="upload-body"><div class="upload-heading"><strong id="upload-title">영상을 가져오고 있어요</strong><span id="upload-percent"></span></div><p id="upload-detail"></p><progress id="upload-progress" max="100" value="0"></progress></div>
           <button class="icon-button" id="upload-cancel" type="button" aria-label="가져오기 취소"><svg><use href="#i-close"/></svg></button>
         </section>
+        <section class="notice" id="import-recovery" hidden>
+          <p id="import-recovery-message" role="status"></p>
+          <button class="button button-secondary" id="import-check" type="button">보관함 전체 다시 확인</button>
+        </section>
         <section class="library-section" aria-labelledby="library-heading">
           <div class="section-heading"><div><h2 id="library-heading">보관함 <span id="item-count">0</span></h2><p id="section-description">당신의 다음 감상을 기다리는 영상들</p></div><span class="sort-label">최근 가져온 순</span></div>
           <div class="library-grid" id="library-grid"></div>
