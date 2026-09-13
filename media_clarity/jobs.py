@@ -367,6 +367,10 @@ class Jobs:
             if action == 'restart':
                 if row['state'] not in ('failed','paused'):
                     raise MediaError('processing_busy', 409)
+                # A failed attempt can still be stuck in native cleanup. Retire
+                # it before its guardian blocks dispatch of the replacement job.
+                if self.active == job_id:
+                    self._clear_active_process()
                 from .models import local_models
                 if not row['source_track_id']:
                     if cloud:
