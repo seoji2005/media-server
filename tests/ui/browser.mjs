@@ -188,14 +188,16 @@ async function checkCaptionImportRecovery(trackId){
   const before=await snapshot(),posts=[];
   const observe=request=>{if(request.method()==='POST')posts.push(new URL(request.url()).pathname);};
   const importURL=url=>url.pathname===`/api/library/${itemId}/subtitles`&&url.searchParams.get('format')==='srt';
-  let release,committed;const gate=new Promise(resolve=>release=resolve);
+  let release,committed,importRequest,receiptFailed=false;const gate=new Promise(resolve=>release=resolve);
+  const failed=request=>{if(request===importRequest)receiptFailed=true;};
   const handler=async route=>{
+    importRequest=route.request();
     const result=await route.fetch();committed={status:result.status(),...(await result.json())};
     await page.evaluate(()=>window.captionImportCommitted=true);
     await gate;await route.abort('failed');
   };
   await page.locator('#subtitle-preparation').evaluate(el=>el.open=true);
-  await page.route(importURL,handler);page.on('request',observe);
+  await page.route(importURL,handler);page.on('request',observe);page.on('requestfailed',failed);
   try{
     // Deliver the actual file to the server, then lose only its receipt. Sending
     // it twice through the UI while pending must still deliver one POST.
@@ -204,7 +206,8 @@ async function checkCaptionImportRecovery(trackId){
     assert.equal(committed.status,201);assert.notEqual(committed.id,trackId,'ordinary imports preserve a new caption version');
     assert.equal(await page.locator('#subtitle-import').isDisabled(),true);
     await page.locator('#subtitle-input').setInputFiles(subtitle);assert.equal(posts.length,1);
-    release();await page.locator('#subtitle-refresh').waitFor();
+    const failure=page.waitForEvent('requestfailed',{predicate:request=>request===importRequest,timeout:5000});
+    release();await failure;await page.locator('#subtitle-refresh').waitFor();
     assert.equal(await page.locator('#subtitle-import').isDisabled(),true);assert.deepEqual(await snapshot(),before);
     await page.locator('#subtitle-refresh').click();
     await page.waitForFunction(()=>!document.querySelector('#subtitle-import').disabled);
@@ -218,8 +221,19 @@ async function checkCaptionImportRecovery(trackId){
     assert.equal(await canonical(committed.id),await canonical(trackId));
     assert.deepEqual(posts,[`/api/library/${itemId}/subtitles`],'recovery neither reimports nor starts translation');
     console.log(JSON.stringify({phase,captionImportRecovery:true}));
+  }catch(error){
+    const state=await page.evaluate(()=>{
+      const command=subtitleCommands.get(activeItem?.id);
+      return {command:!!command,pending:!!command?.pending,uncertain:!!command?.uncertain,
+        importKind:command?.kind==='import',commandError:!!command?.error,
+        stopped:!!subtitleMonitor?.stopped,confirming:!!subtitleMonitor?.confirming,
+        reading:!!subtitleMonitor?.reading,refreshHidden:document.querySelector('#subtitle-refresh').hidden,
+        preparationOpen:document.querySelector('#subtitle-preparation').open};
+    });
+    console.log(JSON.stringify({phase,stage:'caption-import-failure',receiptFailed,pageErrors:errors.length,...state}));
+    throw error;
   }finally{
-    release();await page.unroute(importURL,handler);page.off('request',observe);
+    release();await page.unroute(importURL,handler);page.off('request',observe);page.off('requestfailed',failed);
     await page.locator('#subtitle-preparation').evaluate(el=>el.open=false);
   }
 }
