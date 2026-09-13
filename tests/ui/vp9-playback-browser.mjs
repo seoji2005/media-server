@@ -26,9 +26,15 @@ export default async function checkVP9Playback(page,base,source){
   await page.goto(base+'/'+fragment);await page.locator('#item-entry-prepare').waitFor();
   assert(posts.every(p=>p.endsWith('/item-entry')),'opening the item does not prepare or infer');
   assert.equal(await page.locator('#player-dialog').evaluate(el=>el.open),false);
+  // Fail only the card-list refresh after actual preparation. It cannot block
+  // the ready video's entry, native decoding or imported captions.
+  const failedList=page.waitForResponse(r=>r.url()===base+'/api/library'&&r.status()===503);
+  await page.route(base+'/api/library',route=>route.fulfill({status:503,
+    contentType:'application/json',body:JSON.stringify({error:'storage_unavailable'})}),{times:1});
   await page.locator('#item-entry-prepare').click();
   const video=page.locator('#video');
   await page.waitForFunction(()=>{const v=document.querySelector('#video');return document.querySelector('#player-dialog').open&&v.readyState>=2&&!v.seeking&&v.querySelector('track')?.readyState===2;});
+  await failedList;
   assert(await video.evaluate(v=>v.paused));assert.deepEqual(writes,[]);
   assert.equal(posts.filter(p=>p.endsWith('/playback')).length,1);
   assert(posts.every(p=>p.endsWith('/playback')||p.endsWith('/item-entry')));
@@ -59,5 +65,5 @@ export default async function checkVP9Playback(page,base,source){
   assert.equal((await (await page.request.get(base+'/api/library/'+item.id+'/preference')).json()).included,false);
   await page.locator('#player-close').click();await page.setViewportSize({width:1280,height:720});
   page.off('request',observe);
-  console.log(JSON.stringify({vp9MP4ToWebM:true,explicitPreparation:true,nativeCaption:true,decodedFrames:viewed.frames,pausedResume:true,originalIdentityPreserved:true}));
+  console.log(JSON.stringify({vp9MP4ToWebM:true,explicitPreparation:true,failedListDoesNotBlockPlayback:true,nativeCaption:true,decodedFrames:viewed.frames,pausedResume:true,originalIdentityPreserved:true}));
 }
