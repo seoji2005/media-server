@@ -7,6 +7,7 @@ async function check(commitBeforeResponse){
   const w=dom.window,d=w.document,video=d.getElementById('video'),dialog=d.getElementById('player-dialog');
   const timers=new Map(),requests=[],held=[];
   const library=['a','b'].map(id=>({id,title:id,duration:120,position:8.25,position_revision:0,width:320,height:180,available:true,thumbnail:false,audio_index:0}));
+  library[0].title='<img src=x onerror=alert(1)>'.repeat(6);
   let clock=0,timerId=0,holdNext=false,blockRead=false,holdRead=false,readRelease;
   w.setTimeout=(fn,ms)=>{timers.set(++timerId,{fn,at:clock+ms});return timerId;};
   w.clearTimeout=id=>timers.delete(id);
@@ -55,17 +56,27 @@ async function check(commitBeforeResponse){
   Object.defineProperty(video,'readyState',{get:()=>1});Object.defineProperty(video,'duration',{get:()=>120});
   video.play=()=>Promise.resolve();video.pause=()=>video.dispatchEvent(new w.Event('pause'));video.load=()=>{video.currentTime=0;};
   dialog.showModal=()=>{dialog.open=true;};dialog.close=()=>{dialog.open=false;};
-  w.eval(fs.readFileSync(path.join(root,'media_clarity/static/app.js'),'utf8')+'\nglobalThis.qa={openPlayer,closePlayer,savePosition};');
+  w.eval(fs.readFileSync(path.join(root,'media_clarity/static/app.js'),'utf8')+'\nglobalThis.qa={openPlayer,closePlayer,savePosition,awaitingPlay:value=>entryAwaitingPlay=value};');
+  const leaving=()=>{const event=new w.Event('beforeunload',{cancelable:true});w.dispatchEvent(event);return event.defaultPrevented;};
   try{
-    await tick();await w.qa.openPlayer('a');video.dispatchEvent(new w.Event('loadedmetadata'));
+    await tick();assert.equal(leaving(),false,'an idle library must not warn');
+    await w.qa.openPlayer('a');video.dispatchEvent(new w.Event('loadedmetadata'));
     video.currentTime=10;await w.qa.closePlayer();assert.equal(library[0].position,10);
+    assert.equal(leaving(),false,'confirmed saves must not warn');
     await w.qa.openPlayer('a');video.dispatchEvent(new w.Event('loadedmetadata'));assert.equal(video.currentTime,10);
     holdNext=true;video.currentTime=20;video.dispatchEvent(new w.Event('seeked'));await tick();
     for(const value of [21,22,25]){video.currentTime=value;video.dispatchEvent(new w.Event('seeked'));}
     let closeDone=false;w.qa.closePlayer().then(()=>{closeDone=true;});
     assert.equal(dialog.open,false,'closing must not wait for the network');
+    assert.equal(leaving(),true,'leaving with an unconfirmed position must warn');
+    assert.equal(d.getElementById('position-notice').hidden,false,'save status remains visible in the library');
+    assert.match(d.getElementById('position-notice').textContent,/저장 중/);
+    const writesBeforeWarning=requests.length;leaving();
+    assert.equal(requests.length,writesBeforeWarning,'warning cannot submit or retry a write');
     await advance(1000);assert(closeDone,'close caller must settle within one second');
-    await w.qa.openPlayer('a');video.dispatchEvent(new w.Event('loadedmetadata'));
+    const reopen=d.querySelector('#position-items button');
+    assert(reopen.textContent.includes(library[0].title));assert.equal(reopen.querySelector('img'),null,'notice titles remain literal text');
+    reopen.click();await tick();video.dispatchEvent(new w.Event('loadedmetadata'));
     assert.equal(video.currentTime,25,'same-page reopen retains newest unsaved intent');
     w.qa.closePlayer();await advance(1000);
     await w.qa.openPlayer('b');video.dispatchEvent(new w.Event('loadedmetadata'));
@@ -77,16 +88,26 @@ async function check(commitBeforeResponse){
     held.shift()();await tick();
     assert.equal(library[0].position,25,'late server completion cannot overwrite newer position');
     assert.equal(library[0].position_revision,revision);
+    assert.equal(d.getElementById('position-notice').hidden,true,'all confirmed saves clear the notice');
+    assert.equal(leaving(),false);
     assert.match(d.getElementById('save-state').textContent,/0:03 저장됨/,'late response cannot change the newer player');
     await w.qa.closePlayer();await w.qa.openPlayer('a');video.dispatchEvent(new w.Event('loadedmetadata'));
     holdNext=true;video.currentTime=30;video.dispatchEvent(new w.Event('seeked'));await tick();
     blockRead=true;video.currentTime=35;video.dispatchEvent(new w.Event('seeked'));
     await advance(10000);
     assert.match(d.getElementById('save-state').textContent,/저장 미확인/);
+    assert.equal(leaving(),true,'a timeout is not confirmation, even if the server committed');
+    assert.match(d.getElementById('position-notice').textContent,/저장 미확인/);
     assert.equal(library[0].position,commitBeforeResponse?30:25);
     assert.equal(requests.filter(r=>r.id==='a'&&r.position===35).length,0,'failed read cannot become an unguarded write');
     blockRead=false;held.shift()();await tick();
     video.currentTime=36;await w.qa.savePosition();assert.equal(library[0].position,36);
+    assert.equal(leaving(),false,'explicit successful saving releases the warning');
+    assert.equal(d.getElementById('position-notice').hidden,true);
+    video.currentTime=36.5;assert.equal(leaving(),true,'progress not yet sent by the periodic timer is also unconfirmed');
+    w.qa.awaitingPlay(true);assert.equal(leaving(),false,'unplayed incoming entries do not invent unsaved history');
+    w.qa.awaitingPlay(false);
+    video.currentTime=36;
     w.dispatchEvent(new w.Event('pagehide'));await tick();
     assert.equal(requests.at(-1).position,36);
     if(!commitBeforeResponse){

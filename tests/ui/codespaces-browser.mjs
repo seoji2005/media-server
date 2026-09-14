@@ -114,7 +114,31 @@ try{
       await page.waitForFunction(()=>!document.querySelector('#player-dialog').open);
       const pending=await(await page.request.get(base+`/api/library/${item}`)).json();
       assert(Math.abs(pending.position-18.25)>=.05,'held final seek must still be uncommitted after close');
+      assert.equal(await page.locator('#position-notice').isVisible(),true);
+      assert.match(await page.locator('#position-message').textContent(),/저장 중/);
+      assert.match(await page.locator('#position-items button').textContent(),/보랏빛 산책/);
+      await page.evaluate(()=>window.positionLeaveSentinel=true);
+      const warning=page.waitForEvent('dialog',{timeout:2000});
+      // Chromium can reject a cancelled reload. The retained document and
+      // uncommitted DB state below establish cancellation, not that error text.
+      const reload=page.reload().catch(()=>null);
+      const prompt=await warning;assert.equal(prompt.type(),'beforeunload');await prompt.dismiss();
+      await reload;
+      assert.equal(await page.evaluate(()=>window.positionLeaveSentinel),true);
+      assert.equal(await page.locator('#player-dialog').evaluate(d=>d.open),false);
+      const stillPending=await(await page.request.get(base+`/api/library/${item}`)).json();
+      assert.equal(stillPending.position_revision,pending.position_revision,'cancelled leaving cannot submit another save');
+      await page.setViewportSize({width:390,height:844});
+      await page.locator('#position-notice').scrollIntoViewIfNeeded();
+      assert(await page.locator('#position-notice').evaluate(e=>e.scrollWidth<=e.clientWidth+1));
+      if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
+        await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
+        await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,'pending-position-mobile.png'),timeout:2000});
+      }
+      await page.setViewportSize({width:1280,height:800});
       release();await savedPosition();
+      assert.equal(await page.locator('#position-notice').isVisible(),false);
+      console.log(JSON.stringify({phase,pendingPositionLeaveCancelled:true,confirmedSaveClearsNotice:true}));
     }finally{release();await page.unroute(positionURL,hold);}
     await page.reload();await open(true);await restored();
   }
