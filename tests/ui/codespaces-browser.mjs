@@ -121,9 +121,10 @@ try{
       const warning=page.waitForEvent('dialog',{timeout:2000});
       // Chromium can reject a cancelled reload. The retained document and
       // uncommitted DB state below establish cancellation, not that error text.
-      const reload=page.reload().catch(()=>null);
+      const reload=page.reload({timeout:2000}).catch(()=>null);
       const prompt=await warning;assert.equal(prompt.type(),'beforeunload');await prompt.dismiss();
-      await reload;
+      // A cancelled Playwright reload can remain pending until its navigation
+      // timeout. Do not spend the product's five-second save budget awaiting it.
       assert.equal(await page.evaluate(()=>window.positionLeaveSentinel),true);
       assert.equal(await page.locator('#player-dialog').evaluate(d=>d.open),false);
       const stillPending=await(await page.request.get(base+`/api/library/${item}`)).json();
@@ -137,6 +138,7 @@ try{
       }
       await page.setViewportSize({width:1280,height:800});
       release();await savedPosition();
+      await reload;assert.equal(await page.evaluate(()=>window.positionLeaveSentinel),true);
       assert.equal(await page.locator('#position-notice').isVisible(),false);
       console.log(JSON.stringify({phase,pendingPositionLeaveCancelled:true,confirmedSaveClearsNotice:true}));
     }finally{release();await page.unroute(positionURL,hold);}

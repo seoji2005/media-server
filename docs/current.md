@@ -28,6 +28,11 @@ while an actual position request is held, unchanged page/DB, mobile layout and
 successful reload/restore after acknowledgement. Fixed-revision independent review
 and required native CI results belong to this slice's PR. The blocked Work browser
 route remains stopped; no private media or new inference is used.
+Initial CI34792089685 passed Ubuntu Python364/DOM/general native first/restart, then
+the new held-write check timed out awaiting a save. Its cancelled Playwright reload
+was awaited before releasing the request, spending the real five-second save bound.
+The fixture now releases after proving the page/DB stayed intact and only then
+settles the separately bounded navigation operation. Product timing is unchanged.
 
 Completed in PR67: late list reads cannot undo titles/positions confirmed after
 the read began. New rows/unrelated fields and higher server position revisions
