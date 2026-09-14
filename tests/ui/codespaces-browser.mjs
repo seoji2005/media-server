@@ -174,8 +174,10 @@ try{
   }
   if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
     await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
+    await page.locator('.playback-shortcuts').scrollIntoViewIfNeeded();
     await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`codespaces-${phase}.png`)});
     await page.setViewportSize({width:390,height:844});
+    await page.locator('.playback-shortcuts').scrollIntoViewIfNeeded();
     assert(await page.locator('#player-dialog').evaluate(e=>e.scrollWidth<=e.clientWidth+1));
     await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`codespaces-${phase}-mobile.png`)});
   }
