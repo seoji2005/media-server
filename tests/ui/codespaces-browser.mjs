@@ -147,6 +147,31 @@ try{
   // The parent checks SQLite after this browser exits and restarts the server.
   // Confirm any ordinary resume/pause save before discarding this page too.
   await savedPosition();
+  if(phase==='first'){
+    const source=await video.evaluate(v=>({src:v.src,track:v.querySelector('track').src}));
+    const seeked=async target=>{
+      await page.waitForFunction(t=>{const v=document.querySelector('#video');return !v.seeking&&Math.abs(v.currentTime-t)<.05;},target);
+      await savedPosition();
+      const stored=await(await page.request.get(base+`/api/library/${item}`)).json();
+      assert(Math.abs(stored.position-target)<.05,'keyboard seek must persist through the actual API');
+      assert(await video.evaluate(v=>v.paused),'seeking cannot start a paused video');
+    };
+    await page.locator('#player-close').focus();
+    await page.keyboard.press('j');await seeked(8.25);
+    await page.keyboard.press('l');await seeked(18.25);
+    await page.keyboard.press('k');await page.waitForFunction(()=>!document.querySelector('#video').paused&&document.querySelector('#video').currentTime>18.35);
+    await page.keyboard.press('k');assert(await video.evaluate(v=>v.paused));await savedPosition();
+    const stopped=await video.evaluate(v=>v.currentTime);
+    await page.locator('#title-panel').evaluate(e=>e.open=true);
+    const title=await page.locator('#title-input').inputValue();
+    await page.locator('#title-input').focus();await page.keyboard.type('jkl');
+    assert.equal(await video.evaluate(v=>v.currentTime),stopped);assert(await video.evaluate(v=>v.paused));
+    await page.locator('#title-input').fill(title);await page.locator('#title-panel').evaluate(e=>e.open=false);
+    assert.deepEqual(await video.evaluate(v=>({src:v.src,track:v.querySelector('track').src})),source);
+    // Restore the established first/restart fixture after checking actual keys.
+    await video.evaluate(v=>v.currentTime=18.25);await seeked(18.25);
+    console.log(JSON.stringify({phase,nativePlaybackShortcuts:true,keyboardPositionPersisted:true,inputDoesNotSeek:true}));
+  }
   if(process.env.MEDIA_TEST_SCREENSHOT_DIR){
     await mkdir(process.env.MEDIA_TEST_SCREENSHOT_DIR,{recursive:true});
     await page.screenshot({path:path.join(process.env.MEDIA_TEST_SCREENSHOT_DIR,`codespaces-${phase}.png`)});
