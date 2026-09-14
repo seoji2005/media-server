@@ -612,6 +612,18 @@ $("nav-continue").addEventListener("click",()=>{filter="continue";render();});
 $("nav-recommended").addEventListener("click",()=>{filter="recommended";refreshRecommendations();});
 window.addEventListener("focus",()=>{if(filter === "recommended")refreshRecommendations();});
 document.addEventListener("keydown",e=>{if(e.key==="/"&&!dialog.open&&!$("settings-dialog").open&&e.target.tagName!=="INPUT"){e.preventDefault();$("search").focus();}});
+document.addEventListener("keydown",e=>{
+  if(e.defaultPrevented||e.isComposing||e.ctrlKey||e.altKey||e.metaKey||!dialog.open||$("settings-dialog").open||!activeItem||video.readyState<1)return;
+  if(e.target.closest?.("input,textarea,select,[contenteditable]:not([contenteditable='false']),[role='textbox']"))return;
+  const key=e.key.toLowerCase();if(!["j","k","l"].includes(key))return;
+  if(key==="k"){
+    e.preventDefault();if(e.repeat)return;
+    if(video.paused){const owner=activeItem;video.play().catch(()=>{if(activeItem===owner)toast("재생 버튼을 눌러 다시 시작해 주세요.",true);});}else video.pause();
+  }else if(Number.isFinite(video.duration)&&Number.isFinite(video.currentTime)){
+    e.preventDefault();video.currentTime=Math.min(video.duration,Math.max(0,video.currentTime+(key==="j"?-10:10)));
+    // Native seeked uses the existing save queue and respects unplayed entries.
+  }
+});
 let dragDepth=0;
 document.addEventListener("dragenter",e=>{if(e.dataTransfer?.types.includes("Files")){e.preventDefault();dragDepth++;if(!dialog.open&&!$("settings-dialog").open)$("drop-overlay").hidden=false;}});
 document.addEventListener("dragover",e=>{if(e.dataTransfer?.types.includes("Files"))e.preventDefault();});

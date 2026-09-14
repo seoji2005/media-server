@@ -1,38 +1,32 @@
 # Current work
 
-Live recovery base: Server `9940aaa827f548cc983c2c7f895156748aa80a01`
-(PR67 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-PR67 CI34760528416 passed Windows/Ubuntu Python364, DOM, native synthetic Chrome
-and Codespaces simulated-edge first/restart checks. Main matches the reviewed and
-tested treed0b0524d0e0d41d6476baac2f89f7d2cdab0b92e.
+Live recovery base: Server `5afc0267555c3b8be234af6cfb7f8d21ad43879e`
+(PR68 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+PR68 CI34792515183 passed Windows/Ubuntu Python364, DOM, native synthetic Chrome
+and Codespaces first/restart checks. Reviewed/tested tree844d15b3def90d95e38d6e184a6bd46fd7578c2e
+matches main. The CI mobile position notice image was inspected without clipping.
 Git/PR state is authoritative. Existing code/test/docs publication and reviewed,
 passing-CI development-merge approvals persist. Release and subjective quality
 acceptance remain separate.
 
 ## October order
 
-Active slice: keep pending/uncertain viewing-position saves visible after closing
-the player, and warn before leaving this page with unconfirmed progress. The
-library notice identifies affected videos and uses the existing reopen action.
-The browser's beforeunload warning covers pending/failed writes and playback not
-yet sent by the periodic timer. Confirmed saves clear the notice; unplayed incoming
-entries do not create history warnings. The warning itself sends no request.
-No API/schema/browser-storage layer, automatic replay, original/media or model
-change. Browser warnings depend on browser support/user activation and cannot
-guarantee recovery after a forced quit or mobile app termination.
+Active slice: desktop playback shortcuts J/K/L, with a visible key guide.
+J/L seek ten seconds within the video, K toggles playback without repeated-key
+oscillation. Text inputs, selects, editable content, composition and Ctrl/Alt/Meta
+shortcuts retain their normal behavior. Native seeking uses the existing position
+queue; paused incoming entries still create no history until explicit playback.
+No API/schema/storage/model or original-media change. DOM checks cover boundaries,
+input protection and persistence; native Chrome checks real keyboard seeking,
+play/pause, DB position and unchanged source/caption. Independent review and required
+Windows/Ubuntu CI belong to the PR. Work's blocked browser route stays stopped.
 
-Product-JS/mock HTTP regressions cover pending/failed/pre-commit/post-commit/later
-responses, explicit recovery, per-item isolation, literal titles, reopen controls
-and no warning-triggered writes. Native synthetic Chrome checks a cancelled reload
-while an actual position request is held, unchanged page/DB, mobile layout and
-successful reload/restore after acknowledgement. Fixed-revision independent review
-and required native CI results belong to this slice's PR. The blocked Work browser
-route remains stopped; no private media or new inference is used.
-Initial CI34792089685 passed Ubuntu Python364/DOM/general native first/restart, then
-the new held-write check timed out awaiting a save. Its cancelled Playwright reload
-was awaited before releasing the request, spending the real five-second save bound.
-The fixture now releases after proving the page/DB stayed intact and only then
-settles the separately bounded navigation operation. Product timing is unchanged.
+Completed in PR68: pending/uncertain position status remains visible in the library,
+with existing reopen actions and a browser leave warning. Warning requests no save
+or retry; confirmed saves clear it. Browser support/user activation is required,
+so forced/mobile app termination remains unprotected. Full CI and mobile visual
+checks passed. Initial native cancelled-navigation waiting failure and its reviewed
+fixture fix remain in PR68; product save limits were unchanged.
 
 Completed in PR67: late list reads cannot undo titles/positions confirmed after
 the read began. New rows/unrelated fields and higher server position revisions
