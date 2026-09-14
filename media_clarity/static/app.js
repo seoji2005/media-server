@@ -422,6 +422,26 @@ async function openPlayer(id, entry=null, entryKind="moment", prepareEntry=false
   }
 }
 function audioQuery(item){return Number.isInteger(item.audio_index)?`?audio_index=${item.audio_index}`:"";}
+function unconfirmedPositions(){return [...positionSaves.values()].filter(state=>state.latest&&!state.latest.saved);}
+function positionNotice(){
+  const states=unconfirmedPositions(),notice=$("position-notice");
+  notice.hidden=states.length===0;$("position-items").replaceChildren();
+  const failed=states.filter(state=>state.latest.failed).length;
+  $("position-message").textContent=failed?`시청 위치 ${failed}개 저장 미확인${states.length>failed?` · ${states.length-failed}개 저장 중`:""}. 영상을 다시 열어 연결과 저장 상태를 확인해 주세요.`:`시청 위치 ${states.length}개 저장 중… 완료될 때까지 이 창을 유지해 주세요.`;
+  for(const state of states){
+    const button=document.createElement("button");button.type="button";button.className="button button-quiet";
+    button.textContent=`${items.find(item=>item.id===state.id)?.title||state.latest.owner.title} · 다시 열기`;
+    button.addEventListener("click",()=>openPlayer(state.id));$("position-items").append(button);
+  }
+}
+window.addEventListener("beforeunload",event=>{
+  // A leave warning does not submit a save or treat a timeout as a commit.
+  // Include current playback since the last periodic save, not just sent writes.
+  const latest=positionSaves.get(activeItem?.id)?.latest;
+  const changed=!entryAwaitingPlay&&activeItem&&video.readyState>=1&&Number.isFinite(video.currentTime)&&
+    Math.min(activeItem.duration,Math.max(0,video.currentTime))!==(latest?.position??activeItem.position??0);
+  if(unconfirmedPositions().length||changed){event.preventDefault();event.returnValue="";}
+});
 function resetTitle(owner=null){
   titleView=owner?{owner,expected:owner.title,busy:false,uncertain:false}:null;
   $("title-panel").open=false;$("title-input").value=owner?.title||"";$("title-state").textContent="";
@@ -506,6 +526,7 @@ function savePosition(keepalive=false) {
   if(state.latest?.position===position&&state.latest.audio_index===audio_index&&!state.latest.failed) return state.promise;
   const intent={position,audio_index,owner,saved:false,failed:false};
   state.latest=state.pending=intent;
+  positionNotice();
   $("save-state").textContent="시청 위치 저장 중…";
   // One active write and one newest pending intent per item. Another video never
   // waits for this item's connection, and repeated seeks cannot grow a backlog.
@@ -543,7 +564,7 @@ async function flushPosition(state){
         }
       }
     }
-  }finally{state.running=false;}
+  }finally{state.running=false;positionNotice();}
 }
 async function waitForPosition(pending){
   let timer;

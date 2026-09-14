@@ -1,49 +1,45 @@
 # Current work
 
-Live recovery base: Server `ee2a1ed9af571f5d395d7653ebe931006c88f53c`
-(PR65/66 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-Server PR65 CI34758533386 and PR66 CI34758569508 passed Windows/Ubuntu Python,
-DOM, native synthetic Chrome and Codespaces simulated-edge checks. Final main
-matches the tested PR66 tree6b693365f328c0b7d5a26f170f52334152bc9d9b.
+Live recovery base: Server `9940aaa827f548cc983c2c7f895156748aa80a01`
+(PR67 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+PR67 CI34760528416 passed Windows/Ubuntu Python364, DOM, native synthetic Chrome
+and Codespaces simulated-edge first/restart checks. Main matches the reviewed and
+tested treed0b0524d0e0d41d6476baac2f89f7d2cdab0b92e.
 Git/PR state is authoritative. Existing code/test/docs publication and reviewed,
 passing-CI development-merge approvals persist. Release and subjective quality
 acceptance remain separate.
 
 ## October order
 
-Active slice: preserve confirmed title and viewing fields when an older library
-snapshot arrives. Request ordering already rejected obsolete reads, but a latest
-read could still predate newer confirmed writes. The regression reproduced a saved
-new title and eleven-second progress reverting to the old title and six seconds.
+Active slice: keep pending/uncertain viewing-position saves visible after closing
+the player, and warn before leaving this page with unconfirmed progress. The
+library notice identifies affected videos and uses the existing reopen action.
+The browser's beforeunload warning covers pending/failed writes and playback not
+yet sent by the periodic timer. Confirmed saves clear the notice; unplayed incoming
+entries do not create history warnings. The warning itself sends no request.
+No API/schema/browser-storage layer, automatic replay, original/media or model
+change. Browser warnings depend on browser support/user activation and cannot
+guarantee recovery after a forced quit or mobile app termination.
 
-Ordinary list refresh and explicit import-result checks now remember which title/
-position fields were confirmed in this page after each read began. Only those
-fields are retained; new rows and unrelated server data are still accepted. A
-higher SQLite position revision takes precedence, and a later read accepts newer
-external changes. Unconfirmed drafts and failed writes are not promoted. This is
-in-page display ordering, with no API/schema/storage/ranking or write-retry change.
+Product-JS/mock HTTP regressions cover pending/failed/pre-commit/post-commit/later
+responses, explicit recovery, per-item isolation, literal titles, reopen controls
+and no warning-triggered writes. Native synthetic Chrome checks a cancelled reload
+while an actual position request is held, unchanged page/DB, mobile layout and
+successful reload/restore after acknowledgement. Fixed-revision independent review
+and required native CI results belong to this slice's PR. The blocked Work browser
+route remains stopped; no private media or new inference is used.
+Initial CI34792089685 passed Ubuntu Python364/DOM/general native first/restart, then
+the new held-write check timed out awaiting a save. Its cancelled Playwright reload
+was awaited before releasing the request, spending the real five-second save bound.
+The fixture now releases after proving the page/DB stayed intact and only then
+settles the separately bounded navigation operation. Product timing is unchanged.
 
-The full DOM suite passes, including title changes back to their initial value,
-new rows, import-result reads, higher server revisions and late expired responses.
-The native synthetic Chrome check captures an actual HTTP library response, saves
-a title and position through the product, then releases that earlier response and
-compares the displayed fields with the real saved revision. Native execution and
-fixed-revision independent review belong to this slice's PR. The blocked Work
-browser route remains stopped; no private media or model inference was used.
-
-Initial PR67 CI34759827174 passed Python364 and DOM on both OSes and the new native
-late-library check on both. Windows completed all checks; Ubuntu's later restart
-moment-entry assertion sampled its baseline before the preceding close's position
-write committed (7.001268 versus 7.00305 seconds). The native fixture now waits for
-confirmed completion of preceding saves before sampling/navigating; its exact
-no-write assertions remain intact. Final fixed-revision CI belongs to PR67.
-CI34760211040 then passed all Ubuntu checks and Windows general native first/
-restart checks, including moment entry. Windows failed the separate Codespaces
-fixture's stored-position assertion after it reloaded immediately on close. That
-fixture now deliberately holds a real position write across close, confirms the
-old DB position, then releases and awaits successful saves before reload. It also
-settles resume/pause saves before browser exit; existing DB/native restore and
-server-restart assertions remain. Both failures remain in the PR evidence.
+Completed in PR67: late list reads cannot undo titles/positions confirmed after
+the read began. New rows/unrelated fields and higher server position revisions
+remain authoritative. DOM and native HTTP/Chrome checks passed on both OSes. Two
+native fixture races around immediate close were fixed by awaiting confirmed saves
+before baseline reads/reload, retaining exact preservation assertions. Initial
+failures CI34759827174/34760211040 and reviews remain in PR67; final CI above passed.
 
 Completed in PR65: recommendation/preference reads are bounded at ten seconds and
 writes at thirty, including response bodies. Uncertain saves require saved-state
