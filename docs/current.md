@@ -25,6 +25,18 @@ within its existing deadline; production worker containment is unchanged. Indepe
 review of the fixed code/test snapshots found no actionable defects. Remote CI is
 recorded by the PR; local success is not a remote-CI claim.
 
+## Windows CUDA runtime follow-up · September 29
+
+[CUDA validation](windows-cuda-validation.ko.md) records a reproduced Windows native
+probe deadlock: blocking parent-pipe reads stalled NumPy initialization despite a
+working GPU. Windows now polls a nonblocking pipe while preserving parent-loss exit,
+quiet output, the offline guard and existing lease/timeout. The same installed
+Torch 2.8.0+cu126 environment validates without reinstalling; real FP16 matmul/SDPA,
+367 Python checks (358 passes, 9 skips), 19 full-runtime diagnostic tests and actual
+sample playback/server restart passed. Fixed-code independent review found no
+actionable defects. No weights, Qwen/Gemini inference or target-PC optimization.
+Required remote CI remains a separate PR gate.
+
 ## October order
 
 Completed in PR69: desktop playback shortcuts J/K/L, with a visible key guide.
