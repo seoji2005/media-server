@@ -1,29 +1,30 @@
 # Current work
 
-Live recovery base: Server `d133793d087f6a01bb536ab2fab03b648dd50168`
-(PR69 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
-PR68 CI34792515183 passed Windows/Ubuntu Python364, DOM, native synthetic Chrome
-and Codespaces first/restart checks. Reviewed/tested tree844d15b3def90d95e38d6e184a6bd46fd7578c2e
-matches the PR68 merge. The CI mobile position notice image was inspected without clipping.
-Git/PR state is authoritative. Existing code/test/docs publication and reviewed,
-passing-CI development-merge approvals persist. Release and subjective quality
-acceptance remain separate.
+Live recovery base: Server `08b0844371973883137ff83488987376cbc6383b`
+(PR70 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+PR70 CI36555975026 passed Windows/Ubuntu product checks. Its merged tree
+9623f3eb0d2b07356ecffb7938dd1bd1d3f3d866 matches the locally tested snapshot.
+Git/PR state is authoritative. Reviewed, passing-CI development-merge approvals
+persist; release and subjective quality acceptance remain separate.
+
+## Current slice: preserve a resume request during worker teardown
+
+A guardian can exit before its actual worker lease is released. Dispatch now keeps
+an explicit request queued until the lease is free, instead of launching a child
+that fails before claiming the job. Real file/unsafe-path errors remain visible as
+worker_unavailable; no model/API retry or checkpoint/schema change is added.
+[Reproduction and local validation](worker-resume-validation.ko.md) records the
+Windows observation, failing-before regression, independent review correction,
+359 Python passes (9 skips), and actual Chrome pause/resume plus server restart.
+Synthetic inference and an extended lease fixture are not Qwen/Gemini/GPU quality
+acceptance. Original playback and existing captions remain available while queued.
 
 ## Local Windows sample verification · September 29
 
-[Local verification and next-PC setup](windows-local-validation.ko.md) records the
-shared Windows 10 / RTX 3070 8GB run. Actual viewing-only installation/reuse, 356
-Python passes (9 platform/optional-model skips), 18 DOM suites, native Chrome
-first/restart playback, VP9 conversion, captions, keyboard seeking and viewing-state
-restoration passed. No Qwen/Torch/Gemini inference, long-form quality or target-PC
-optimization claim. Model settings and user media were not copied or changed.
-
-This slice fixes an expired Windows FFmpeg download pin, explicit CRLF checkout,
-Python-on-PATH installation without py.exe and bounded temporary sharing-violation
-cleanup. The lifecycle fixture observes process exit and actual worker-lease release
-within its existing deadline; production worker containment is unchanged. Independent
-review of the fixed code/test snapshots found no actionable defects. Remote CI is
-recorded by the PR; local success is not a remote-CI claim.
+[Local verification and next-PC setup](windows-local-validation.ko.md) retains the
+shared Windows 10 / RTX 3070 8GB setup, native playback and preservation evidence.
+No target-PC optimization, model-weight installation or private media/API use was
+performed. Repeat actual inference and long-form quality on the owner's own PC.
 
 ## October order
 

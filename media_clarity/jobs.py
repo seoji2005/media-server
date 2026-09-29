@@ -184,6 +184,17 @@ class Jobs:
                     if not row or self.stop.is_set():
                         continue
                     self.active = row['id']
+                    # Guardian exit can precede release of its compute lease,
+                    # especially during Windows Job teardown. Keep the explicit
+                    # request queued; no worker/model attempt starts until free.
+                    try:
+                        with worker_guard(self.store.root):
+                            pass
+                    except MediaError as exc:
+                        if exc.code != 'processing_worker_active':
+                            raise OSError('worker lease unavailable') from None
+                        self.active = None
+                        continue
                     # No title, text, diagnostic traceback or model output reaches logs.
                     self.process = subprocess.Popen(
                         [sys.executable, '-m', 'media_clarity.worker', str(self.store.root), self.active],
