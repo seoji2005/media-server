@@ -97,6 +97,37 @@ class SubtitleTests(unittest.TestCase):
             if not child.stdin.closed:
                 child.stdin.close()
 
+    def test_invalid_worker_lock_path_fails_queued_job_without_launch(self):
+        self.jobs.start()
+        lock = self.root / 'worker.lock'
+        lock.unlink(); lock.mkdir()  # Real open failure after successful startup recovery.
+        with patch('media_clarity.jobs.subprocess.Popen') as launch:
+            job_id = self.enqueue()
+            deadline = time.monotonic() + 3
+            while self.jobs.row(job_id)['state'] == 'queued' and time.monotonic() < deadline:
+                time.sleep(.02)
+            row = self.jobs.row(job_id)
+            self.assertEqual((row['state'], row['error'], row['attempt']), ('failed', 'worker_unavailable', 0))
+            launch.assert_not_called()
+            self.assertTrue(self.jobs.thread.is_alive())
+        # A corrected path never retries the failed request automatically.
+        lock.rmdir()
+        time.sleep(.35)
+        self.assertEqual(self.jobs.row(job_id)['state'], 'failed')
+
+    def test_unsafe_worker_lock_is_visible_without_stopping_supervisor(self):
+        self.jobs.start()
+        with patch('media_clarity.jobs.worker_guard', side_effect=MediaError('unsafe_storage', 503)), \
+                patch('media_clarity.jobs.subprocess.Popen') as launch:
+            job_id = self.enqueue()
+            deadline = time.monotonic() + 3
+            while self.jobs.row(job_id)['state'] == 'queued' and time.monotonic() < deadline:
+                time.sleep(.02)
+            row = self.jobs.row(job_id)
+            self.assertEqual((row['state'], row['error'], row['attempt']), ('failed', 'worker_unavailable', 0))
+            launch.assert_not_called()
+            self.assertTrue(self.jobs.thread.is_alive())
+
     def test_guardian_exit_before_claim_fails_once_without_automatic_retry(self):
         job_id = self.enqueue()
         popen = subprocess.Popen
