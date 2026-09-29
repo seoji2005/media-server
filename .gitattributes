@@ -1,2 +1,5 @@
 # Keep the approved experiment's byte hash identical on Windows checkouts.
 tests/fixtures/translation_compare.json text eol=lf
+
+# cmd.exe requires CRLF regardless of the developer's core.autocrlf setting.
+*.cmd text eol=crlf
