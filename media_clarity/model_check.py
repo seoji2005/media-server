@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import threading
+import time
 
 from .storage import MediaError
 
@@ -102,8 +103,20 @@ def main():
             raise MediaError('model_check_failed', 503)
     sys.addaudithook(offline)
     def parent_gone():
-        os.read(sys.stdin.fileno(), 1)
-        os._exit(1)
+        try:
+            fd = sys.stdin.fileno()
+            if os.name == 'nt':
+                # A blocking pipe read can deadlock NumPy's native DLL import
+                # on Windows. Python 3.12 supports nonblocking Windows pipes.
+                os.set_blocking(fd, False)
+            while True:
+                try:
+                    os.read(fd, 1)
+                    break
+                except BlockingIOError:
+                    time.sleep(.05)
+        finally:
+            os._exit(1)  # EOF, unexpected input or a broken monitor fails closed.
     threading.Thread(target=parent_gone, daemon=True).start()
     def finish(result):
         os.write(output, json.dumps(result, separators=(',', ':')).encode('ascii'))

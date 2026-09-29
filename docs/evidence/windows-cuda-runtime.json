@@ -1,0 +1,162 @@
+{
+  "date": "2026-09-29",
+  "remote_base": "08b0844371973883137ff83488987376cbc6383b",
+  "reviewed_local_code": "58a119773f2e9a196cb029959220879dac169f38",
+  "machine": {
+    "os": "Windows 10 22H2 build 19045.2006",
+    "cpu": "Intel Core i5-12400F",
+    "ram_gib": 32,
+    "gpu": "NVIDIA GeForce RTX 3070",
+    "shared_pc": true
+  },
+  "runtime": {
+    "python": "3.12.14",
+    "torch": "2.8.0+cu126",
+    "cuda": "12.6",
+    "transformers": "5.16.1",
+    "numpy_full_runtime": "2.5.3",
+    "numpy_test_runtime": "2.3.5",
+    "ffmpeg": "9.0.2"
+  },
+  "initial_install": {
+    "exit_code": 1,
+    "seconds": 401.773,
+    "error": "install_existing_environment_invalid",
+    "detail": "All packages installed; the isolated native probe timed out during NumPy import."
+  },
+  "reproduction": {
+    "native_numpy_before_fix": "TimeoutExpired after 10 seconds; subsequent temporary worker-lock cleanup also hit WinError32.",
+    "blocking_stdin": "timeout",
+    "duplicated_stdin": "timeout",
+    "win32_blocking_read": "timeout",
+    "nonblocking_stdin": "passed"
+  },
+  "reuse": {
+    "command": "python scripts/install_runtime.py --device cuda --data-dir <isolated-test-library> --json",
+    "exitCode": 0,
+    "elapsedSeconds": 6.801,
+    "result": {
+      "state": "ready",
+      "checks": [
+        {
+          "name": "preflight",
+          "state": "ready",
+          "device": "cuda"
+        },
+        {
+          "name": "environment",
+          "state": "ready",
+          "status": "reused"
+        },
+        {
+          "name": "pip",
+          "state": "ready",
+          "status": "reused"
+        },
+        {
+          "name": "torch",
+          "state": "ready",
+          "status": "reused"
+        },
+        {
+          "name": "packages",
+          "state": "ready",
+          "status": "reused"
+        },
+        {
+          "name": "dependencies",
+          "state": "ready",
+          "status": "reused"
+        },
+        {
+          "name": "runtime",
+          "state": "ready",
+          "device": "cuda",
+          "selection": "default",
+          "error": null
+        }
+      ],
+      "automatic_retries": 0,
+      "api_connection": "not_checked",
+      "actual_inference": "not_checked",
+      "models": "not_checked"
+    }
+  },
+  "gpu": {
+    "torch": "2.8.0+cu126",
+    "cuda_runtime": "12.6",
+    "device": "NVIDIA GeForce RTX 3070",
+    "capability": [
+      8,
+      6
+    ],
+    "vram_bytes": 8589279232,
+    "matmul_fp16": true,
+    "matmul_max_absolute_error": 0.0078125,
+    "sdpa_fp16": true,
+    "sdpa_max_absolute_error": 0.00011466443538665771,
+    "allocated_peak_bytes": 9076736,
+    "reserved_peak_bytes": 23068672,
+    "wall_seconds": 2.014999999999418,
+    "model_inference": false,
+    "target_pc_tuning": false
+  },
+  "verification": {
+    "python": {
+      "total": 367,
+      "passed": 358,
+      "skipped": 9,
+      "seconds": 105.131,
+      "exit_code": 0
+    },
+    "full_runtime_model_checks": {
+      "total": 19,
+      "passed": 19,
+      "seconds": 2.474,
+      "exit_code": 0
+    },
+    "independent_review": {
+      "local_code": "58a119773f2e9a196cb029959220879dac169f38",
+      "actionable_findings": 0,
+      "targeted_checks": 5,
+      "seconds": 1.454,
+      "exit_code": 0
+    },
+    "sample_http": {
+      "libraryExactAfterRestart": true,
+      "savedPosition": 16.713147,
+      "sameItem": true,
+      "rangeStatus": 206,
+      "rangeExact": true,
+      "originalSha256": "2ee92e36c872b219038228ac48f61b7763a68bcd41438911bf03e6c8f9fb988a",
+      "originalMatchesCopyIdentity": true,
+      "servedFullHash": "2ee92e36c872b219038228ac48f61b7763a68bcd41438911bf03e6c8f9fb988a",
+      "servedFullMatchesOriginal": true
+    },
+    "sample_browser": {
+      "browser": "Codex in-app browser",
+      "playing_1280x720": true,
+      "imported_korean_captions_visible": true,
+      "keyboard_pause_and_seek": true,
+      "restart_restored_position": 16.713147,
+      "frame_count_not_available": true
+    },
+    "setup_check": {
+      "exit_code": 1,
+      "expected_error": "local_models_missing",
+      "python_packages_ffmpeg_ffprobe": "ready"
+    },
+    "harness_check": "passed"
+  },
+  "limits": {
+    "fresh_install_rerun": false,
+    "weights_downloaded": false,
+    "qwen_inference": false,
+    "gemini_calls": false,
+    "private_media": false,
+    "global_install": false,
+    "driver_changes": false,
+    "target_pc_optimization": false,
+    "remote_ci": "See pull request; local validation does not replace required CI"
+  }
+}

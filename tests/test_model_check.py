@@ -217,23 +217,27 @@ from unittest.mock import patch
 from media_clarity import model_check as m
 def noisy(root):
     os.write(1,b"PRIVATE STDOUT");os.write(2,b"PRIVATE STDERR")
-    if sys.argv[2]=="wait":
-        (root/'entered').touch();time.sleep(30)
+    if sys.argv[2] in ("wait","input"):
+        (root/("entered-"+sys.argv[2])).touch();time.sleep(30)
     if sys.argv[2]=="teardown":atexit.register(time.sleep,30)
     raise RuntimeError("PRIVATE ERROR")
 with patch("media_clarity.qwen.QwenSpeech",side_effect=noisy):m.main()
 '''
         # Keep the parent pipe open through normal completion, matching production.
-        for mode in ('finish','wait','teardown'):
+        for mode in ('finish','wait','input','teardown'):
             child=subprocess.Popen([sys.executable,'-c',code,str(self.root),mode],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             try:
-                if mode=='wait':
+                if mode in ('wait','input'):
+                    marker=self.root/('entered-'+mode)
                     deadline=time.monotonic()+5
-                    while not (self.root/'entered').exists() and time.monotonic()<deadline:time.sleep(.01)
-                    self.assertTrue((self.root/'entered').exists())
+                    while not marker.exists() and time.monotonic()<deadline:time.sleep(.01)
+                    self.assertTrue(marker.exists())
                     with self.assertRaisesRegex(MediaError,'processing_worker_active'):
                         with worker_guard(self.root):pass
-                    child.stdin.close();child.wait(timeout=5)
+                    if mode=='input':
+                        child.stdin.write(b'!');child.stdin.flush()
+                    else:child.stdin.close()
+                    child.wait(timeout=5)
                     self.assertNotEqual(child.returncode,0)
                     with worker_guard(self.root):pass
                 else:
@@ -245,6 +249,59 @@ with patch("media_clarity.qwen.QwenSpeech",side_effect=noisy):m.main()
                 if child.poll() is None:child.kill();child.wait()
                 if not child.stdin.closed:child.stdin.close()
                 child.stdout.close();child.stderr.close()
+
+    def test_native_numpy_import_completes_with_parent_pipe_open(self):
+        # NumPy's Windows extension initialization can deadlock with a concurrent
+        # blocking stdin reader. Use the real native import, without model weights.
+        code = '''import json,os,sys,threading
+from media_clarity import model_check as m
+entered=threading.Event()
+read=os.read
+def observed(fd,size):
+    entered.set()
+    return read(fd,size)
+m.os.read=observed
+def inspect(root,**kwargs):
+    if not entered.wait(2):raise RuntimeError("monitor not started")
+    import numpy
+    assert numpy.isfinite(numpy.ones(2)).all()
+    os.write(1,b"PRIVATE NATIVE STDOUT");os.write(2,b"PRIVATE NATIVE STDERR")
+    return {"device":"cpu","selection":"configured","state":"ready","error":None}
+m.inspect_runtime=inspect
+m.main()
+'''
+        child=subprocess.Popen([sys.executable,'-c',code,str(self.root),'--runtime-only'],
+                               stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        try:
+            child.wait(timeout=10)
+            self.assertEqual(child.returncode,0)
+            self.assertEqual(json.loads(child.stdout.read()),
+                {'device':'cpu','selection':'configured','state':'ready','error':None})
+            self.assertEqual(child.stderr.read(),b'')
+            with worker_guard(self.root):pass
+        finally:
+            if child.poll() is None:child.kill();child.wait()
+            child.stdin.close();child.stdout.close();child.stderr.close()
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows nonblocking pipe setup')
+    def test_native_parent_monitor_setup_failure_stops_probe(self):
+        code = '''import time
+from unittest.mock import patch
+from media_clarity import model_check as m
+with patch.object(m.os,'set_blocking',side_effect=OSError("PRIVATE PIPE ERROR")), \
+     patch.object(m,'inspect_runtime',side_effect=lambda *a,**k:time.sleep(30)):
+    m.main()
+'''
+        child=subprocess.Popen([sys.executable,'-c',code,str(self.root)],
+                               stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        try:
+            child.wait(timeout=5)
+            self.assertNotEqual(child.returncode,0)
+            self.assertEqual(child.stdout.read(),b'')
+            self.assertEqual(child.stderr.read(),b'')
+        finally:
+            if child.poll() is None:child.kill();child.wait()
+            child.stdin.close();child.stdout.close();child.stderr.close()
 
     def test_actual_timeout_kills_and_reaps_probe_child(self):
         popen=subprocess.Popen;children=[]
