@@ -47,21 +47,21 @@ jobs:
           $ErrorActionPreference = 'Stop'
           # Same Gyan essentials build distributed by choco ffmpeg. Pin both bytes
           # and version; a failed package feed must not look like installation.
-          # https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.1-essentials_build.zip.sha256
-          $archivePath = Join-Path $env:RUNNER_TEMP 'ffmpeg-9.0.1.zip'
+          # https://github.com/GyanD/codexffmpeg/releases/tag/9.0.2
+          $archivePath = Join-Path $env:RUNNER_TEMP 'ffmpeg-9.0.2.zip'
           $extractPath = Join-Path $env:RUNNER_TEMP 'media-ffmpeg'
-          Invoke-WebRequest -Uri 'https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.1-essentials_build.zip' -OutFile $archivePath -TimeoutSec 120
-          $expectedSha = 'fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9'
+          Invoke-WebRequest -Uri 'https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip' -OutFile $archivePath -TimeoutSec 120
+          $expectedSha = '60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba'
           if ((Get-FileHash $archivePath -Algorithm SHA256).Hash -ne $expectedSha) {
             throw 'FFmpeg archive checksum mismatch'
           }
           Expand-Archive -LiteralPath $archivePath -DestinationPath $extractPath
-          $binaryDirectory = Join-Path $extractPath 'ffmpeg-9.0.1-essentials_build/bin'
+          $binaryDirectory = Join-Path $extractPath 'ffmpeg-9.0.2-essentials_build/bin'
           foreach ($toolName in @('ffmpeg', 'ffprobe')) {
             $toolPath = Join-Path $binaryDirectory "$toolName.exe"
             if (!(Test-Path -LiteralPath $toolPath -PathType Leaf)) { throw 'FFmpeg tools missing' }
             $toolVersion = & $toolPath -version
-            if ($LASTEXITCODE -ne 0 -or !$toolVersion[0].StartsWith("$toolName version 9.0.1")) {
+            if ($LASTEXITCODE -ne 0 -or !$toolVersion[0].StartsWith("$toolName version 9.0.2")) {
               throw 'FFmpeg tool version check failed'
             }
             Write-Output $toolVersion[0]

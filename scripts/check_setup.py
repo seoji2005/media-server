@@ -164,12 +164,21 @@ def temporary_output(result):
     try:
         yield Path(temp.name)
     finally:
-        try:
-            temp.cleanup()
-        except OSError:
-            # Keep completed diagnostics even if Windows still holds a file.
-            result['cleanup_error'] = 'setup_check_cleanup_failed'
-            result.setdefault('error', 'setup_check_cleanup_failed')
+        # Windows can keep a terminated descendant's file handles briefly after
+        # the leader is reaped. Retry only sharing violations on our temporary
+        # output; persistent failures still preserve the completed diagnostics.
+        deadline = monotonic() + 1
+        while True:
+            try:
+                temp.cleanup()
+                break
+            except OSError as error:
+                if os.name == 'nt' and getattr(error, 'winerror', None) == 32 and monotonic() < deadline:
+                    sleep(.02)
+                    continue
+                result['cleanup_error'] = 'setup_check_cleanup_failed'
+                result.setdefault('error', 'setup_check_cleanup_failed')
+                break
 
 
 def run_setup(command, *, total_seconds, idle_seconds, expected_checks, progress=None):

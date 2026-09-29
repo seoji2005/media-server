@@ -11,6 +11,7 @@ import time
 import unittest
 
 from media_clarity.jobs import Jobs, worker_guard
+from media_clarity.storage import MediaError
 
 
 def running(pid):
@@ -121,12 +122,25 @@ sys.exit(lifecycle.supervise(sys.argv[1:]))'''
                     child.stdin.close()  # The exact EOF produced by server death.
                     child.wait(timeout=5)
                 deadline = time.monotonic()+3
-                while any(running(pid) for pid in pids) and time.monotonic() < deadline:
+                released = False
+                while time.monotonic() < deadline:
+                    if all(not running(pid) for pid in pids):
+                        try:
+                            # A signaled Windows process can still be releasing
+                            # file handles. Observe the actual lease in the same
+                            # bounded shutdown window, not just process state.
+                            with worker_guard(root):
+                                pass
+                        except MediaError as error:
+                            if error.code != 'processing_worker_active':
+                                raise
+                        else:
+                            released = True
+                            break
                     time.sleep(.02)
                 self.assertTrue(all(not running(pid) for pid in pids), 'owned compute/FFmpeg survived')
+                self.assertTrue(released, 'owned worker lease was not released')
                 self.assertLess(time.monotonic()-before, 8)
-                with worker_guard(root):
-                    pass
                 self.assertFalse(list(root.glob('qwen-audio-*')))
                 self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(), original)
             finally:

@@ -174,6 +174,29 @@ time.sleep(30)
         self.assertEqual(result['cleanup_error'], 'setup_check_cleanup_failed')
         self.assertNotIn('private/path', json.dumps(result))
 
+    def test_windows_sharing_violation_cleanup_is_bounded_and_keeps_results(self):
+        for transient in (True, False):
+            with self.subTest(transient=transient), tempfile.TemporaryDirectory() as directory:
+                sharing = PermissionError('private/path?secret=value')
+                sharing.winerror = 32
+                temporary = Mock()
+                temporary.name = directory
+                temporary.cleanup.side_effect = [sharing, None] if transient else sharing
+                windows = Mock()
+                windows.name = 'nt'
+                result = {'checks':[{'name':'python','state':'ready'}], 'error':'setup_check_timeout'}
+                with patch.object(setup.tempfile, 'TemporaryDirectory', return_value=temporary), \
+                     patch.object(setup, 'os', windows), \
+                     patch.object(setup, 'monotonic', side_effect=[0., .25, 1.]), \
+                     patch.object(setup, 'sleep'):
+                    with setup.temporary_output(result):
+                        pass
+                self.assertEqual(temporary.cleanup.call_count, 2)
+                self.assertEqual(result['checks'], [{'name':'python','state':'ready'}])
+                self.assertEqual(result['error'], 'setup_check_timeout')
+                self.assertEqual('cleanup_error' in result, not transient)
+                self.assertNotIn('private/path', json.dumps(result))
+
     def test_exited_worker_cannot_leave_a_running_descendant(self):
         real_popen = subprocess.Popen
         for exit_code in (0, 1):

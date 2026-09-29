@@ -1,17 +1,33 @@
 # Current work
 
-Live recovery base: Server `5afc0267555c3b8be234af6cfb7f8d21ad43879e`
-(PR68 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
+Live recovery base: Server `d133793d087f6a01bb536ab2fab03b648dd50168`
+(PR69 merged); Fetch `b9fad12a91ab11cb007340bae74b279b3f6e91c9` (PR23 merged).
 PR68 CI34792515183 passed Windows/Ubuntu Python364, DOM, native synthetic Chrome
 and Codespaces first/restart checks. Reviewed/tested tree844d15b3def90d95e38d6e184a6bd46fd7578c2e
-matches main. The CI mobile position notice image was inspected without clipping.
+matches the PR68 merge. The CI mobile position notice image was inspected without clipping.
 Git/PR state is authoritative. Existing code/test/docs publication and reviewed,
 passing-CI development-merge approvals persist. Release and subjective quality
 acceptance remain separate.
 
+## Local Windows sample verification · September 29
+
+[Local verification and next-PC setup](windows-local-validation.ko.md) records the
+shared Windows 10 / RTX 3070 8GB run. Actual viewing-only installation/reuse, 356
+Python passes (9 platform/optional-model skips), 18 DOM suites, native Chrome
+first/restart playback, VP9 conversion, captions, keyboard seeking and viewing-state
+restoration passed. No Qwen/Torch/Gemini inference, long-form quality or target-PC
+optimization claim. Model settings and user media were not copied or changed.
+
+This slice fixes an expired Windows FFmpeg download pin, explicit CRLF checkout,
+Python-on-PATH installation without py.exe and bounded temporary sharing-violation
+cleanup. The lifecycle fixture observes process exit and actual worker-lease release
+within its existing deadline; production worker containment is unchanged. Independent
+review of the fixed code/test snapshots found no actionable defects. Remote CI is
+recorded by the PR; local success is not a remote-CI claim.
+
 ## October order
 
-Active slice: desktop playback shortcuts J/K/L, with a visible key guide.
+Completed in PR69: desktop playback shortcuts J/K/L, with a visible key guide.
 J/L seek ten seconds within the video, K toggles playback without repeated-key
 oscillation. Text inputs, selects, editable content, composition and Ctrl/Alt/Meta
 shortcuts retain their normal behavior. Native seeking uses the existing position
