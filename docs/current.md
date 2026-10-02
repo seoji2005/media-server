@@ -7,7 +7,27 @@ PR70 CI36555975026 passed Windows/Ubuntu product checks. Its merged tree
 Git/PR state is authoritative. Reviewed, passing-CI development-merge approvals
 persist; release and subjective quality acceptance remain separate.
 
-## Current slice: preserve a resume request during worker teardown
+## Current slice: subtitle status recovery · October 2
+
+The owner requested continuing without CI. Branch
+`codex/subtitle-recovery-2026-10-02` locally integrates the unchanged PR71/72 heads
+at `3c7b14c`; this is not a merge into GitHub main. No CI was dispatched or rerun.
+
+A definitely rejected subtitle command (for example an invalid SRT imported during
+translation) stopped status polling and hid its recovery button. Every rejected
+command now offers the existing explicit status read. Corrected-file/setup retries
+remain available after definite rejection; uncertain requests retain their guard.
+Confirmation sends no processing request and retains the current video/caption.
+Queued jobs now report waiting and saved progress, without claiming active inference.
+
+Linux CPU: the new DOM regression failed before the fix; the full 18-suite DOM run
+passes afterward. Integrated worker/resume/model checks pass 63/64 (one Windows-only
+skip); two HTTP import-validation/preservation and real loopback restart checks pass.
+All commands exited 0 except the intentional before-fix regression (exit 1).
+No browser playback, Windows/RTX inference, provider calls or quality acceptance
+is claimed. Independent review is recorded with the final checkpoint.
+
+## Pending worker resume fix
 
 A guardian can exit before its actual worker lease is released. Dispatch now keeps
 an explicit request queued until the lease is free, instead of launching a child

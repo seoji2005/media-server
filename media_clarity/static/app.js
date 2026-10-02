@@ -695,7 +695,9 @@ function subtitleTaskControls(){
   $("subtitle-import").textContent=pending&&command.kind==="import"?"자막 가져오는 중…":"자막 파일 열기";
   // Pausing remains available when automatic status checks have stopped.
   $("subtitle-pause").disabled=pending;
-  $("subtitle-refresh").hidden=!(command?.uncertain||subtitleMonitor?.stopped||subtitleMonitor?.confirming);
+  // Every rejected command stops polling, including a correctable file error.
+  // Offer a read-only status check without blocking a corrected explicit retry.
+  $("subtitle-refresh").hidden=!(command?.error||subtitleMonitor?.stopped||subtitleMonitor?.confirming);
   $("subtitle-refresh").disabled=pending||!!subtitleMonitor?.reading;
   $("subtitle-refresh").textContent=subtitleMonitor?.confirming?"상태 확인 중…":"상태 다시 확인";
   const note=command?.pending?"요청을 확인하고 있습니다. 같은 작업을 다시 보내지 않습니다.":subtitleMonitor?.confirming?"저장된 자막 상태를 다시 확인하고 있습니다. 기존 자막은 계속 감상할 수 있습니다.":command?.error||subtitleMonitor?.error;
@@ -968,7 +970,13 @@ async function refreshSubtitles(owner,{confirm=false}={}){
     const paused=j?.state==="paused"&&(!j.error||j.error==="processing_interrupted");
     const asrNote=j?.asr_completed?`음성 인식 ${j.asr_completed}구간을 저장했습니다. 재개하면 저장된 다음 말소리 구간부터 이어갑니다.`:"아직 저장된 말소리 구간이 없어 재개하면 음성 인식을 처음부터 다시 합니다.";
     const resumeNote=j?.stage==="asr"?`${asrNote} 현재 구간은 다시 처리할 수 있으며 기존 자막은 보존됩니다.`:`전사와 번역 ${j?.completed||0}구간을 저장했습니다. 재개하면 저장된 다음 구간부터 이어갑니다.`;
-    $("subtitle-state").textContent=paused?`${j.error?subtitleMessages[j.error]:"자막 처리를 일시정지했습니다."} ${resumeNote}`:j?.error?(subtitleMessages[j.error]||message(j.error)):busy?(j.stage==="translation"?`한국어 번역 중 · ${j.completed}/${j.total} 구간 저장됨${j.fallback_count?` · 원문 ${j.fallback_count}구간`:""}`:`음성 인식 중 · ${j.asr_completed||0}구간 저장됨. 중단하면 현재 말소리 구간을 다시 처리합니다. 원본은 계속 감상할 수 있습니다.`):data.tracks.length?"자막이 준비됐습니다. 번역하지 못한 구간은 [원문]으로 표시합니다. 새로 만들어도 기존 자막은 보존됩니다.":"가진 한국어 SRT를 열거나 이 기기에서 자막을 만들 수 있습니다.";
+    let state;
+    if(paused)state=`${j.error?subtitleMessages[j.error]:"자막 처리를 일시정지했습니다."} ${resumeNote}`;
+    else if(j?.error)state=subtitleMessages[j.error]||message(j.error);
+    else if(j?.state==="queued")state=`자막 처리 대기 중 · ${j.stage==="translation"?`번역 ${j.completed}/${j.total}구간 저장됨`:`음성 인식 ${j.asr_completed||0}구간 저장됨`}. 순서가 되면 처리를 시작합니다. 기다리는 동안 일시정지하거나 기존 영상과 자막을 감상할 수 있습니다.`;
+    else if(busy)state=j.stage==="translation"?`한국어 번역 중 · ${j.completed}/${j.total} 구간 저장됨${j.fallback_count?` · 원문 ${j.fallback_count}구간`:""}`:`음성 인식 중 · ${j.asr_completed||0}구간 저장됨. 중단하면 현재 말소리 구간을 다시 처리합니다. 원본은 계속 감상할 수 있습니다.`;
+    else state=data.tracks.length?"자막이 준비됐습니다. 번역하지 못한 구간은 [원문]으로 표시합니다. 새로 만들어도 기존 자막은 보존됩니다.":"가진 한국어 SRT를 열거나 이 기기에서 자막을 만들 수 있습니다.";
+    $("subtitle-state").textContent=state;
     if(observeSubtitleProgress(monitor,j)&&!subtitleCommands.get(owner.id)?.uncertain){clearTimeout(subtitleTimer);subtitleTimer=setTimeout(()=>refreshSubtitles(owner),1500);}
     if(j&&(j.audio_index||0)!==(owner.audio_index||0))$("subtitle-state").textContent=`오디오 ${(j.audio_index||0)+1}의 자막 작업입니다. `+$("subtitle-state").textContent;
     if(j?.provider==="gemini")$("subtitle-state").textContent="Gemini · "+$("subtitle-state").textContent+(["queued","running","paused","failed"].includes(j.state)?" 완료한 구간은 재사용합니다. 처리 중이던 요청은 재개할 때 다시 전송되어 과금될 수 있습니다.":"");

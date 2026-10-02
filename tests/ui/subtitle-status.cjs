@@ -129,6 +129,62 @@ async function fixture({initialReadError=false,empty=false}={}){
       assert.equal(f.el('subtitle-select').value,'imported-a');assert.equal(f.video.currentTime,7);assert.equal(f.commands().length,0);
     }finally{f.close();}
   }
+  {
+    const f=await fixture();try{
+      f.jobs=[{id:'j',state:'running',stage:'translation',attempt:1,completed:1,total:10}];
+      await f.read();const before=f.snapshot(),writes=f.requests.filter(r=>r.options.method==='PUT').length;
+      assert([...f.timers.values()].some(t=>t.ms===1500));
+      f.importMode='reject';await f.importFile();
+      assert.match(f.el('subtitle-state').textContent,/자막 형식/);
+      assert(!f.el('subtitle-import').disabled,'a rejected file can still be corrected');
+      assert(!f.el('subtitle-refresh').hidden,'a definite rejection must offer recovery of stopped job-status checks');
+      assert(!f.el('subtitle-refresh').disabled);
+      f.getMode='error';f.el('subtitle-refresh').click();await settle();
+      assert(!f.el('subtitle-refresh').hidden,'a failed recovery remains available');
+      f.getMode='normal';f.jobs[0].completed=6;
+      f.el('subtitle-refresh').click();await settle();await settle();
+      assert.equal(f.el('subtitle-progress').value,60);
+      assert(f.el('subtitle-refresh').hidden);assert(!f.el('subtitle-import').disabled);
+      assert([...f.timers.values()].some(t=>t.ms===1500),'explicit confirmation restores bounded monitoring');
+      f.jobs[0].state='succeeded';f.jobs[0].completed=10;
+      f.fire(1500);await settle();await settle();
+      assert(f.el('subtitle-pause').hidden);assert(f.el('subtitle-progress').hidden);
+      assert.deepEqual(f.snapshot(),before,'status recovery preserves video, caption and offset');
+      assert.equal(f.imports().length,1);assert.equal(f.commands().length,0);
+      assert.equal(f.requests.filter(r=>r.options.method==='PUT').length,writes,'status recovery only reads');
+      f.importMode='normal';await f.importFile();await settle();
+      assert.equal(f.imports().length,2);assert.equal(f.el('subtitle-select').value,'imported-a');
+    }finally{f.close();}
+  }
+  {
+    const f=await fixture();try{
+      f.jobs=[{id:'j',state:'paused',stage:'asr',attempt:1,asr_completed:2,asr_until:9}];
+      await f.read();const before=f.snapshot();f.commandMode='reject';
+      f.el('subtitle-resume').click();await settle();
+      assert.match(f.el('subtitle-state').textContent,/API 키/);
+      assert(!f.el('subtitle-refresh').hidden,'a definite job-command rejection also offers status recovery');
+      assert(!f.el('subtitle-resume').disabled,'a corrected setup may be explicitly retried');
+      assert.equal(f.commands().length,1);
+      f.el('subtitle-refresh').click();await settle();await settle();
+      assert(f.el('subtitle-refresh').hidden);assert(!f.el('subtitle-resume').hidden);
+      assert.equal(f.commands().length,1,'status confirmation cannot replay a rejected resume');
+      assert.deepEqual(f.snapshot(),before);
+    }finally{f.close();}
+  }
+  for(const stage of ['asr','translation']){
+    const f=await fixture();try{
+      f.jobs=[{id:'j',state:'queued',stage,attempt:1,asr_completed:2,asr_until:9,completed:4,total:10}];
+      const before=f.snapshot();await f.read();
+      assert.match(f.el('subtitle-state').textContent,/대기 중/);
+      assert.doesNotMatch(f.el('subtitle-state').textContent,/음성 인식 중|한국어 번역 중/);
+      assert.match(f.el('subtitle-state').textContent,stage==='asr'?/음성 인식 2구간 저장됨/:/번역 4\/10구간 저장됨/);
+      assert(!f.el('subtitle-pause').hidden);assert(!f.el('subtitle-pause').disabled);
+      assert.deepEqual(f.snapshot(),before);assert.equal(f.commands().length,0);
+      f.el('subtitle-pause').click();await settle();await settle();
+      assert(f.el('subtitle-pause').hidden);assert(!f.el('subtitle-resume').hidden);
+      assert.equal(f.commands().length,1);assert(f.commands()[0].url.endsWith('/pause'));
+    }finally{f.close();}
+  }
   for(const next of ['a','b']){
     const f=await fixture();try{
       f.importMode='headers';await f.importFile();const held=f.held.find(x=>x.kind==='import');
