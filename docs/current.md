@@ -20,12 +20,18 @@ remain available after definite rejection; uncertain requests retain their guard
 Confirmation sends no processing request and retains the current video/caption.
 Queued jobs now report waiting and saved progress, without claiming active inference.
 
-Linux CPU: the new DOM regression failed before the fix; the full 18-suite DOM run
-passes afterward. Integrated worker/resume/model checks pass 63/64 (one Windows-only
-skip); two HTTP import-validation/preservation and real loopback restart checks pass.
-All commands exited 0 except the intentional before-fix regression (exit 1).
-No browser playback, Windows/RTX inference, provider calls or quality acceptance
-is claimed. Independent review is recorded with the final checkpoint.
+Linux CPU, Python 3.12.14 / Node 24.19.0: the new `node tests/ui/subtitle-status.cjs`
+regression failed on the pre-fix app (exit 1). `npm test --prefix tests/ui` passed
+all 18 DOM suites on the code/test snapshot reviewed at `02cd995` (exit 0).
+`python -m unittest -q tests.test_job_resume tests.test_subtitles
+tests.test_worker_lifecycle tests.test_model_check` passed 63/64 on integrated
+`3c7b14c` (21.006s, exit 0); the Windows parent-monitor setup check was skipped.
+The backend is unchanged in `02cd995`. Two focused checks also passed (1.492s,
+exit 0): `tests.test_manual_captions.ManualCaptionTests.test_http_import_defaults_validation_and_no_failed_publish`
+and `tests.test_position_recovery.PositionRecoveryTests.test_live_http_restart_restores_exact_bytes_captions_and_revision`,
+using `python -m unittest -q`. Independent review of `3c7b14c..02cd995` found no
+actionable defects. No browser playback, Windows/RTX inference, provider calls or
+quality acceptance is claimed.
 
 ## Pending worker resume fix
 
