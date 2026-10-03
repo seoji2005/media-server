@@ -28,7 +28,8 @@ and passes after the change. `npm test --prefix tests/ui` passes 19 suites (exit
 HTTP-handler/SQLite/FFmpeg tests (8.255 s, exit 0), including read-only busy/saved
 status and preservation. An initial invocation without the test import path failed
 to import the fixture; correcting PYTHONPATH resolved it. The existing HTTPX
-compatibility warning remains. Fixed-code independent review follows this checkpoint.
+compatibility warning remains. Independent review of base `7a8b6eb` to fixed code `9dfadea` found no actionable
+defects; the reviewer reused the supplied evidence and did not claim native playback.
 No CI, model/API inference, native browser or target-PC acceptance is claimed.
 
 Next authorized stages: missing-original restore and CJK recommendation matching.
