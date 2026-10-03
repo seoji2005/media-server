@@ -49,7 +49,10 @@ symlinks, disk/cleanup failure, process exit and actual loopback lost-receipt/re
 An initial fixture incorrectly supplied text instead of caption bytes; fixed without
 changing product behavior. `npm test --prefix tests/ui` passes 20 suites (exit 0),
 including picker cancellation and no automatic preparation after restore. Harness
-and diff checks pass. Independent storage-safety review follows the fixed checkpoint.
+and diff checks pass. Independent review of `a414848` → fixed code `3dc9a5e` found no actionable
+storage/API/UI defects. Additional Linux checks independently covered chunked
+short/oversize/exact uploads, unchanged DB dumps, cache recovery and exact Range
+bytes. No Windows/native-browser, power-loss or hostile same-user path-swap claim.
 
 Next authorized stage: conservative CJK recommendation matching and authored evaluation.
 
