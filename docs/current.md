@@ -7,78 +7,57 @@ PR70 CI36555975026 passed Windows/Ubuntu product checks. Its merged tree
 Git/PR state is authoritative. Reviewed, passing-CI development-merge approvals
 persist; release and subjective quality acceptance remain separate.
 
-## Current slice: cloud recovery and recommendation improvements · October 3
+## Completed cloud slices · October 3
 
 Owner authorized three sequential slices on `codex/subtitle-recovery-2026-10-02`
-from checkpoint `7a8b6eb`, without CI: preparation/audio response recovery, exact
-missing-original restoration, and conservative Korean/Japanese title matching.
-PR71/72 and reviewed native-caption recovery remain preserved in this branch;
-main, native browser acceptance and target Windows/RTX validation are separate.
+from checkpoint `7a8b6eb`, without CI. PR71/72 integration and reviewed native-caption
+recovery remain preserved. This development branch is separate from main/release.
 
-Stage 1 bounds playback/audio response headers and bodies at 150 seconds. Pending
-or ambiguous requests block another command for that item across player reopen.
-Explicit ten-second status reads report a busy preparation lock or the saved item;
-they cannot start conversion. Confirmation keeps current playback unless applying
-the saved audio to the same open player, retaining its position. Known rejections
-remain retryable. See [preparation recovery](compatible-renditions.md).
+| Slice | Reviewed code | Result |
+| --- | --- | --- |
+| Preparation/audio recovery | `9dfadea` | 150-second complete-response bound, pending/uncertain command guards across reopen, explicit ten-second busy/saved status reads, preserved current playback and same-player audio confirmation. |
+| Missing-original restore | `3dc9a5e` | Separate card picker, stored size/SHA-256 and persisted-stage verification, atomic absent-target publication, unchanged DB/history/captions, explicit lost-receipt status checks. |
+| Korean/Japanese title matching | `f3155e6` | Limited particle/spacing aliases and whole script runs, merged-group deduplication, unchanged opt-in/feedback weights/word-count denominator/discovery/limit. |
 
-Linux CPU: the new DOM regression fails on the base app (duplicate command, exit 1)
-and passes after the change. `npm test --prefix tests/ui` passes 19 suites (exit 0).
-`PYTHONPATH=tests .venv/bin/python -m unittest -q test_audio` passes seven real
-HTTP-handler/SQLite/FFmpeg tests (8.255 s, exit 0), including read-only busy/saved
-status and preservation. An initial invocation without the test import path failed
-to import the fixture; correcting PYTHONPATH resolved it. The existing HTTPX
-compatibility warning remains. Independent review of base `7a8b6eb` to fixed code `9dfadea` found no actionable
-defects; the reviewer reused the supplied evidence and did not claim native playback.
-No CI, model/API inference, native browser or target-PC acceptance is claimed.
+Each slice received independent review with no remaining actionable findings.
+Preparation and restore are already published at `a414848` and `fc85a51` respectively;
+this final documentation checkpoint publishes the reviewed matching code too.
+[Preparation behavior](compatible-renditions.md), [restore behavior](../README.md#보관과-복구)
+and [matching rules/limits](recommendations.md) describe the user-facing contracts.
+Restoration never overwrites an occupied target or links the user's source, and
+success does not automatically start playback, conversion or jobs. Matching adds
+no model, metadata request, stored index, schema change or caption/history learning.
 
-Stage 1 is published at `a414848` (fixed code `9dfadea`, independent review clear).
+Validation on Linux CPU / Python 3.12.14 / Node 24.19.0 (all final runs exit 0):
 
-Stage 2 adds an exact missing-original restore endpoint and separate library-card
-picker/action. Eligibility distinguishes a missing original from a missing rendition.
-The server checks stored size/SHA-256, rehashes the persisted stage, and atomically
-links only that owned copy into an absent target. Existing targets/symlinks are
-rejected; there are no DB/schema writes or original-source links. Lost receipts use
-explicit read-only busy/status confirmation. Success does not start playback,
-conversion or jobs. [User behavior](../README.md#보관과-복구).
+- `npm test --prefix tests/ui`: 20 DOM suites after the shared frontend changes.
+  Stage 3 changes no frontend code; recommendation/title DOM checks also passed.
+- `PYTHONPATH=tests .venv/bin/python -m unittest -q test_audio`: 7 tests, 8.255 s.
+- Same unittest command with `test_restore test_app test_import_recovery test_renditions`:
+  47 tests, 20.607 s, including nine restore cases and actual loopback lost-receipt/
+  server-restart checks, unchanged full SQLite dumps and exact source/caption/Range bytes.
+- With `test_recommendations test_titles`: 18 tests, 7.501 s after review corrections.
+- With `test_item_entry test_companion_identity test_companion_subtitles test_codespaces`:
+  25 compatibility tests, 8.337 s, covering the expanded item response.
+- Harness/document links and diff checks pass. The existing HTTPX compatibility
+  warning remains; dependencies were not changed.
 
-`PYTHONPATH=tests .venv/bin/python -m unittest -q test_restore test_app test_import_recovery test_renditions`
-passes 47 tests in 20.607 s (exit 0). Nine restore cases include unchanged full SQLite
-dumps, caption/source/Range bytes, wrong copies, occupied/concurrent targets,
-symlinks, disk/cleanup failure, process exit and actual loopback lost-receipt/restart.
-An initial fixture incorrectly supplied text instead of caption bytes; fixed without
-changing product behavior. `npm test --prefix tests/ui` passes 20 suites (exit 0),
-including picker cancellation and no automatic preparation after restore. Harness
-and diff checks pass. Independent review of `a414848` → fixed code `3dc9a5e` found no actionable
-storage/API/UI defects. Additional Linux checks independently covered chunked
-short/oversize/exact uploads, unchanged DB dumps, cache recovery and exact Range
-bytes. No Windows/native-browser, power-loss or hostile same-user path-swap claim.
+The preparation regression failed on the base app (duplicate command). Recommendation
+review reproduced Japanese order-dependent alias credit and Korean compound/particle
+reuse; each failing regression is retained in its correction history. The final
+review independently passed 11 count controls and 168 permutations across all seven
+supported particle endings, including independent joins. Restore review independently
+checked chunked short/oversize/exact uploads, cache recovery and byte preservation.
+Initial test import-path/caption-byte fixture corrections remain in the earlier
+checkpoints and logs; they were not product failures.
 
-Stage 2 is published at `fc85a51` (fixed code `3dc9a5e`, independent review clear).
-
-Stage 3 extends title matching with bounded Korean particle/spacing aliases and
-whole Japanese Kanji/Katakana runs. Overlapping aliases cannot inflate candidate
-credit; the original word-count denominator, feedback weights, exclusion rules,
-discovery slot and result limit remain. No model, metadata request, schema change
-or recommendation learning from captions/history is added. See [matching rules and
-limits](recommendations.md) and the authored 18-pair fixture.
-
-The two-direction fixture improves positive literal matches from 2/16 to 16/16,
-while rejecting the same 20/20 negative directions. This is authored rule coverage,
-not held-out recommendation quality. `PYTHONPATH=tests .venv/bin/python -m unittest -q test_recommendations test_titles`
-passes 18 tests (exit 0) after the review corrections. Recommendation/title DOM suites pass; the prior
-20-suite UI evidence remains valid because stage 3 changes no frontend code.
-Independent review at `edd4b2e` reproduced order-dependent Japanese alias credit
-and repeated Korean compound credit. The new regression failed before the fix;
-alias groups now merge before scoring and repeated compounds add no extra credit.
-The authored matrix still passes, as do 24 redundant-title order permutations.
-Re-review also found that spacing joins could count both a word and its particle
-alias. Joins now consume the merged constituent groups; a combined spacing/particle
-regression fails before and passes after this correction. Final re-review follows.
-
-The additional `test_item_entry test_companion_identity test_companion_subtitles test_codespaces`
-compatibility run passed 25 tests in 8.337 s (exit 0), checking the expanded item
-response against companion/entry/demo contracts. No CI or native browser was run.
+The authored 18-pair title fixture, checked both directions, improves positive literal
+matches from 2/16 to 16/16 while rejecting the same 20/20 negative directions. This
+measures rule coverage, not held-out or human recommendation quality. No CI, private
+media, model/API inference, native browser or Windows/RTX acceptance was performed.
+No power-loss durability, hostile same-user path-swap isolation or durable late-request
+ordering guarantee is added. Target-PC installation/playback and human viewing quality
+remain the next acceptance work requiring that environment.
 
 ## Pending worker resume fix
 
