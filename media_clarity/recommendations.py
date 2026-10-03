@@ -67,7 +67,7 @@ def match_count(features, signals):
                 separate.append((prior_words, prior_aliases))
         clusters = separate + [(words, aliases)]
     matched = {i for i, (_, aliases) in enumerate(clusters) if aliases & signals}
-    used_words = set().union(*(clusters[i][0] for i in matched))
+    used_clusters = set(matched)
     used_aliases = set().union(*(clusters[i][1] for i in matched))
 
     # A compound already present alongside its constituents is redundant when
@@ -89,9 +89,10 @@ def match_count(features, signals):
                         redundant.add(compound)
     count = len(matched - redundant)
     for joined, words in joins:
-        if not used_words & words and joined & signals and not joined & used_aliases:
+        constituents = {owner[word] for word in words}
+        if not used_clusters & constituents and joined & signals and not joined & used_aliases:
             count += 1
-            used_words.update(words)
+            used_clusters.update(constituents)
             used_aliases.update(joined)
     return count
 

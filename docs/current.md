@@ -66,13 +66,15 @@ limits](recommendations.md) and the authored 18-pair fixture.
 The two-direction fixture improves positive literal matches from 2/16 to 16/16,
 while rejecting the same 20/20 negative directions. This is authored rule coverage,
 not held-out recommendation quality. `PYTHONPATH=tests .venv/bin/python -m unittest -q test_recommendations test_titles`
-passes 17 tests in 7.104 s (exit 0) after the review correction. Recommendation/title DOM suites pass; the prior
+passes 18 tests (exit 0) after the review corrections. Recommendation/title DOM suites pass; the prior
 20-suite UI evidence remains valid because stage 3 changes no frontend code.
 Independent review at `edd4b2e` reproduced order-dependent Japanese alias credit
 and repeated Korean compound credit. The new regression failed before the fix;
 alias groups now merge before scoring and repeated compounds add no extra credit.
 The authored matrix still passes, as do 24 redundant-title order permutations.
-Fixed-code re-review follows before publication.
+Re-review also found that spacing joins could count both a word and its particle
+alias. Joins now consume the merged constituent groups; a combined spacing/particle
+regression fails before and passes after this correction. Final re-review follows.
 
 The additional `test_item_entry test_companion_identity test_companion_subtitles test_codespaces`
 compatibility run passed 25 tests in 8.337 s (exit 0), checking the expanded item

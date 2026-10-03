@@ -50,6 +50,19 @@ class TitleMatchingTests(unittest.TestCase):
             for order in itertools.permutations(redundant.split()):
                 self.assertEqual(match_count(title_features(' '.join(order)),signals),expected)
 
+    def test_joined_matches_consume_the_same_particle_alias_cluster_once(self):
+        import itertools
+        import math
+        signals=feature_terms(title_features('우주여행 여행관광'))
+        plain=title_features('우주 여행 관광')
+        repeated=title_features('우주 여행 여행을 관광')
+        self.assertEqual(match_count(plain,signals),1)
+        self.assertEqual(match_count(repeated,signals),1)
+        self.assertLessEqual(match_count(repeated,signals)/math.sqrt(len(repeated[0])),
+                             match_count(plain,signals)/math.sqrt(len(plain[0])))
+        for order in itertools.permutations(['우주','여행','여행을','관광']):
+            self.assertLessEqual(match_count(title_features(' '.join(order)),signals),1)
+
 
 class RecommendationTests(unittest.TestCase):
     @classmethod
