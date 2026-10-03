@@ -7,57 +7,62 @@ PR70 CI36555975026 passed Windows/Ubuntu product checks. Its merged tree
 Git/PR state is authoritative. Reviewed, passing-CI development-merge approvals
 persist; release and subjective quality acceptance remain separate.
 
-## Completed cloud slices · October 3
+## Current cloud checkpoint · October 3
 
-Owner authorized three sequential slices on `codex/subtitle-recovery-2026-10-02`
-from checkpoint `7a8b6eb`, without CI. PR71/72 integration and reviewed native-caption
-recovery remain preserved. This development branch is separate from main/release.
+Owner continued the next cloud slice on `codex/subtitle-recovery-2026-10-02`,
+without CI. Scene-response recovery builds on `20bee0d`; reviewed code is `f988d83`.
+Main/release and the stopped Work browser route remain unchanged.
+
+Scene status reads now have a ten-second complete-response limit; searches have
+150 seconds, allowing the existing 120-second server worker budget. A timeout
+keeps the query and releases the search controls for an explicit retry. It cannot
+replay a query, start preparation or cancel the server worker by guarantee.
+Pending queries are invalidated by edits, either panel closing, or leaving the
+video. A closed panel keeps its in-flight guard until settlement/deadline; old
+responses cannot replace subsequent results or seek playback. Actual panel-open
+states are checked too, covering responses that arrive before queued close events.
+[Scene behavior and limits](scene-search.md#persistence-and-failures) records recovery.
+
+Validation on Linux CPU / Python 3.12.14 / Node 24.19.0 (final runs exit 0):
+
+- `npm test --prefix tests/ui`: all 21 DOM suites passed at `ff7d5ce`.
+- After the review correction at `f988d83`, `node tests/ui/scene-recovery.cjs`,
+  `node tests/ui/scenes.cjs` and `node tests/ui/preparation.cjs` all passed.
+  Controlled tests cover stalled headers/bodies, explicit retry, query preservation,
+  no automatic POST, late results, both close-event orderings and player isolation.
+- `PYTHONPATH=tests .venv/bin/python -m unittest -q test_scenes`: eight tests,
+  7.411 s; HTTP query privacy, persistence/lease and real-child cleanup coverage.
+  Backend code is unchanged. The existing HTTPX deprecation warning remains.
+- The new regression fails on `20bee0d` for a missing status deadline. Independent
+  review of `ff7d5ce` found a parent-close race: one old candidate remained and
+  could seek. Its retained regression fails before the correction; the independent
+  reproduction passes at `f988d83` with zero candidates and unchanged position.
+
+Independent review of the corrected snapshot found no remaining actionable findings.
+DOM checks mock HTTP/media; they do not establish native browser playback. No CI,
+model weights/inference, private media, Windows/RTX or human retrieval-quality check
+ran. Target-PC installation/playback and human viewing quality still require that
+environment. This is a development checkpoint, not main/release acceptance.
+
+## Previous cloud checkpoint · October 3
+
+The three authorized slices are preserved at `20bee0d`, along with PR71/72 integration
+and native-caption recovery:
 
 | Slice | Reviewed code | Result |
 | --- | --- | --- |
-| Preparation/audio recovery | `9dfadea` | 150-second complete-response bound, pending/uncertain command guards across reopen, explicit ten-second busy/saved status reads, preserved current playback and same-player audio confirmation. |
-| Missing-original restore | `3dc9a5e` | Separate card picker, stored size/SHA-256 and persisted-stage verification, atomic absent-target publication, unchanged DB/history/captions, explicit lost-receipt status checks. |
-| Korean/Japanese title matching | `f3155e6` | Limited particle/spacing aliases and whole script runs, merged-group deduplication, unchanged opt-in/feedback weights/word-count denominator/discovery/limit. |
+| Preparation/audio recovery | `9dfadea` | Bounded complete responses, pending/uncertain guards, explicit read-only busy/saved checks. |
+| Missing-original restore | `3dc9a5e` | Exact stored size/hash, persisted-stage verification, atomic absent-target publication, preserved original/DB/history/captions. |
+| Korean/Japanese title matching | `f3155e6` | Conservative particle/spacing/script aliases and deduplication; existing opt-in/feedback/discovery rules retained. |
 
-Each slice received independent review with no remaining actionable findings.
-Preparation and restore are already published at `a414848` and `fc85a51` respectively;
-this final documentation checkpoint publishes the reviewed matching code too.
-[Preparation behavior](compatible-renditions.md), [restore behavior](../README.md#보관과-복구)
-and [matching rules/limits](recommendations.md) describe the user-facing contracts.
-Restoration never overwrites an occupied target or links the user's source, and
-success does not automatically start playback, conversion or jobs. Matching adds
-no model, metadata request, stored index, schema change or caption/history learning.
-
-Validation on Linux CPU / Python 3.12.14 / Node 24.19.0 (all final runs exit 0):
-
-- `npm test --prefix tests/ui`: 20 DOM suites after the shared frontend changes.
-  Stage 3 changes no frontend code; recommendation/title DOM checks also passed.
-- `PYTHONPATH=tests .venv/bin/python -m unittest -q test_audio`: 7 tests, 8.255 s.
-- Same unittest command with `test_restore test_app test_import_recovery test_renditions`:
-  47 tests, 20.607 s, including nine restore cases and actual loopback lost-receipt/
-  server-restart checks, unchanged full SQLite dumps and exact source/caption/Range bytes.
-- With `test_recommendations test_titles`: 18 tests, 7.501 s after review corrections.
-- With `test_item_entry test_companion_identity test_companion_subtitles test_codespaces`:
-  25 compatibility tests, 8.337 s, covering the expanded item response.
-- Harness/document links and diff checks pass. The existing HTTPX compatibility
-  warning remains; dependencies were not changed.
-
-The preparation regression failed on the base app (duplicate command). Recommendation
-review reproduced Japanese order-dependent alias credit and Korean compound/particle
-reuse; each failing regression is retained in its correction history. The final
-review independently passed 11 count controls and 168 permutations across all seven
-supported particle endings, including independent joins. Restore review independently
-checked chunked short/oversize/exact uploads, cache recovery and byte preservation.
-Initial test import-path/caption-byte fixture corrections remain in the earlier
-checkpoints and logs; they were not product failures.
-
-The authored 18-pair title fixture, checked both directions, improves positive literal
-matches from 2/16 to 16/16 while rejecting the same 20/20 negative directions. This
-measures rule coverage, not held-out or human recommendation quality. No CI, private
-media, model/API inference, native browser or Windows/RTX acceptance was performed.
-No power-loss durability, hostile same-user path-swap isolation or durable late-request
-ordering guarantee is added. Target-PC installation/playback and human viewing quality
-remain the next acceptance work requiring that environment.
+Each received independent review with no remaining actionable findings. The previous
+[checkpoint evidence](https://github.com/seoji2005/media-server/blob/20bee0da1b7b6780330cdd10e35d70de194b7530/docs/current.md)
+records the 20 DOM suites, 7 audio, 47 restore/app/recovery/rendition, 18 matching/title
+and 25 compatibility tests, failing-before regressions and fixture limitations.
+[Preparation](compatible-renditions.md), [restore](../README.md#보관과-복구) and
+[matching](recommendations.md) retain their contracts. No durable late-request ordering,
+power-loss or hostile same-user path-swap guarantee was added; authored matching
+fixtures do not establish human recommendation quality.
 
 ## Pending worker resume fix
 
