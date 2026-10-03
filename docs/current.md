@@ -7,31 +7,30 @@ PR70 CI36555975026 passed Windows/Ubuntu product checks. Its merged tree
 Git/PR state is authoritative. Reviewed, passing-CI development-merge approvals
 persist; release and subjective quality acceptance remain separate.
 
-## Current slice: subtitle status recovery · October 2
+## Current slice: retain native Off during caption recovery · October 3
 
-The owner requested continuing without CI. Branch
-`codex/subtitle-recovery-2026-10-02` locally integrates the unchanged PR71/72 heads
-at `3c7b14c`; this is not a merge into GitHub main. No CI was dispatched or rerun.
+Continue the owner's instruction to skip CI on
+`codex/subtitle-recovery-2026-10-02`, from published checkpoint `32742fe`.
+This branch preserves PR71/72 through integration `3c7b14c`; GitHub main is separate.
 
-A definitely rejected subtitle command (for example an invalid SRT imported during
-translation) stopped status polling and hid its recovery button. Every rejected
-command now offers the existing explicit status read. Corrected-file/setup retries
-remain available after definite rejection; uncertain requests retain their guard.
-Confirmation sends no processing request and retains the current video/caption.
-Queued jobs now report waiting and saved progress, without claiming active inference.
+A late saved-caption response could turn captions on after a newer native Off.
+Recovery now retains the hidden track, its timing and playback. If saved settings
+differ, the viewer sees that Off is not saved and can explicitly save it once.
+Native On restores the retained caption/timing. Status reads and native track
+notifications do not implicitly save recovered Off; pending/uncertain saves retain
+their existing guards. [Caption behavior](caption-viewing.md) describes the flow.
 
-Linux CPU, Python 3.12.14 / Node 24.19.0: the new `node tests/ui/subtitle-status.cjs`
-regression failed on the pre-fix app (exit 1). `npm test --prefix tests/ui` passed
-all 18 DOM suites on the code/test snapshot reviewed at `02cd995` (exit 0).
-`python -m unittest -q tests.test_job_resume tests.test_subtitles
-tests.test_worker_lifecycle tests.test_model_check` passed 63/64 on integrated
-`3c7b14c` (21.006s, exit 0); the Windows parent-monitor setup check was skipped.
-The backend is unchanged in `02cd995`. Two focused checks also passed (1.492s,
-exit 0): `tests.test_manual_captions.ManualCaptionTests.test_http_import_defaults_validation_and_no_failed_publish`
-and `tests.test_position_recovery.PositionRecoveryTests.test_live_http_restart_restores_exact_bytes_captions_and_revision`,
-using `python -m unittest -q`. Independent review of `3c7b14c..02cd995` found no
-actionable defects. No browser playback, Windows/RTX inference, provider calls or
-quality acceptance is claimed.
+Linux CPU, Python 3.12.14 / Node 24.19.0: `node tests/ui/caption-view.cjs` failed on
+the base app (exit 1), then passed after the fix, including added late-Off/On,
+lost-save and player-switch cases (exit 0). `npm test --prefix tests/ui` passed all
+18 DOM suites (exit 0). `python -m unittest -q tests.test_caption_view` passed nine
+API/storage/preservation checks in 2.375s (exit 0). No backend/schema change, CI,
+provider request, native browser playback or Windows/RTX acceptance is claimed.
+Independent review belongs to the final fixed-code checkpoint.
+
+Previous checkpoint `32742fe` restored explicit status recovery after rejected
+subtitle commands and truthful queued progress. Its local validation and independent
+review at `02cd995` remain valid; no processing retry was introduced.
 
 ## Pending worker resume fix
 

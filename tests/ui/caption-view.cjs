@@ -5,7 +5,7 @@ const w=dom.window,d=w.document,video=d.getElementById('video'),dialog=d.getElem
 const items=['a','b'].map(id=>({id,title:id,duration:20,position:0,width:320,height:180,available:true,audio_index:0,thumbnail:false}));
 const views=new Map(),writes=[],native=new WeakMap();
 let pending=null,delay=false,loseResponse=false;
-let importDelay=null,importPending=null;
+let importDelay=null,importPending=null,readFailure=false;
 const tracks=[{id:'first',source:'generated',language:'ko',has_transcript:true,audio_index:0},{id:'second',source:'supplied',language:'ko',audio_index:1}];
 w.setTimeout=()=>1;w.clearTimeout=()=>{};
 w.fetch=async(url,options={})=>{
@@ -26,6 +26,7 @@ w.fetch=async(url,options={})=>{
   }else{
    value={tracks,jobs:[],view:views.get(id+':'+(uri.searchParams.get('audio_index')||0))||{selection:null,offset_ms:0,revision:0}};
    if(importDelay==='read'){importDelay=null;await new Promise(resolve=>importPending=resolve);}
+   if(readFailure)return {ok:false,json:async()=>({error:'storage_unavailable'})};
   }
  }
  else if(uri.pathname.endsWith('/preference'))value={included:false,preference:'neutral',revision:0};
@@ -96,6 +97,79 @@ async function nativeMode(mode){video.querySelector('track').track.mode=mode;vid
   assert.equal(select.value,chosen);assert.equal(video.querySelector('track').src,src);
   assert.equal(JSON.stringify([...views]),saved);
  }
- console.log('PASS caption viewing DOM: audio-specific choice/offset, native Off/On, stale write isolation, reopen waits, lost response/conflict recovery, missing track, automatic reset (mocked HTTP/media).');
+ // A native Off selected while recovering an uncertain save is newer than
+ // the saved snapshot. A read must preserve it without issuing another PUT.
+ for(const moment of ['before-read','during-read']){
+  items[0].audio_index=0;await reopen();await choose('first');
+  loseResponse=true;d.getElementById('caption-later').click();await settle();
+  const retained=video.querySelector('track'),src=retained.src,position=video.currentTime,count=writes.length;
+  if(moment==='before-read')await nativeMode('disabled');
+  else views.set('a:0',{selection:'second',offset_ms:0,revision:views.get('a:0').revision+1});
+  importDelay='read';importPending=null;d.getElementById('caption-view-retry').click();await settle();assert(importPending);
+  if(moment==='during-read')await nativeMode('disabled');
+  importPending();await settle();await settle();
+  assert.equal(video.querySelector('track').track.mode,'disabled',moment+' recovery must preserve native Off');
+  assert.equal(video.querySelector('track'),retained,'retain the old track for an explicit native On');
+  assert.equal(retained.src,src);assert.equal(video.currentTime,position);assert.equal(select.value,'');
+  assert.equal(writes.length,count,'saved-state recovery must not replay a write');
+  const keepOff=d.getElementById('caption-save-off');
+  assert(!keepOff.hidden);assert(!keepOff.disabled);assert.match(state.textContent,/현재 자막은 꺼져/);
+  assert.match(d.getElementById('caption-offset-brief').textContent,/미저장/);
+  assert(d.getElementById('caption-later').disabled);
+  video.textTracks.dispatchEvent(new w.Event('change'));await settle();
+  await w.qa.refreshSubtitles(w.qa.owner());await settle();
+  assert.equal(writes.length,count,'later native events and status reads cannot implicitly save recovered Off');
+  assert.equal(video.querySelector('track'),retained);assert.equal(retained.track.mode,'disabled');
+  if(moment==='before-read'){
+   keepOff.focus();keepOff.click();keepOff.click();await settle();await settle();
+   assert.equal(writes.length,count+1,'explicitly save Off exactly once');
+   assert.equal(views.get('a:0').selection,'');assert.equal(views.get('a:0').offset_ms,0);assert(keepOff.hidden);
+   assert.equal(d.activeElement,select,'focus returns to the selector when the save action disappears');
+   await reopen();assert.equal(video.querySelector('track'),null,'saved Off survives reopen');
+  }else{
+   await nativeMode('showing');await settle();
+   assert.equal(writes.length,count+1);assert.equal(views.get('a:0').selection,'first');
+   assert.equal(views.get('a:0').offset_ms,500,'native On restores the retained caption timing');
+   assert(keepOff.hidden);
+  }
+ }
+ // A failed confirmation retains Off, and an older player's confirmation
+ // cannot carry its local Off into another video.
+ for(const next of ['recover','switch']){
+  items[0].audio_index=0;await reopen();await choose('first');
+  loseResponse=true;d.getElementById('caption-later').click();await settle();
+  importDelay='read';importPending=null;d.getElementById('caption-view-retry').click();await settle();
+  await nativeMode('disabled');const count=writes.length;
+  if(next==='switch')await reopen('b');else readFailure=true;
+  importPending();await settle();await settle();readFailure=false;
+  if(next==='recover'){
+   assert.equal(video.querySelector('track').track.mode,'disabled');
+   assert(!d.getElementById('caption-view-retry').hidden);
+   d.getElementById('caption-view-retry').click();await settle();await settle();
+   assert.equal(video.querySelector('track').track.mode,'disabled');assert(!d.getElementById('caption-save-off').hidden);
+  }else{
+   assert.equal(d.getElementById('player-title').textContent,'b');
+   assert.equal(video.querySelector('track').track.mode,'showing');assert(d.getElementById('caption-save-off').hidden);
+  }
+  assert.equal(writes.length,count);
+ }
+ items[0].audio_index=0;await reopen();await choose('first');
+ loseResponse=true;d.getElementById('caption-later').click();await settle();
+ importDelay='read';d.getElementById('caption-view-retry').click();await settle();
+ await nativeMode('disabled');await nativeMode('showing');const shownWrites=writes.length;
+ importPending();await settle();await settle();
+ assert.equal(video.querySelector('track').track.mode,'showing','the latest native On wins before confirmation');
+ assert(d.getElementById('caption-save-off').hidden);assert.equal(writes.length,shownWrites);
+ loseResponse=true;d.getElementById('caption-later').click();await settle();await nativeMode('disabled');
+ d.getElementById('caption-view-retry').click();await settle();await settle();
+ assert(!d.getElementById('caption-save-off').hidden);
+ const offWrites=writes.length;loseResponse=true;d.getElementById('caption-save-off').click();await settle();
+ assert(!d.getElementById('caption-view-retry').hidden);
+ assert.equal(video.querySelector('track').track.mode,'disabled');
+ d.getElementById('caption-view-retry').click();await settle();await settle();
+ assert.equal(writes.length,offWrites+1,'a lost Off-save response is confirmed without replay');
+ assert.equal(views.get('a:0').selection,'');assert(d.getElementById('caption-save-off').hidden);
+ assert.equal(video.querySelector('track').track.mode,'disabled');
+ console.log('PASS caption viewing DOM: audio-specific choice/offset, native Off/On, late saved-state recovery, explicit Off save, stale write isolation, reopen waits, lost response/conflict recovery, missing track, automatic reset (mocked HTTP/media).');
  dom.window.close();
 })().catch(e=>{console.error(e);process.exitCode=1;dom.window.close();});

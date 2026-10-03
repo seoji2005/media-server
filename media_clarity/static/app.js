@@ -793,6 +793,7 @@ function latestKoreanSubtitle(){
 }
 function renderCaptionView(){
   const offset=captionView?.offset_ms||0,disabled=!captionView||captionSaving||!!captionSaveError;
+  const unsavedOff=captionNativeHidden&&captionView&&captionView.selection!=="";
   $("subtitle-select").disabled=disabled;
   const ready=latestKoreanSubtitle();
   $("subtitle-ready").hidden=!ready||(subtitleLoaded===ready.id&&!captionNativeHidden&&captionView?.selection!=="");
@@ -801,9 +802,10 @@ function renderCaptionView(){
   $("caption-later").disabled=disabled||!subtitleLoaded||captionNativeHidden||offset>=10000;
   $("caption-reset").disabled=disabled||!subtitleLoaded||captionNativeHidden||!offset;
   $("caption-auto").disabled=disabled;
-  $("caption-offset-brief").textContent=offset?`${Math.abs(offset/1000).toFixed(1)}초 ${offset<0?"앞당김":"늦춤"}`:"원래 시간";
-  $("caption-view-state").textContent=captionSaving?"자막 설정 저장 중…":captionSaveError?captionSaveError+" 현재 감상에는 적용했지만 저장 여부를 확인하지 못했습니다.":!captionView?"자막 설정을 확인하고 있어요.":captionView.selection===null?"다시 열면 최신 자막을 자동으로 선택합니다.":`오디오 ${(activeItem?.audio_index||0)+1}의 자막 설정을 이 기기에 저장했습니다. 다른 자막을 선택하면 원래 시간으로 시작합니다.`;
+  $("caption-offset-brief").textContent=unsavedOff?"자막 끄기 미저장":offset?`${Math.abs(offset/1000).toFixed(1)}초 ${offset<0?"앞당김":"늦춤"}`:"원래 시간";
+  $("caption-view-state").textContent=captionSaving?"자막 설정 저장 중…":captionSaveError?captionSaveError+" 현재 감상에는 적용했지만 저장 여부를 확인하지 못했습니다.":!captionView?"자막 설정을 확인하고 있어요.":unsavedOff?"현재 자막은 꺼져 있지만 저장된 설정은 다릅니다. ‘자막 끄기 저장’을 누르면 다시 열 때도 꺼집니다.":captionView.selection===null?"다시 열면 최신 자막을 자동으로 선택합니다.":`오디오 ${(activeItem?.audio_index||0)+1}의 자막 설정을 이 기기에 저장했습니다. 다른 자막을 선택하면 원래 시간으로 시작합니다.`;
   $("caption-view-retry").hidden=!captionSaveError;
+  $("caption-save-off").hidden=!unsavedOff;$("caption-save-off").disabled=disabled;
   renderSubtitleRecovery();
 }
 async function saveCaptionView(selection,offset_ms=0,keepNative=false){
@@ -832,6 +834,12 @@ for(const [id,delta] of [["caption-earlier",-500],["caption-later",500],["captio
   if(subtitleLoaded&&captionView)saveCaptionView(subtitleLoaded,delta?Math.min(10000,Math.max(-10000,captionView.offset_ms+delta)):0);
 });
 $("caption-auto").addEventListener("click",()=>saveCaptionView(null));
+$("caption-save-off").addEventListener("click",async()=>{
+  const button=$("caption-save-off"),owner=activeItem,hadFocus=document.activeElement===button;
+  if(button.hidden||button.disabled)return;
+  await saveCaptionView("",0,true);
+  if(activeItem===owner&&hadFocus&&button.hidden&&!$("subtitle-select").disabled)$("subtitle-select").focus();
+});
 $("subtitle-ready").addEventListener("click",()=>{
   const track=latestKoreanSubtitle();
   if(track&&!$("subtitle-ready").hidden&&!$("subtitle-ready").disabled)saveCaptionView(track.id);
@@ -909,7 +917,7 @@ function loadSubtitle(id,force=false){
   if(!chosen||(transcript&&!chosen.has_transcript))return;
   const query=new URLSearchParams();if(transcript)query.set("transcript","true");if(captionView?.offset_ms)query.set("offset_ms",String(captionView.offset_ms));
   const track=document.createElement("track");track.kind="subtitles";track.srclang=transcript?"und":chosen.language||"ko";track.label=transcript?"원문 자막":chosen.language&&chosen.language!=="ko"?chosen.language:"한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${chosen.id}.vtt${query.size?"?"+query:""}`;
-  track.dataset.offsetMs=String(captionView?.offset_ms||0);
+  track.dataset.offsetMs=String(captionView?.offset_ms||0);track.dataset.selection=id;
   track.addEventListener("load",()=>{
     if(activeItem!==owner||subtitleLoaded!==id||track.parentNode!==video)return;
     subtitleSearch={owner, id, track:track.track, state:"ready", cues:null};
@@ -939,6 +947,11 @@ async function refreshSubtitles(owner,{confirm=false}={}){
     const importRecovery=confirm&&command?.kind==="import"&&!command.pending;
     if(!command?.pending&&(confirm||(command&&!command.uncertain)))subtitleCommands.delete(owner.id);
     if(!monitor.stopped)monitor.error="";
+    // Native controls remain usable while a setting save/read is uncertain.
+    // Retain Off and its loaded track; reading saved settings cannot turn it on
+    // or replay a write. A separate explicit action can save the confirmed Off.
+    const retainedTrack=video.querySelector("track");
+    const keepNativeOff=(!captionView||captionNativeHidden)&&retainedTrack?.dataset.selection&&retainedTrack.track?.mode==="disabled";
     if(!captionView){captionView=data.view||{selection:null,offset_ms:0,revision:0};captionSaveError="";}
     subtitleTracks=data.tracks;geminiConfigured=!!data.gemini_configured;
     const select=$("subtitle-select"),was=select.value;
@@ -953,8 +966,10 @@ async function refreshSubtitles(owner,{confirm=false}={}){
     // A first imported caption must not appear merely because its receipt was
     // lost. Keep this page empty after recovery; reopening still uses Auto.
     if(keepEmpty&&importRecovery)subtitleLoaded="";
-    const chosen=keepEmpty?"":captionView.selection!==null?captionView.selection:subtitleLoaded===null?(matching[0]?.id||""):was;
+    if(keepNativeOff){subtitleLoaded=retainedTrack.dataset.selection;captionNativeHidden=true;}
+    const chosen=keepEmpty||keepNativeOff?"":captionView.selection!==null?captionView.selection:subtitleLoaded===null?(matching[0]?.id||""):was;
     select.value=[...select.options].some(o=>o.value===chosen)?chosen:"";if(!(captionNativeHidden&&chosen==="")&&(chosen||subtitleLoaded!==null||captionView.selection!==null))loadSubtitle(select.value);
+    if(keepNativeOff)renderSubtitleNotes();
     renderCaptionView();
     if(chosen&&select.value!==chosen)$("caption-view-state").textContent="저장한 자막을 찾을 수 없습니다. 사용할 자막을 직접 선택해 주세요.";
     subtitleJob=data.jobs.find(j=>["queued","running","paused"].includes(j.state))||data.jobs.find(j=>(j.audio_index||0)===(owner.audio_index||0))||null;
@@ -1097,7 +1112,7 @@ $("subtitle-query").addEventListener("input",()=>{
 function syncNativeCaptionView(){
   const element=video.querySelector("track");
   if(!element?.track||!subtitleLoaded||!captionView||captionSaving||captionSaveError)return;
-  if(element.track.mode==="disabled"&&captionView.selection!==""){
+  if(element.track.mode==="disabled"&&captionView.selection!==""&&!captionNativeHidden){
     captionNativeHidden=true;saveCaptionView("",0,true);
   }else if(element.track.mode==="showing"&&captionNativeHidden){
     captionNativeHidden=false;saveCaptionView(subtitleLoaded,Number(element.dataset.offsetMs)||0,true);
