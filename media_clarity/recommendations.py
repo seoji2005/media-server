@@ -10,11 +10,63 @@ from .storage import MediaError
 PREFERENCES = {'neutral', 'like', 'dislike', 'less'}
 STOP_WORDS = {'the', 'and', 'for', 'with', 'from', 'this', 'that', 'video', 'mp4', 'webm',
               '영상', '동영상', 'episode', '시즌', '에피소드'}
+PARTICLE_ENDINGS = ('에서', '에게', '으로', '은', '는', '을', '를')
+CJK_RUNS = re.compile('[\u3400-\u4dbf\u4e00-\u9fff々]{2,}|[ァ-ヺー]{2,}')
 
 
 def title_terms(title):
     return {word for word in re.findall(r'[^\W_]+', unicodedata.normalize('NFKC', title).casefold())
             if len(word) > 1 and not word.isdigit() and word not in STOP_WORDS}
+
+
+def term_aliases(word):
+    values = {word}
+    if re.fullmatch('[가-힣]+', word):
+        for ending in PARTICLE_ENDINGS:
+            if word.endswith(ending) and len(word) - len(ending) >= 2:
+                values.add(word[:-len(ending)])
+                break
+    # Whole script runs only. 京都 must not match an interior of 東京都.
+    values.update(CJK_RUNS.findall(word))
+    return values - STOP_WORDS
+
+
+def title_features(title):
+    normal = unicodedata.normalize('NFKC', title).casefold()
+    terms = title_terms(normal)
+    groups = {word: term_aliases(word) for word in terms}
+    words = list(re.finditer(r'[^\W_]+', normal))
+    joins = []
+    for left, right in zip(words, words[1:]):
+        a, b = left.group(), right.group()
+        if (a != b and a in terms and b in terms
+                and normal[left.end():right.start()].isspace()
+                and re.fullmatch('[가-힣]{2,}', a) and re.fullmatch('[가-힣]{2,}', b)):
+            joins.append(({x + y for x in groups[a] for y in groups[b]}, {a, b}))
+    return groups, joins
+
+
+def feature_terms(features):
+    groups, joins = features
+    return set().union(*groups.values(), *(joined for joined, _ in joins))
+
+
+def match_count(features, signals):
+    groups, joins = features
+    used_words, used_aliases = set(), set()
+    count = 0
+    for word, values in sorted(groups.items()):
+        if values & signals:
+            used_words.add(word)
+            if not values & used_aliases:
+                count += 1
+            used_aliases.update(values)
+    for joined, words in joins:
+        if not used_words & words and joined & signals and not joined & used_aliases:
+            count += 1
+            used_words.update(words)
+            used_aliases.update(joined)
+    return count
 
 
 class Recommendations:
@@ -57,15 +109,17 @@ class Recommendations:
         signals = {key: set() for key in ('like', 'dislike', 'less')}
         for row in rows:
             if row['preference'] in signals:
-                signals[row['preference']].update(title_terms(row['title']))
+                signals[row['preference']].update(feature_terms(title_features(row['title'])))
         ranked = []
         for row in rows:
             if row['preference'] != 'neutral':
                 continue  # Rated items supply feedback; propose other included items.
-            terms = title_terms(row['title'])
-            positive = len(terms & signals['like'])
-            negative = len(terms & signals['dislike']) + .5 * len(terms & signals['less'])
-            score = (positive - negative) / math.sqrt(max(1, len(terms)))
+            features = title_features(row['title'])
+            positive = match_count(features, signals['like'])
+            negative = match_count(features, signals['dislike']) + .5 * match_count(features, signals['less'])
+            # Aliases add no denominator terms or duplicate credit. Keep the
+            # existing original-word normalization and feedback weights.
+            score = (positive - negative) / math.sqrt(max(1, len(features[0])))
             reason = 'liked_title' if score > 0 else 'lower_priority' if negative else 'explore'
             ranked.append({'id': row['id'], 'score': score, 'reason': reason,
                            'explore': not positive and not negative})

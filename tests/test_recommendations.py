@@ -12,7 +12,25 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from media_clarity.app import create_app
-from media_clarity.recommendations import title_terms
+from media_clarity.recommendations import title_terms, title_features, feature_terms, match_count
+
+
+class TitleMatchingTests(unittest.TestCase):
+    def test_authored_positive_and_incidental_overlap_controls(self):
+        cases=json.loads((Path(__file__).parent/'fixtures'/'title_matching.json').read_text())['cases']
+        for case in cases:
+            for seed,candidate in [(case['seed'],case['candidate']),(case['candidate'],case['seed'])]:
+                with self.subTest(seed=seed,candidate=candidate):
+                    actual=match_count(title_features(candidate),feature_terms(title_features(seed)))
+                    self.assertEqual(actual>0,case['match'])
+
+    def test_aliases_do_not_multiply_scores_or_change_exact_latin_matches(self):
+        for seed,candidate in [('여행 여행을','여행 여행을'),('우주여행','우주 여행 우주여행'),
+                               ('日本の鉄道','日本の鉄道 鉄道'),('Space space','space')]:
+            self.assertEqual(match_count(title_features(candidate),feature_terms(title_features(seed))),1)
+        self.assertEqual(match_count(title_features('space travel ocean'),feature_terms(title_features('Space TRAVEL'))),2)
+        self.assertEqual(match_count(title_features('동영상으로'),feature_terms(title_features('동영상은'))),0)
+        self.assertEqual(feature_terms(title_features('1 2 THE 영상')),set())
 
 
 class RecommendationTests(unittest.TestCase):
@@ -174,6 +192,26 @@ class RecommendationTests(unittest.TestCase):
         response=self.client.put(f'/api/library/{new}/preference',headers=self.headers,json={**old,'revision':99})
         self.assertEqual(response.status_code,409)
         self.assertEqual(self.client.get(f'/api/library/{new}/preference').json(),{'included':False,'preference':'neutral','revision':0})
+
+    def test_cjk_matching_respects_feedback_exclusion_and_saved_records(self):
+        seed=self.add('日本の鉄道 우주 여행');self.save(seed,'like',False)
+        matching=[self.add('日本と鉄道'),self.add('우주여행을')]
+        unrelated=self.add('가정교사 京都')
+        hidden=self.add('日本と鉄道 PRIVATE_TITLE')
+        for iid in matching+[unrelated]:self.save(iid)
+        baseline=self.suggestions()
+        self.assertTrue(all(row['recommendation_reason']=='explore' for row in baseline['items']))
+        for preference,reason in [('like','liked_title'),('dislike','lower_priority'),('less','lower_priority')]:
+            self.save(seed,preference)
+            with self.store.db() as db:before=list(db.iterdump())
+            result=self.suggestions()['items']
+            self.assertEqual({row['id'] for row in result},set(matching+[unrelated]))
+            self.assertNotIn(hidden,json.dumps(result));self.assertNotIn('PRIVATE_TITLE',json.dumps(result))
+            self.assertTrue(all(row['recommendation_reason']==reason for row in result if row['id'] in matching))
+            self.assertEqual(result[0]['id'] in matching,preference=='like')
+            with self.store.db() as db:self.assertEqual(list(db.iterdump()),before)
+        self.save(seed,'like',False)
+        self.assertEqual(self.suggestions(),baseline,'excluding CJK seeds removes all aliases too')
 
     def test_pre_revision_database_upgrades_without_erasing_exclusion(self):
         iid=self.add('저장한 선호');self.save(iid,'like',False)

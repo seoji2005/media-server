@@ -30,18 +30,40 @@ not cancel a server commit. Other windows retain their snapshot until refreshed.
 
 Only included titles and explicit preferences are read. NFKC/case-normalized title
 words exclude single characters, standalone numbers and a small common-word list.
-Each matching liked word contributes +1; disliked words -1; less-of-this words -0.5.
-Divide their sum by the square root of the candidate's word count. Repeated seed
-words count once per feedback type. Recent import order breaks equal scores.
+Each matching unit contributes +1 for liked, -1 for disliked and -0.5 for
+less-of-this. Divide their sum by the square root of the candidate's original word
+count; aliases do not enlarge that denominator. Repeated seed units count once per
+feedback type, and overlapping candidate aliases cannot multiply the credit.
+Recent import order breaks equal scores.
 Every fourth available place reserves an unrelated candidate when one exists.
 Missing/known-changed managed files are skipped; playback keeps its existing checks.
 
-This is literal title matching. Opaque filenames, Korean word endings, Japanese
-titles without spaces, synonyms and cross-language titles can match poorly. It
-does not establish semantic/content understanding or personalized quality. A liked
+Korean words retain their exact form and can also match after one of
+`에서/에게/으로/은/는/을/를` when at least two Hangul syllables remain. Two adjacent
+Hangul words of at least two syllables each can match their joined form across
+whitespace only: `우주 여행` ↔ `우주여행`. A joined match consumes the pair once;
+it cannot also collect separate alias credit for those same words. Stop words are
+excluded from the aliases too. Japanese mixed-script words can share complete
+Kanji or Katakana runs of at least two characters: `日本の鉄道` ↔ `日本と鉄道`.
+This uses no dictionary, model, arbitrary interior substring or character n-grams;
+`京都` does not match `東京都`, nor `東京大学` match `北京大学` merely for `大学`.
+
+This is still literal title matching. Proper names can resemble Korean particles;
+unsegmented compounds such as `京都旅行`/`京都散歩`, other word endings, opaque
+filenames, synonyms and cross-language titles can remain unmatched. It does not
+establish semantic/content understanding or personalized quality. A liked
 example may share an incidental word with an irrelevant video. Labels describe
 the title-based reason, without exposing a seed title or caption. Human relevance
 and actual browser presentation still need evaluation.
+
+The [authored matching fixture](../tests/fixtures/title_matching.json) fixes 18
+positive/control pairs and checks both directions. Exact-word baseline matched
+2/16 positive directions; this extension matches 16/16, while both reject all 20
+negative directions. These are implementation probes designed for these rules,
+not a held-out quality score. Regression checks additionally cover alias dedup,
+unchanged exact Latin matches, all three feedback signals, excluded CJK seeds and
+candidates, discovery, and unchanged saved records. No recommendation index or
+preference migration is added.
 
 Watch duration, seek/resume history, subtitles, external metadata and cloud models
 are not used for ranking. Unwatched never means disliked. There is no query/history

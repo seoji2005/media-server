@@ -1,0 +1,24 @@
+{
+  "kind": "authored literal title matching probes; not human recommendation quality",
+  "cases": [
+    {"seed":"여행","candidate":"여행을","match":true},
+    {"seed":"도서관","candidate":"도서관에서","match":true},
+    {"seed":"우주 여행","candidate":"우주여행","match":true},
+    {"seed":"우주 여행","candidate":"우주여행을","match":true},
+    {"seed":"日本の鉄道","candidate":"日本と鉄道","match":true},
+    {"seed":"レトロゲームの記録","candidate":"レトロゲーム実況","match":true},
+    {"seed":"ﾚﾄﾛｹﾞｰﾑ","candidate":"レトロゲーム実況","match":true},
+    {"seed":"Space travel","candidate":"SPACE journey","match":true},
+    {"seed":"가정용","candidate":"가정교사","match":false},
+    {"seed":"물리학","candidate":"물리치료","match":false},
+    {"seed":"공원","candidate":"공원로","match":false},
+    {"seed":"양식","candidate":"양식과","match":false},
+    {"seed":"京都","candidate":"東京都","match":false},
+    {"seed":"東京大学","candidate":"北京大学","match":false},
+    {"seed":"猫","candidate":"子猫","match":false},
+    {"seed":"교토","candidate":"京都","match":false},
+    {"seed":"第12話","candidate":"第13話","match":false},
+    {"seed":"우주-여행","candidate":"우주여행","match":false}
+  ],
+  "known_limits": ["Unsegmented compounds 京都旅行 and 京都散歩 remain unmatched", "Proper names can resemble Korean particles", "No synonyms, cross-language meaning or content understanding"]
+}

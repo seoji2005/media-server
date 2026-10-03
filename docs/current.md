@@ -54,7 +54,21 @@ storage/API/UI defects. Additional Linux checks independently covered chunked
 short/oversize/exact uploads, unchanged DB dumps, cache recovery and exact Range
 bytes. No Windows/native-browser, power-loss or hostile same-user path-swap claim.
 
-Next authorized stage: conservative CJK recommendation matching and authored evaluation.
+Stage 2 is published at `fc85a51` (fixed code `3dc9a5e`, independent review clear).
+
+Stage 3 extends title matching with bounded Korean particle/spacing aliases and
+whole Japanese Kanji/Katakana runs. Overlapping aliases cannot inflate candidate
+credit; the original word-count denominator, feedback weights, exclusion rules,
+discovery slot and result limit remain. No model, metadata request, schema change
+or recommendation learning from captions/history is added. See [matching rules and
+limits](recommendations.md) and the authored 18-pair fixture.
+
+The two-direction fixture improves positive literal matches from 2/16 to 16/16,
+while rejecting the same 20/20 negative directions. This is authored rule coverage,
+not held-out recommendation quality. `PYTHONPATH=tests .venv/bin/python -m unittest -q test_recommendations test_titles`
+passes 16 tests in 7.288 s (exit 0). Recommendation/title DOM suites pass; the prior
+20-suite UI evidence remains valid because stage 3 changes no frontend code.
+Fixed-code independent review follows before publication.
 
 ## Pending worker resume fix
 
