@@ -96,6 +96,24 @@ prepare(s,sys.argv[2],1)
         self.assertEqual(self.store.playback_row(item['id'])['file_id'],first['file_id'])
         self.select(item,1)
 
+    def test_preparation_status_reads_busy_or_saved_selection_without_writes(self):
+        item=self.load(self.multi);self.convert(item)
+        self.store.save_position(item['id'],2.25,0)
+        url=f"/api/library/{item['id']}/playback-status"
+        with self.store.db() as db:before=list(db.iterdump())
+        with self.store.import_lock:
+            self.assertEqual(self.client.get(url).json(),{'busy':True})
+        result=self.client.get(url).json()
+        self.assertFalse(result['busy']);self.assertEqual(result['item']['audio_index'],0)
+        with self.store.db() as db:self.assertEqual(list(db.iterdump()),before)
+        self.assertEqual(self.client.get(url,headers={'Origin':'http://other.test'}).status_code,403)
+        self.select(item,1)
+        with self.store.db() as db:saved=list(db.iterdump())
+        result=self.client.get(url).json()
+        self.assertEqual(result['item']['audio_index'],1);self.assertEqual(result['item']['position'],2.25)
+        with self.store.db() as db:self.assertEqual(list(db.iterdump()),saved)
+        self.assertTrue(self.store.import_lock.acquire(blocking=False));self.store.import_lock.release()
+
     def test_alternate_ac3_and_delayed_asr_keep_the_selected_timeline(self):
         source=Path(self.temp.name)/'delayed.mkv'
         ffmpeg('-i',self.source,'-itsoffset','1','-f','lavfi','-i','sine=frequency=880:sample_rate=16000',

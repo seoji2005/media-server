@@ -7,40 +7,31 @@ PR70 CI36555975026 passed Windows/Ubuntu product checks. Its merged tree
 Git/PR state is authoritative. Reviewed, passing-CI development-merge approvals
 persist; release and subjective quality acceptance remain separate.
 
-## Current slice: retain native choices during caption recovery · October 3
+## Current slice: cloud recovery and recommendation improvements · October 3
 
-Continue the owner's instruction to skip CI on
-`codex/subtitle-recovery-2026-10-02`, from published checkpoint `32742fe`.
-This branch preserves PR71/72 through integration `3c7b14c`; GitHub main is separate.
+Owner authorized three sequential slices on `codex/subtitle-recovery-2026-10-02`
+from checkpoint `7a8b6eb`, without CI: preparation/audio response recovery, exact
+missing-original restoration, and conservative Korean/Japanese title matching.
+PR71/72 and reviewed native-caption recovery remain preserved in this branch;
+main, native browser acceptance and target Windows/RTX validation are separate.
 
-A late saved-caption response could turn captions on after a newer native Off.
-Recovery now retains the native choice, loaded track, timing and playback. If saved
-settings differ, the viewer sees the unsaved choice and can explicitly save it once.
-Native On during confirmation also restores the retained caption/timing and keeps
-controls connected. Status reads and repeated native track notifications do not
-implicitly save recovered choices; pending/uncertain saves retain their existing
-guards. [Caption behavior](caption-viewing.md) describes the flow.
+Stage 1 bounds playback/audio response headers and bodies at 150 seconds. Pending
+or ambiguous requests block another command for that item across player reopen.
+Explicit ten-second status reads report a busy preparation lock or the saved item;
+they cannot start conversion. Confirmation keeps current playback unless applying
+the saved audio to the same open player, retaining its position. Known rejections
+remain retryable. See [preparation recovery](compatible-renditions.md).
 
-Linux CPU, Python 3.12.14 / Node 24.19.0: `node tests/ui/caption-view.cjs` failed on
-the base app (exit 1). Independent review found that native On during confirmation
-of a lost Off save could leave the displayed/saved state disconnected at `4a5f638`.
-Its added regression failed before the correction (exit 1), then passed along with
-late-Off/On, lost-save and player-switch cases (exit 0).
-`npm test --prefix tests/ui` passed all 18 DOM suites (exit 0).
-`.venv/bin/python -m unittest -q tests.test_caption_view` passed nine
-API/storage/preservation checks in 2.375s (exit 0). No backend/schema change, CI,
-provider request, native browser playback or Windows/RTX acceptance is claimed.
-Independent re-review of base `32742fe` → fixed code `7546723` found the reported
-defect resolved and no further actionable defects. Its separate reproduction kept
-native On/+500 ms and a coherent unsaved display with zero confirmation writes;
-subsequent explicit Off/On saved normally. The focused DOM suite and diff check
-passed again; broader unchanged evidence was reused. This documentation checkpoint
-adds no product change. Publication updates only the development branch, without
-a PR, CI dispatch or main merge.
+Linux CPU: the new DOM regression fails on the base app (duplicate command, exit 1)
+and passes after the change. `npm test --prefix tests/ui` passes 19 suites (exit 0).
+`PYTHONPATH=tests .venv/bin/python -m unittest -q test_audio` passes seven real
+HTTP-handler/SQLite/FFmpeg tests (8.255 s, exit 0), including read-only busy/saved
+status and preservation. An initial invocation without the test import path failed
+to import the fixture; correcting PYTHONPATH resolved it. The existing HTTPX
+compatibility warning remains. Fixed-code independent review follows this checkpoint.
+No CI, model/API inference, native browser or target-PC acceptance is claimed.
 
-Previous checkpoint `32742fe` restored explicit status recovery after rejected
-subtitle commands and truthful queued progress. Its local validation and independent
-review at `02cd995` remain valid; no processing retry was introduced.
+Next authorized stages: missing-original restore and CJK recommendation matching.
 
 ## Pending worker resume fix
 

@@ -67,6 +67,10 @@
           <p id="item-entry-message"></p>
           <button class="button button-secondary" id="item-entry-prepare" type="button" hidden>재생용 사본 준비</button>
         </section>
+        <section class="notice" id="playback-recovery" hidden>
+          <p role="status">재생·오디오 준비 결과를 확인해 주세요. 상태 확인은 준비 요청을 다시 보내지 않습니다.</p>
+          <div class="subtitle-actions" id="playback-recovery-items"></div>
+        </section>
         <section class="upload-status" id="upload-status" aria-live="polite" hidden>
           <div class="upload-icon"><svg><use href="#i-upload"/></svg></div>
           <div class="upload-body"><div class="upload-heading"><strong id="upload-title">영상을 가져오고 있어요</strong><span id="upload-percent"></span></div><p id="upload-detail"></p><progress id="upload-progress" max="100" value="0"></progress></div>
@@ -113,6 +117,7 @@
       <div class="option-content">
         <div class="subtitle-heading"><label for="audio-select">들을 음성</label><select id="audio-select"></select><button class="button button-secondary" id="audio-apply" type="button">적용</button></div>
         <p id="audio-state" role="status">선택한 음성으로 재생하고 새 자막을 만듭니다. 처음 선택할 때 재생용 사본을 준비하며 추가 저장 공간을 사용합니다.</p>
+        <button class="button button-secondary" id="audio-check" type="button" hidden>오디오 저장 상태 확인</button>
       </div>
     </details>
     <section class="subtitle-panel" aria-label="자막과 장면 탐색">

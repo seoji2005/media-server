@@ -1,5 +1,25 @@
 # Compatible playback renditions · 2026-09-06
 
+
+## Uncertain preparation responses
+
+Playback preparation and audio selection wait at most 150 seconds for the complete
+response, including its body. A lost/uncertain response preserves current playback
+and blocks another preparation for that item in this page. The library and player
+provide an explicit status check; closing/reopening the player retains that guard.
+Known server rejections remain directly retryable. No request is automatically replayed.
+
+`GET /api/library/{id}/playback-status` observes the existing import/preparation lock.
+Busy status keeps recovery pending. An idle read reports the saved item without
+preparing a copy or changing any database rows. Audio confirmation can apply the
+saved selection to the same still-open player while preserving its current position;
+late responses cannot take over another player. Status reads wait at most ten seconds.
+
+A client deadline does not cancel server FFmpeg or guarantee that a delayed request
+cannot later arrive. This is bounded in-page recovery, not durable operation IDs or
+cross-window serialization. The existing server lock/publication checks still govern
+explicit new requests. Native browser/Windows playback remains a separate check.
+
 ## Behavior
 
 H.264 8-bit 4:2:0 in MKV can now be watched without manual FFmpeg conversion.

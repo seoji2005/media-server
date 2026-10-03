@@ -194,6 +194,18 @@ def create_app(data_dir: Path | None = None, *, codespaces_demo: bool = False) -
     def library():
         return {"items": store.list_items()}
 
+    @app.get('/api/library/{item_id}/playback-status')
+    def playback_status(item_id: str):
+        # Observe preparation without starting or repeating it. A busy response
+        # never promises that the saved selection is the command's final result.
+        store._row(item_id)
+        if not store.import_lock.acquire(blocking=False):
+            return {'busy': True}
+        try:
+            return {'busy': False, 'item': store.item(item_id)}
+        finally:
+            store.import_lock.release()
+
     @app.post('/api/library/{item_id}/playback')
     def prepare_playback(item_id: str):
         from .renditions import prepare

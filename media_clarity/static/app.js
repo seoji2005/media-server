@@ -8,6 +8,7 @@ const pendingPreferences = new Map();
 const pendingTitles = new Map();
 let titleView=null;
 const preparingPlayback = new Set();
+const playbackCommands = new Map();
 let playerRequest = 0, entryAwaitingPlay = false;
 let pendingItemEntry = null;
 let toastTimer, saveTimer;
@@ -149,7 +150,7 @@ function render() {
     card.querySelector(".duration").textContent = time(item.duration);
     card.querySelector(".card-resolution").textContent = `${item.width} × ${item.height}`;
     const status = card.querySelector(".card-status");
-    status.textContent = preparingPlayback.has(item.id) ? "재생용 사본 준비 중…" : item.unavailable_reason === "rendition_required" ? (item.preparation_error ? "재생 준비 실패 · 선택하면 재시도" : "원본 보관됨 · 선택하면 재생 준비") : !item.available ? (item.unavailable_reason === "managed_file_changed" ? "보관 파일이 변경됨" : "파일을 찾을 수 없음") : continuing(item) ? `${time(item.position)}부터 이어보기` : item.position > 0 ? "시청 완료" : "아직 보지 않음";
+    status.textContent = playbackCommands.has(item.id) ? (playbackCommands.get(item.id).pending?"재생·오디오 준비 중…":"준비 결과 확인 필요") : preparingPlayback.has(item.id) ? "재생용 사본 준비 중…" : item.unavailable_reason === "rendition_required" ? (item.preparation_error ? "재생 준비 실패 · 선택하면 재시도" : "원본 보관됨 · 선택하면 재생 준비") : !item.available ? (item.unavailable_reason === "managed_file_changed" ? "보관 파일이 변경됨" : "파일을 찾을 수 없음") : continuing(item) ? `${time(item.position)}부터 이어보기` : item.position > 0 ? "시청 완료" : "아직 보지 않음";
     status.classList.toggle("missing", !item.available);
     if(recommended) {
       const reason = document.createElement("p"); reason.className = "recommendation-reason";
@@ -323,11 +324,53 @@ async function importFile(file) {
   xhr.addEventListener("loadend",releaseUpload);
   try{xhr.send(file);}catch{showImportRecovery("가져오기 요청을 보내지 못했습니다.");releaseUpload();}
 }
+function playbackRecoveryControls(){
+  $("playback-recovery").hidden=!playbackCommands.size;
+  const list=$("playback-recovery-items");list.replaceChildren();
+  for(const [id,command] of playbackCommands){
+    const row=document.createElement("div"),label=document.createElement("p"),button=document.createElement("button");
+    label.textContent=`${items.find(item=>item.id===id)?.title||"영상"} · ${command.pending?"준비 응답을 기다리고 있어요.":command.error||"준비 결과를 확인해 주세요."}`;
+    button.type="button";button.className="button button-secondary";button.textContent="준비 상태 확인";
+    button.disabled=command.pending||command.checking;button.addEventListener("click",()=>confirmPlayback(id));
+    row.append(label,button);list.append(row);
+  }
+  audioControls();render();
+}
+async function requestPlayback(id,kind,index,onReady){
+  if(playbackCommands.has(id)){toast("진행 중이거나 응답을 확인하지 못한 준비가 있습니다. 준비 상태를 확인해 주세요.",true);return false;}
+  const command={kind,pending:true,checking:false,error:""};playbackCommands.set(id,command);playbackRecoveryControls();
+  try{
+    const ready=await boundedApi(`/api/library/${id}/${kind==="audio"?`audio/${index}`:"playback"}`,{method:"POST"},150000,"준비 응답을 150초 안에 확인하지 못했습니다. 서버 처리는 계속될 수 있습니다.");
+    if(ready?.id!==id)throw Error("준비 결과를 읽을 수 없습니다.");
+    await onReady(ready);playbackCommands.delete(id);return true;
+  }catch(e){
+    command.error=e.message;
+    if(e.code)playbackCommands.delete(id);
+    if(activeItem?.id===id)$("audio-state").textContent=e.message+" 현재 재생은 유지됩니다.";
+    toast(e.message+" 보관된 원본은 유지됩니다.",true);return false;
+  }finally{command.pending=false;playbackRecoveryControls();}
+}
+async function confirmPlayback(id){
+  const command=playbackCommands.get(id),owner=activeItem;
+  if(!command||command.pending||command.checking)return;
+  command.checking=true;playbackRecoveryControls();
+  try{
+    const status=await boundedApi(`/api/library/${id}/playback-status`,{},10000,"준비 상태를 확인하지 못했습니다. 다시 확인해 주세요.");
+    if(status.busy===true){command.error="파일 작업이 진행 중입니다. 잠시 후 상태를 다시 확인해 주세요.";return;}
+    if(status.busy!==false||status.item?.id!==id)throw Error("준비 상태를 읽을 수 없습니다.");
+    if(command.kind==="audio"&&activeItem===owner&&owner?.id===id&&status.item.available&&status.item.audio_index!==owner.audio_index)
+      await applyAudio(owner,status.item);
+    playbackCommands.delete(id);
+    if(activeItem===owner&&owner?.id===id)$("audio-state").textContent="저장된 준비 상태를 확인했습니다. 필요한 음성을 직접 선택해 주세요.";
+    toast("준비 상태를 확인했습니다. 감상하려는 영상을 선택해 주세요.");
+    await refresh(10000);
+  }catch(e){command.error=e.message;toast(e.message,true);}
+  finally{command.checking=false;playbackRecoveryControls();}
+}
 async function preparePlayback(id) {
   if(preparingPlayback.has(id)) { toast("재생용 사본을 준비하고 있어요. 완료 후 다시 선택해 주세요."); return false; }
   preparingPlayback.add(id); render(); toast("원본 보관을 마쳤습니다. 재생용 사본을 준비하고 있어요.");
-  try { await api(`/api/library/${id}/playback`,{method:"POST"}); toast("재생 준비를 마쳤습니다."); return true; }
-  catch(e) { toast(e.message + " 보관된 원본은 유지됩니다.",true); return false; }
+  try { return await requestPlayback(id,"playback",null,()=>toast("재생 준비를 마쳤습니다.")); }
   finally {
     // Settle the old list snapshot before opening so it cannot undo new viewing
     // progress. A failed/bounded-out read cannot replace the preparation result.
@@ -500,22 +543,32 @@ function renderAudio(item){
   $("audio-state").textContent="선택한 음성으로 재생하고 새 자막을 만듭니다. 처음 선택할 때 재생용 사본을 준비하며 추가 저장 공간을 사용합니다.";
   const kind={remux_mp4:"재생용 MP4 · 영상 그대로",audio_mp4:"재생용 MP4 · 영상 그대로 · AAC 스테레오",remux_webm:"재생용 WebM · 영상 그대로",audio_webm:"재생용 WebM · 영상 그대로 · Opus 스테레오"}[item.preparation]||"원본 사본";
   $("player-meta").textContent=`${item.width} × ${item.height} · ${time(item.duration)} · ${kind}${tracks.length?` · 오디오 ${index+1}`:""}`;
+  audioControls();
 }
-$("audio-select").addEventListener("change",()=>{$("audio-apply").disabled=!activeItem||Number($("audio-select").value)===(activeItem.audio_index||0);});
+function audioControls(){
+  const command=playbackCommands.get(activeItem?.id),blocked=!!command;
+  $("audio-select").disabled=!activeItem||blocked;
+  $("audio-apply").disabled=!activeItem||blocked||Number($("audio-select").value)===(activeItem?.audio_index||0);
+  $("audio-check").hidden=!command;$("audio-check").disabled=!command||command.pending||command.checking;
+  if(command)$("audio-state").textContent=command.pending?"오디오·재생 준비 중입니다. 현재 재생은 유지됩니다.":command.checking?"저장된 준비 상태를 확인하고 있어요.":command.error+" 현재 재생은 유지됩니다. 저장 상태를 확인해 주세요.";
+}
+async function applyAudio(owner,ready){
+  if(activeItem!==owner)return;
+  const position=video.currentTime,playing=!video.paused;video.pause();await waitForPosition(savePosition());if(activeItem!==owner)return;
+  ready.title=owner.title;if(titleView?.owner===owner)titleView.owner=ready;
+  activeItem=ready;renderAudio(ready);resetSubtitles();refreshPreference(ready);$("video-error").hidden=true;
+  video.addEventListener("loadedmetadata",()=>{if(activeItem!==ready)return;video.currentTime=Math.min(position,ready.duration);savePosition();if(playing)video.play().catch(()=>{});},{once:true});
+  video.src=`/api/media/${owner.id}/content${audioQuery(ready)}`;video.load();refreshSubtitles(ready);
+  $("audio-state").textContent=`오디오 ${ready.audio_index+1}로 변경했습니다. 진행 중인 자막 작업은 시작할 때 선택한 음성을 유지합니다.`;
+}
+$("audio-select").addEventListener("change",audioControls);
+$("audio-check").addEventListener("click",()=>{if(activeItem)confirmPlayback(activeItem.id);});
 $("audio-apply").addEventListener("click",async()=>{
-  const owner=activeItem;if(!owner)return;const index=Number($("audio-select").value),hadFocus=document.activeElement===$("audio-apply");
-  $("audio-select").disabled=true;$("audio-apply").disabled=true;$("audio-state").textContent="오디오를 준비하고 있어요. 지금 영상은 계속 감상할 수 있습니다.";
-  try{
-    const ready=await api(`/api/library/${owner.id}/audio/${index}`,{method:"POST"});if(activeItem!==owner)return;
-    const position=video.currentTime,playing=!video.paused;video.pause();await waitForPosition(savePosition());if(activeItem!==owner)return;
-    // The editor belongs to the library item, including while its audio changes.
-    ready.title=owner.title;if(titleView?.owner===owner)titleView.owner=ready;
-    activeItem=ready;renderAudio(ready);resetSubtitles();refreshPreference(ready);$("video-error").hidden=true;
-    video.addEventListener("loadedmetadata",()=>{if(activeItem!==ready)return;video.currentTime=Math.min(position,ready.duration);savePosition();if(playing)video.play().catch(()=>{});},{once:true});
-    video.src=`/api/media/${owner.id}/content${audioQuery(ready)}`;video.load();refreshSubtitles(ready);
-    $("audio-state").textContent=`오디오 ${index+1}로 변경했습니다. 진행 중인 자막 작업은 시작할 때 선택한 음성을 유지합니다.`;
-    if(hadFocus&&document.activeElement===document.body)$("audio-select").focus();
-  }catch(e){if(activeItem===owner){$("audio-state").textContent=e.message+" 현재 재생은 유지됩니다.";$("audio-select").disabled=false;$("audio-apply").disabled=false;if(hadFocus&&document.activeElement===document.body)$("audio-apply").focus();}}
+  const owner=activeItem;if(!owner||$("audio-apply").disabled)return;
+  const index=Number($("audio-select").value),hadFocus=document.activeElement===$("audio-apply");
+  await requestPlayback(owner.id,"audio",index,ready=>applyAudio(owner,ready));
+  if(activeItem?.id===owner.id&&hadFocus&&document.activeElement===document.body)
+    ($("audio-check").hidden?$("audio-select"):$("audio-check")).focus();
 });
 function savePosition(keepalive=false) {
   if(entryAwaitingPlay||!activeItem||!Number.isFinite(video.currentTime)||video.readyState<1) return Promise.resolve();
