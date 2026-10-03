@@ -26,11 +26,17 @@ the base app (exit 1). Independent review found that native On during confirmati
 of a lost Off save could leave the displayed/saved state disconnected at `4a5f638`.
 Its added regression failed before the correction (exit 1), then passed along with
 late-Off/On, lost-save and player-switch cases (exit 0).
-`npm test --prefix tests/ui` passed all
-18 DOM suites (exit 0). `python -m unittest -q tests.test_caption_view` passed nine
+`npm test --prefix tests/ui` passed all 18 DOM suites (exit 0).
+`.venv/bin/python -m unittest -q tests.test_caption_view` passed nine
 API/storage/preservation checks in 2.375s (exit 0). No backend/schema change, CI,
 provider request, native browser playback or Windows/RTX acceptance is claimed.
-Independent review belongs to the final fixed-code checkpoint.
+Independent re-review of base `32742fe` → fixed code `7546723` found the reported
+defect resolved and no further actionable defects. Its separate reproduction kept
+native On/+500 ms and a coherent unsaved display with zero confirmation writes;
+subsequent explicit Off/On saved normally. The focused DOM suite and diff check
+passed again; broader unchanged evidence was reused. This documentation checkpoint
+adds no product change. Publication updates only the development branch, without
+a PR, CI dispatch or main merge.
 
 Previous checkpoint `32742fe` restored explicit status recovery after rejected
 subtitle commands and truthful queued progress. Its local validation and independent
