@@ -785,27 +785,29 @@ $("model-check").addEventListener("click",async()=>{
   catch(e){$("model-check-state").textContent=e.code==="processing_worker_active"?"자막 처리 중에는 진단할 수 없습니다. 작업을 마치거나 일시정지한 뒤 다시 확인해 주세요.":e.message;}
   finally{button.disabled=false;if(hadFocus&&$("settings-dialog").open&&document.activeElement===document.body)button.focus();}
 });
-let captionView=null, captionViewVersion=0, captionSaving=false, captionSaveError="", captionNativeHidden=false, subtitleReadVersion=0;
+let captionView=null, captionLocalView=null, captionViewVersion=0, captionSaving=false, captionSaveError="", captionNativeHidden=false, subtitleReadVersion=0;
 const pendingCaptionViews=new Map();
 function captionKey(owner){return `${owner.id}:${owner.audio_index||0}`;}
 function latestKoreanSubtitle(){
   return subtitleTracks.find(t=>(t.audio_index||0)===(activeItem?.audio_index||0)&&["ko","kor"].includes((t.language||"").split("-")[0].toLowerCase()));
 }
 function renderCaptionView(){
-  const offset=captionView?.offset_ms||0,disabled=!captionView||captionSaving||!!captionSaveError;
-  const unsavedOff=captionNativeHidden&&captionView&&captionView.selection!=="";
+  const displayed=captionLocalView||captionView,offset=displayed?.offset_ms||0,disabled=!captionView||captionSaving||!!captionSaveError;
+  const unsaved=captionLocalView&&captionView&&(captionLocalView.selection!==captionView.selection||captionLocalView.offset_ms!==captionView.offset_ms);
+  const unsavedOff=unsaved&&captionNativeHidden;
   $("subtitle-select").disabled=disabled;
   const ready=latestKoreanSubtitle();
-  $("subtitle-ready").hidden=!ready||(subtitleLoaded===ready.id&&!captionNativeHidden&&captionView?.selection!=="");
+  $("subtitle-ready").hidden=!ready||(subtitleLoaded===ready.id&&!captionNativeHidden&&displayed?.selection!=="");
   $("subtitle-ready").disabled=disabled;
   $("caption-earlier").disabled=disabled||!subtitleLoaded||captionNativeHidden||offset<=-10000;
   $("caption-later").disabled=disabled||!subtitleLoaded||captionNativeHidden||offset>=10000;
   $("caption-reset").disabled=disabled||!subtitleLoaded||captionNativeHidden||!offset;
   $("caption-auto").disabled=disabled;
-  $("caption-offset-brief").textContent=unsavedOff?"자막 끄기 미저장":offset?`${Math.abs(offset/1000).toFixed(1)}초 ${offset<0?"앞당김":"늦춤"}`:"원래 시간";
-  $("caption-view-state").textContent=captionSaving?"자막 설정 저장 중…":captionSaveError?captionSaveError+" 현재 감상에는 적용했지만 저장 여부를 확인하지 못했습니다.":!captionView?"자막 설정을 확인하고 있어요.":unsavedOff?"현재 자막은 꺼져 있지만 저장된 설정은 다릅니다. ‘자막 끄기 저장’을 누르면 다시 열 때도 꺼집니다.":captionView.selection===null?"다시 열면 최신 자막을 자동으로 선택합니다.":`오디오 ${(activeItem?.audio_index||0)+1}의 자막 설정을 이 기기에 저장했습니다. 다른 자막을 선택하면 원래 시간으로 시작합니다.`;
+  $("caption-offset-brief").textContent=unsavedOff?"자막 끄기 미저장":(offset?`${Math.abs(offset/1000).toFixed(1)}초 ${offset<0?"앞당김":"늦춤"}`:"원래 시간")+(unsaved?" · 미저장":"");
+  $("caption-view-state").textContent=captionSaving?"자막 설정 저장 중…":captionSaveError?captionSaveError+" 현재 감상에는 적용했지만 저장 여부를 확인하지 못했습니다.":!captionView?"자막 설정을 확인하고 있어요.":unsavedOff?"현재 자막은 꺼져 있지만 저장된 설정은 다릅니다. ‘자막 끄기 저장’을 누르면 다시 열 때도 꺼집니다.":unsaved?"현재 자막과 시간 조정은 아직 저장되지 않았습니다. ‘현재 자막 설정 저장’을 누르면 다시 열 때도 적용됩니다.":captionView.selection===null?"다시 열면 최신 자막을 자동으로 선택합니다.":`오디오 ${(activeItem?.audio_index||0)+1}의 자막 설정을 이 기기에 저장했습니다. 다른 자막을 선택하면 원래 시간으로 시작합니다.`;
   $("caption-view-retry").hidden=!captionSaveError;
-  $("caption-save-off").hidden=!unsavedOff;$("caption-save-off").disabled=disabled;
+  $("caption-save-current").hidden=!unsaved;$("caption-save-current").disabled=disabled;
+  $("caption-save-current").textContent=captionNativeHidden?"자막 끄기 저장":"현재 자막 설정 저장";
   renderSubtitleRecovery();
 }
 async function saveCaptionView(selection,offset_ms=0,keepNative=false){
@@ -813,7 +815,7 @@ async function saveCaptionView(selection,offset_ms=0,keepNative=false){
   if(!owner||!captionView||captionSaving||captionSaveError)return;
   const version=++captionViewVersion,key=captionKey(owner);
   const value={selection,offset_ms,revision:captionView.revision};
-  captionView=value;captionSaving=true;renderCaptionView();
+  captionView=value;captionLocalView=null;captionSaving=true;renderCaptionView();
   if(selection===null)subtitleLoaded=null;
   const chosen=selection===null?(subtitleTracks.find(t=>(t.audio_index||0)===(owner.audio_index||0))?.id||""):selection;
   $("subtitle-select").value=chosen;
@@ -831,14 +833,17 @@ async function saveCaptionView(selection,offset_ms=0,keepNative=false){
   }
 }
 for(const [id,delta] of [["caption-earlier",-500],["caption-later",500],["caption-reset",0]])$(id).addEventListener("click",()=>{
-  if(subtitleLoaded&&captionView)saveCaptionView(subtitleLoaded,delta?Math.min(10000,Math.max(-10000,captionView.offset_ms+delta)):0);
+  if(subtitleLoaded&&captionView)saveCaptionView(subtitleLoaded,delta?Math.min(10000,Math.max(-10000,(captionLocalView||captionView).offset_ms+delta)):0);
 });
 $("caption-auto").addEventListener("click",()=>saveCaptionView(null));
-$("caption-save-off").addEventListener("click",async()=>{
-  const button=$("caption-save-off"),owner=activeItem,hadFocus=document.activeElement===button;
-  if(button.hidden||button.disabled)return;
-  await saveCaptionView("",0,true);
-  if(activeItem===owner&&hadFocus&&button.hidden&&!$("subtitle-select").disabled)$("subtitle-select").focus();
+$("caption-save-current").addEventListener("click",async()=>{
+  const button=$("caption-save-current"),owner=activeItem,hadFocus=document.activeElement===button;
+  if(button.hidden||button.disabled||!captionLocalView)return;
+  await saveCaptionView(captionLocalView.selection,captionLocalView.offset_ms,true);
+  if(activeItem===owner&&hadFocus&&button.hidden){
+    if(!$("subtitle-select").disabled)$("subtitle-select").focus();
+    else if(!$("caption-view-retry").hidden)$("caption-view-retry").focus();
+  }
 });
 $("subtitle-ready").addEventListener("click",()=>{
   const track=latestKoreanSubtitle();
@@ -847,7 +852,7 @@ $("subtitle-ready").addEventListener("click",()=>{
 $("caption-view-retry").addEventListener("click",()=>{
   if(!activeItem)return;captionViewVersion++;captionView=null;captionSaveError="";subtitleLoaded=null;renderCaptionView();refreshSubtitles(activeItem,{confirm:true});
 });
-function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleMonitor=newSubtitleMonitor();subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];captionViewVersion++;captionView=null;captionSaving=false;captionSaveError="";captionNativeHidden=false;renderCaptionView();geminiConfigured=false;renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";subtitleTaskControls();}
+function resetSubtitles(){clearTimeout(subtitleTimer);subtitleTimer=null;subtitleMonitor=newSubtitleMonitor();subtitleJob=null;subtitleLoaded=null;subtitleTracks=[];captionViewVersion++;captionView=null;captionLocalView=null;captionSaving=false;captionSaveError="";captionNativeHidden=false;renderCaptionView();geminiConfigured=false;renderSubtitleNotes();resetSubtitleSearch(true);video.querySelectorAll("track").forEach(t=>t.remove());$("subtitle-select").replaceChildren(new Option("자막 끄기",""));$("subtitle-state").textContent="자막 확인 중…";subtitleTaskControls();}
 function selectedSubtitle(){const [id,view]=(subtitleLoaded||"").split(":");return {track:subtitleTracks.find(t=>t.id===id),transcript:view==="transcript"};}
 function renderSubtitleNotes(){
   const {track,transcript}=selectedSubtitle(),notes=[];
@@ -893,7 +898,7 @@ function renderPreparationSummary(){
 }
 function subtitleError(text){$("subtitle-state").textContent=text;$("subtitle-brief").textContent="자막 확인 필요";}
 function renderSubtitleRecovery(){
-  const failed=activeItem&&subtitleLoaded&&subtitleSearch.state==="error"&&captionView?.selection!==""&&!captionNativeHidden&&video.querySelector("track")?.track?.mode!=="disabled";
+  const failed=activeItem&&subtitleLoaded&&subtitleSearch.state==="error"&&(captionLocalView||captionView)?.selection!==""&&!captionNativeHidden&&video.querySelector("track")?.track?.mode!=="disabled";
   $("subtitle-load-recovery").hidden=!failed;
   $("subtitle-reload").disabled=!failed||!captionView||captionSaving||!!captionSaveError;
 }
@@ -915,9 +920,10 @@ function loadSubtitle(id,force=false){
   if(!id)return;
   const owner=activeItem,{track:chosen,transcript}=selectedSubtitle();
   if(!chosen||(transcript&&!chosen.has_transcript))return;
-  const query=new URLSearchParams();if(transcript)query.set("transcript","true");if(captionView?.offset_ms)query.set("offset_ms",String(captionView.offset_ms));
+  const offset=(captionLocalView||captionView)?.offset_ms||0;
+  const query=new URLSearchParams();if(transcript)query.set("transcript","true");if(offset)query.set("offset_ms",String(offset));
   const track=document.createElement("track");track.kind="subtitles";track.srclang=transcript?"und":chosen.language||"ko";track.label=transcript?"원문 자막":chosen.language&&chosen.language!=="ko"?chosen.language:"한국어";track.default=true;track.src=`/api/library/${owner.id}/subtitles/${chosen.id}.vtt${query.size?"?"+query:""}`;
-  track.dataset.offsetMs=String(captionView?.offset_ms||0);track.dataset.selection=id;
+  track.dataset.offsetMs=String(offset);track.dataset.selection=id;
   track.addEventListener("load",()=>{
     if(activeItem!==owner||subtitleLoaded!==id||track.parentNode!==video)return;
     subtitleSearch={owner, id, track:track.track, state:"ready", cues:null};
@@ -948,10 +954,11 @@ async function refreshSubtitles(owner,{confirm=false}={}){
     if(!command?.pending&&(confirm||(command&&!command.uncertain)))subtitleCommands.delete(owner.id);
     if(!monitor.stopped)monitor.error="";
     // Native controls remain usable while a setting save/read is uncertain.
-    // Retain Off and its loaded track; reading saved settings cannot turn it on
-    // or replay a write. A separate explicit action can save the confirmed Off.
+    // Retain the latest native choice and timing separately from saved settings.
+    // A read cannot change that display or replay a write; saving is explicit.
     const retainedTrack=video.querySelector("track");
-    const keepNativeOff=(!captionView||captionNativeHidden)&&retainedTrack?.dataset.selection&&retainedTrack.track?.mode==="disabled";
+    const nativeView=readNativeCaptionView(retainedTrack);
+    const keepNative=nativeView&&(captionLocalView||captionNativeHidden||(!captionView&&nativeView.selection===""));
     if(!captionView){captionView=data.view||{selection:null,offset_ms:0,revision:0};captionSaveError="";}
     subtitleTracks=data.tracks;geminiConfigured=!!data.gemini_configured;
     const select=$("subtitle-select"),was=select.value;
@@ -966,10 +973,10 @@ async function refreshSubtitles(owner,{confirm=false}={}){
     // A first imported caption must not appear merely because its receipt was
     // lost. Keep this page empty after recovery; reopening still uses Auto.
     if(keepEmpty&&importRecovery)subtitleLoaded="";
-    if(keepNativeOff){subtitleLoaded=retainedTrack.dataset.selection;captionNativeHidden=true;}
-    const chosen=keepEmpty||keepNativeOff?"":captionView.selection!==null?captionView.selection:subtitleLoaded===null?(matching[0]?.id||""):was;
-    select.value=[...select.options].some(o=>o.value===chosen)?chosen:"";if(!(captionNativeHidden&&chosen==="")&&(chosen||subtitleLoaded!==null||captionView.selection!==null))loadSubtitle(select.value);
-    if(keepNativeOff)renderSubtitleNotes();
+    if(keepNative){subtitleLoaded=retainedTrack.dataset.selection;captionLocalView=nativeView;captionNativeHidden=nativeView.selection==="";}
+    const chosen=keepNative?nativeView.selection:keepEmpty?"":captionView.selection!==null?captionView.selection:subtitleLoaded===null?(matching[0]?.id||""):was;
+    select.value=[...select.options].some(o=>o.value===chosen)?chosen:"";if(!keepNative&&(chosen||subtitleLoaded!==null||captionView.selection!==null))loadSubtitle(select.value);
+    if(keepNative)renderSubtitleNotes();
     renderCaptionView();
     if(chosen&&select.value!==chosen)$("caption-view-state").textContent="저장한 자막을 찾을 수 없습니다. 사용할 자막을 직접 선택해 주세요.";
     subtitleJob=data.jobs.find(j=>["queued","running","paused"].includes(j.state))||data.jobs.find(j=>(j.audio_index||0)===(owner.audio_index||0))||null;
@@ -1109,13 +1116,24 @@ $("subtitle-query").addEventListener("input",()=>{
   if(subtitleSearch.state==="ready")$("subtitle-search-status").textContent="자막에서 찾고 있어요.";
   subtitleSearchTimer=setTimeout(()=>{subtitleSearchTimer=null;renderSubtitleSearch();},150);
 });
+function readNativeCaptionView(element){
+  if(!element?.dataset.selection||!["disabled","showing"].includes(element.track?.mode))return null;
+  return element.track.mode==="disabled"?{selection:"",offset_ms:0}:{selection:element.dataset.selection,offset_ms:Number(element.dataset.offsetMs)||0};
+}
 function syncNativeCaptionView(){
   const element=video.querySelector("track");
-  if(!element?.track||!subtitleLoaded||!captionView||captionSaving||captionSaveError)return;
-  if(element.track.mode==="disabled"&&captionView.selection!==""&&!captionNativeHidden){
+  const nativeView=readNativeCaptionView(element);
+  if(!nativeView||captionSaving)return;
+  const hidden=nativeView.selection==="";
+  if(!captionView||captionSaveError){
+    if(hidden!==captionNativeHidden){captionLocalView=nativeView;captionNativeHidden=hidden;renderCaptionView();}
+    return;
+  }
+  if(!subtitleLoaded)return;
+  if(hidden&&!captionNativeHidden){
     captionNativeHidden=true;saveCaptionView("",0,true);
-  }else if(element.track.mode==="showing"&&captionNativeHidden){
-    captionNativeHidden=false;saveCaptionView(subtitleLoaded,Number(element.dataset.offsetMs)||0,true);
+  }else if(!hidden&&captionNativeHidden){
+    captionNativeHidden=false;saveCaptionView(nativeView.selection,nativeView.offset_ms,true);
   }
 }
 video.textTracks?.addEventListener?.("change",()=>{

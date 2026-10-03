@@ -112,7 +112,7 @@ async function nativeMode(mode){video.querySelector('track').track.mode=mode;vid
   assert.equal(video.querySelector('track'),retained,'retain the old track for an explicit native On');
   assert.equal(retained.src,src);assert.equal(video.currentTime,position);assert.equal(select.value,'');
   assert.equal(writes.length,count,'saved-state recovery must not replay a write');
-  const keepOff=d.getElementById('caption-save-off');
+  const keepOff=d.getElementById('caption-save-current');
   assert(!keepOff.hidden);assert(!keepOff.disabled);assert.match(state.textContent,/현재 자막은 꺼져/);
   assert.match(d.getElementById('caption-offset-brief').textContent,/미저장/);
   assert(d.getElementById('caption-later').disabled);
@@ -146,10 +146,10 @@ async function nativeMode(mode){video.querySelector('track').track.mode=mode;vid
    assert.equal(video.querySelector('track').track.mode,'disabled');
    assert(!d.getElementById('caption-view-retry').hidden);
    d.getElementById('caption-view-retry').click();await settle();await settle();
-   assert.equal(video.querySelector('track').track.mode,'disabled');assert(!d.getElementById('caption-save-off').hidden);
+   assert.equal(video.querySelector('track').track.mode,'disabled');assert(!d.getElementById('caption-save-current').hidden);
   }else{
    assert.equal(d.getElementById('player-title').textContent,'b');
-   assert.equal(video.querySelector('track').track.mode,'showing');assert(d.getElementById('caption-save-off').hidden);
+   assert.equal(video.querySelector('track').track.mode,'showing');assert(d.getElementById('caption-save-current').hidden);
   }
   assert.equal(writes.length,count);
  }
@@ -159,17 +159,57 @@ async function nativeMode(mode){video.querySelector('track').track.mode=mode;vid
  await nativeMode('disabled');await nativeMode('showing');const shownWrites=writes.length;
  importPending();await settle();await settle();
  assert.equal(video.querySelector('track').track.mode,'showing','the latest native On wins before confirmation');
- assert(d.getElementById('caption-save-off').hidden);assert.equal(writes.length,shownWrites);
+ assert(d.getElementById('caption-save-current').hidden);assert.equal(writes.length,shownWrites);
  loseResponse=true;d.getElementById('caption-later').click();await settle();await nativeMode('disabled');
  d.getElementById('caption-view-retry').click();await settle();await settle();
- assert(!d.getElementById('caption-save-off').hidden);
- const offWrites=writes.length;loseResponse=true;d.getElementById('caption-save-off').click();await settle();
+ assert(!d.getElementById('caption-save-current').hidden);
+ const offWrites=writes.length;loseResponse=true;d.getElementById('caption-save-current').click();await settle();
  assert(!d.getElementById('caption-view-retry').hidden);
  assert.equal(video.querySelector('track').track.mode,'disabled');
  d.getElementById('caption-view-retry').click();await settle();await settle();
  assert.equal(writes.length,offWrites+1,'a lost Off-save response is confirmed without replay');
- assert.equal(views.get('a:0').selection,'');assert(d.getElementById('caption-save-off').hidden);
+ assert.equal(views.get('a:0').selection,'');assert(d.getElementById('caption-save-current').hidden);
  assert.equal(video.querySelector('track').track.mode,'disabled');
- console.log('PASS caption viewing DOM: audio-specific choice/offset, native Off/On, late saved-state recovery, explicit Off save, stale write isolation, reopen waits, lost response/conflict recovery, missing track, automatic reset (mocked HTTP/media).');
+ // A newer native On during confirmation of a lost Off save must restore
+ // the displayed selection/timing without silently persisting it.
+ await nativeMode('showing');await settle();
+ loseResponse=true;await nativeMode('disabled');await settle();
+ const retainedOn=video.querySelector('track'),onSource=retainedOn.src,onWrites=writes.length;
+ importDelay='read';d.getElementById('caption-view-retry').click();await settle();
+ await nativeMode('showing');importPending();await settle();await settle();
+ assert.equal(video.querySelector('track'),retainedOn);assert.equal(retainedOn.track.mode,'showing');
+ assert.equal(select.value,'first','recovered native On must reconnect the displayed selection');
+ assert.equal(writes.length,onWrites,'recovering native On must not replay or initiate a save');
+ assert.equal(views.get('a:0').selection,'');assert.match(state.textContent,/아직 저장되지/);
+ const saveCurrent=d.getElementById('caption-save-current');
+ assert(!saveCurrent.hidden);assert(!saveCurrent.disabled);assert.match(saveCurrent.textContent,/현재 자막/);
+ assert.match(d.getElementById('caption-offset-brief').textContent,/1.0초 늦춤.*미저장/);
+ assert(!d.getElementById('caption-later').disabled);
+ video.textTracks.dispatchEvent(new w.Event('change'));await settle();
+ await w.qa.refreshSubtitles(w.qa.owner());await settle();
+ assert.equal(video.querySelector('track'),retainedOn);assert.equal(retainedOn.src,onSource);
+ assert.equal(select.value,'first');assert.equal(writes.length,onWrites);
+ retainedOn.dispatchEvent(new w.Event('error'));await settle();
+ assert(!d.getElementById('subtitle-load-recovery').hidden);
+ d.getElementById('subtitle-reload').click();await settle();
+ assert.equal(video.querySelector('track').src,onSource,'file retry keeps the displayed unsaved timing');
+ assert.equal(writes.length,onWrites,'file retry cannot save the recovered choice');
+ saveCurrent.click();saveCurrent.click();await settle();await settle();
+ assert.equal(writes.length,onWrites+1,'explicitly save recovered On exactly once');
+ assert.equal(views.get('a:0').selection,'first');assert.equal(views.get('a:0').offset_ms,1000);
+ assert(saveCurrent.hidden);await nativeMode('disabled');await nativeMode('showing');await settle();
+ assert.equal(writes.length,onWrites+3,'native Off/On remains connected after recovery');
+ assert.equal(views.get('a:0').selection,'first');assert.equal(views.get('a:0').offset_ms,1000);
+ loseResponse=true;await nativeMode('disabled');await settle();
+ importDelay='read';d.getElementById('caption-view-retry').click();await settle();
+ await nativeMode('showing');readFailure=true;importPending();await settle();await settle();readFailure=false;
+ assert(!d.getElementById('caption-view-retry').hidden);
+ const beforeTiming=writes.length;
+ d.getElementById('caption-view-retry').click();await settle();await settle();
+ assert.equal(select.value,'first');assert.equal(writes.length,beforeTiming,'failed and successful confirmation preserve On without writes');
+ d.getElementById('caption-later').click();await settle();await settle();
+ assert.equal(writes.length,beforeTiming+1);assert.equal(views.get('a:0').offset_ms,1500,'adjust from displayed timing, not saved Off timing');
+ assert.match(video.querySelector('track').src,/offset_ms=1500$/);
+ console.log('PASS caption viewing DOM: audio-specific choice/offset, native Off/On, late saved-state recovery, explicit local-choice save, stale write isolation, reopen waits, lost response/conflict recovery, missing track, automatic reset (mocked HTTP/media).');
  dom.window.close();
 })().catch(e=>{console.error(e);process.exitCode=1;dom.window.close();});

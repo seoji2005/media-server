@@ -7,22 +7,26 @@ PR70 CI36555975026 passed Windows/Ubuntu product checks. Its merged tree
 Git/PR state is authoritative. Reviewed, passing-CI development-merge approvals
 persist; release and subjective quality acceptance remain separate.
 
-## Current slice: retain native Off during caption recovery · October 3
+## Current slice: retain native choices during caption recovery · October 3
 
 Continue the owner's instruction to skip CI on
 `codex/subtitle-recovery-2026-10-02`, from published checkpoint `32742fe`.
 This branch preserves PR71/72 through integration `3c7b14c`; GitHub main is separate.
 
 A late saved-caption response could turn captions on after a newer native Off.
-Recovery now retains the hidden track, its timing and playback. If saved settings
-differ, the viewer sees that Off is not saved and can explicitly save it once.
-Native On restores the retained caption/timing. Status reads and native track
-notifications do not implicitly save recovered Off; pending/uncertain saves retain
-their existing guards. [Caption behavior](caption-viewing.md) describes the flow.
+Recovery now retains the native choice, loaded track, timing and playback. If saved
+settings differ, the viewer sees the unsaved choice and can explicitly save it once.
+Native On during confirmation also restores the retained caption/timing and keeps
+controls connected. Status reads and repeated native track notifications do not
+implicitly save recovered choices; pending/uncertain saves retain their existing
+guards. [Caption behavior](caption-viewing.md) describes the flow.
 
 Linux CPU, Python 3.12.14 / Node 24.19.0: `node tests/ui/caption-view.cjs` failed on
-the base app (exit 1), then passed after the fix, including added late-Off/On,
-lost-save and player-switch cases (exit 0). `npm test --prefix tests/ui` passed all
+the base app (exit 1). Independent review found that native On during confirmation
+of a lost Off save could leave the displayed/saved state disconnected at `4a5f638`.
+Its added regression failed before the correction (exit 1), then passed along with
+late-Off/On, lost-save and player-switch cases (exit 0).
+`npm test --prefix tests/ui` passed all
 18 DOM suites (exit 0). `python -m unittest -q tests.test_caption_view` passed nine
 API/storage/preservation checks in 2.375s (exit 0). No backend/schema change, CI,
 provider request, native browser playback or Windows/RTX acceptance is claimed.

@@ -26,15 +26,17 @@ caption resets its timing. Off resets the saved offset; native Off retains its
 loaded track for native On, which can restore that track's in-memory offset.
 Reopening Off attaches no caption. The video position remains unchanged.
 
-If native Off is chosen while a caption-setting save or its recovery read is
-uncertain, successful saved-state confirmation keeps the same track hidden and
-preserves its in-memory timing. A late read cannot turn captions back on. When
-the saved choice is different, **자막 끄기 미저장** and **자막 끄기 저장** distinguish
-the current display from the saved setting. The button makes one explicit Off
-save using the confirmed revision; reads never replay a write. Native On instead
-restores the retained caption and timing through the existing explicit save.
-Reopening before saving still uses the saved choice. A failed confirmation keeps
-Off and offers another read, and a lost Off-save response also requires confirmation.
+Native Off/On selected while a caption-setting save or its recovery read is
+uncertain stays separate from saved settings. Confirmation retains the current
+native choice, loaded track and in-memory timing; a late read cannot turn captions
+back on or discard a newer On. When the choices differ, **미저장** and an explicit
+**자막 끄기 저장** or **현재 자막 설정 저장** button distinguish the current display
+from the saved setting. The button makes one save using the confirmed revision;
+reads never replay a write. Native changes after confirmation use the existing
+explicit save. File retries retain displayed timing, and timing adjustments start
+from that displayed offset. Reopening before saving still uses the saved choice.
+A failed confirmation keeps the local choice and offers another read; a lost save
+response also requires confirmation.
 
 Only the VTT response shifts: native playback and caption search share the adjusted
 times. Boundary cues clip to the video. Entirely outside cues and sub-millisecond
