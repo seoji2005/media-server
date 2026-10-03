@@ -65,6 +65,17 @@ The selected-video POST carries the query in its body, never the URL/DB/logs. Ex
 loopback/token/CSP/no-store boundaries and preview image integrity checks still apply.
 These controls are not an OS-level packet audit. Watching stays independent of inference.
 
+The browser bounds the complete status response (including its body) at ten seconds
+and a search response at 150 seconds, allowing the server's 120-second worker budget.
+After a failed status read, close and reopen **화면 내용으로 찾기** to read again.
+A search timeout retains the entered query and restores **후보 찾기** for an explicit
+retry; it never automatically resends the query or starts preparation. The client
+timeout does not guarantee cancellation of server work, so a manual retry may still
+receive the existing worker-busy response. Query edits, closing either search panel,
+or leaving the video invalidate pending candidates. A closed panel retains its
+in-flight guard until the request settles or times out; reopening cannot revive its
+result. Late timed-out responses cannot replace a subsequent search or change playback.
+
 ## Runtime compatibility · September 11, 2026
 
 A separate Linux/Python 3.12 environment installed Torch 2.8.0+cpu, Transformers

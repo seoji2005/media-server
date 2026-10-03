@@ -1355,11 +1355,17 @@ function resetScenes(){
   $("scene-prepare").hidden=false;$("scene-prepare").disabled=false;$("scene-pause").hidden=true;$("scene-search").disabled=true;
   $("scene-state").textContent="검색 준비와 검색은 이 기기에서만 실행합니다.";
 }
+function pauseScenes(){
+  sceneView.paused=true;
+  // Keep the in-flight request guard until it settles, but closing either panel
+  // must not make an old query eligible to publish after the panel reopens.
+  if(sceneView.busy&&!sceneView.building)sceneView.version++;
+}
 $("scene-panel").addEventListener("toggle",async()=>{
-  if(!$("scene-panel").open){sceneView.paused=true;return;}
+  if(!$("scene-panel").open){pauseScenes();return;}
   if(!activeItem||sceneView.busy)return;
   const view=sceneView;view.owner=activeItem.id;const readVersion=view.readVersion=(view.readVersion||0)+1;
-  try{const data=await api(`/api/library/${view.owner}/scenes`);
+  try{const data=await boundedApi(`/api/library/${view.owner}/scenes`,{},10000,"장면 검색 상태를 10초 안에 확인하지 못했습니다. 화면 내용으로 찾기를 닫았다 다시 열어 주세요.");
     if(!sceneCurrent(view)||view.readVersion!==readVersion)return;
     view.ready=data.state==="ready";$("scene-state").textContent=`${data.completed}/${data.total}개 화면 분석 준비됨 · 검색어는 저장하지 않습니다.`;sceneControls(view);
   }catch(e){if(sceneCurrent(view)&&view.readVersion===readVersion){view.ready=false;sceneControls(view);$("scene-state").textContent=e.message;}}
@@ -1392,14 +1398,14 @@ $("scene-prepare").addEventListener("click",async()=>{
   finally{if(sceneCurrent(view)){view.busy=false;view.building=false;sceneControls(view);}}
 });
 $("scene-pause").addEventListener("click",()=>{sceneView.paused=true;$("scene-state").textContent="현재 묶음을 저장한 뒤 멈춥니다.";});
-$("subtitle-search-panel").addEventListener("toggle",()=>{if(!$("subtitle-search-panel").open)sceneView.paused=true;});
+$("subtitle-search-panel").addEventListener("toggle",()=>{if(!$("subtitle-search-panel").open)pauseScenes();});
 $("scene-query").addEventListener("input",()=>{sceneView.version++;$("scene-results").replaceChildren();});
 $("scene-form").addEventListener("submit",async event=>{
   event.preventDefault();const view=sceneView,query=$("scene-query").value.trim();
   if(!sceneCurrent(view)||view.busy||!view.ready||!query)return;
   view.busy=true;view.readVersion=(view.readVersion||0)+1;const version=++view.version;sceneControls(view);$("scene-results").replaceChildren();$("scene-state").textContent="이 영상에서 비슷한 화면을 찾고 있어요.";
   try{
-    const data=await api(`/api/library/${view.owner}/scenes/search`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query})});
+    const data=await boundedApi(`/api/library/${view.owner}/scenes/search`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query})},150000,"검색 응답을 150초 안에 확인하지 못했습니다. 서버 처리는 계속될 수 있습니다. 잠시 후 후보 찾기를 다시 눌러 주세요.");
     if(!sceneCurrent(view)||view.version!==version||!$("scene-panel").open)return;
     for(const [index,frame] of data.candidates.entries()){
       const row=document.createElement("li"),button=document.createElement("button"),picture=document.createElement("span"),img=document.createElement("img"),stamp=document.createElement("span");
@@ -1417,5 +1423,5 @@ $("scene-form").addEventListener("submit",async event=>{
     }
     $("scene-state").textContent=data.searched?`${data.searched}/${data.sampled}개 화면에서 찾은 후보${data.black_skipped?` · 검은 화면 ${data.black_skipped}개 제외`:""} · 이미지로 확인하고 선택하세요.`:"저장된 미리보기가 모두 검은 화면이라 비교할 이미지가 없습니다. 영상 전체에 장면이 없다는 뜻은 아닙니다. 직접 재생하거나 시간별 미리보기로 확인해 주세요.";
   }catch(e){if(sceneCurrent(view)&&view.version===version){$("scene-state").textContent=e.message;if(["scene_index_required","scene_model_changed","scene_previews_required"].includes(e.code))view.ready=false;}}
-  finally{if(sceneCurrent(view)){view.busy=false;sceneControls(view);if(view.version!==version)$("scene-state").textContent="검색어가 바뀌었습니다. 후보 찾기를 다시 눌러 주세요.";}}
+  finally{if(sceneCurrent(view)){view.busy=false;sceneControls(view);if(view.version!==version)$("scene-state").textContent="후보 찾기를 다시 눌러 주세요.";}}
 });
