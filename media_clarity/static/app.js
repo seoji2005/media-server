@@ -1406,7 +1406,10 @@ $("scene-form").addEventListener("submit",async event=>{
   view.busy=true;view.readVersion=(view.readVersion||0)+1;const version=++view.version;sceneControls(view);$("scene-results").replaceChildren();$("scene-state").textContent="이 영상에서 비슷한 화면을 찾고 있어요.";
   try{
     const data=await boundedApi(`/api/library/${view.owner}/scenes/search`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query})},150000,"검색 응답을 150초 안에 확인하지 못했습니다. 서버 처리는 계속될 수 있습니다. 잠시 후 후보 찾기를 다시 눌러 주세요.");
-    if(!sceneCurrent(view)||view.version!==version||!$("scene-panel").open)return;
+    if(!sceneCurrent(view)||view.version!==version)return;
+    // A details toggle is queued; the response can settle before its close
+    // listener invalidates the query. Check both actual open states as well.
+    if(!$("scene-panel").open||!$("subtitle-search-panel").open){view.version++;return;}
     for(const [index,frame] of data.candidates.entries()){
       const row=document.createElement("li"),button=document.createElement("button"),picture=document.createElement("span"),img=document.createElement("img"),stamp=document.createElement("span");
       button.type="button";button.className="preview-frame";button.setAttribute("aria-label",`후보 ${index+1}, ${time(frame.time)} 시점으로 이동`);

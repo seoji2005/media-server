@@ -92,6 +92,18 @@ async function fixture(){
    assert.equal(f.searches().length,1);assert.equal(f.video.currentTime,7);
   }finally{f.w.close();}
  }
+ // A details toggle is queued: a response can settle after close but before
+ // the close listener runs. Check actual visibility as well as event versions.
+ for(const panel of ['scene-panel','subtitle-search-panel']){
+  const f=await fixture();try{
+   await f.open();f.query('pending');f.submit();await tick();const old=f.held.at(-1);
+   const closed=f.toggle(panel,false);old.answer(candidates(40));await closed;
+   await f.toggle(panel,true);
+   assert.equal(f.el('scene-results').children.length,0,'response before queued '+panel+' close must be discarded');
+   assert(!f.el('scene-search').disabled);assert.doesNotMatch(f.el('scene-state').textContent,/찾고 있어요/);
+   assert.equal(f.searches().length,1);assert.equal(f.video.currentTime,7);
+  }finally{f.w.close();}
+ }
  {
   const f=await fixture();try{
    await f.open();f.query('first');f.submit();await tick();f.query('edited');
