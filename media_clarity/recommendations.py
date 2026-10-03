@@ -53,14 +53,41 @@ def feature_terms(features):
 
 def match_count(features, signals):
     groups, joins = features
-    used_words, used_aliases = set(), set()
-    count = 0
-    for word, values in sorted(groups.items()):
-        if values & signals:
-            used_words.add(word)
-            if not values & used_aliases:
-                count += 1
-            used_aliases.update(values)
+    # Merge overlapping aliases before counting. A later full Japanese word
+    # can connect two earlier script runs; lexical order must not award both.
+    clusters = []
+    for word, values in groups.items():
+        words, aliases = {word}, set(values)
+        separate = []
+        for prior_words, prior_aliases in clusters:
+            if aliases & prior_aliases:
+                words.update(prior_words)
+                aliases.update(prior_aliases)
+            else:
+                separate.append((prior_words, prior_aliases))
+        clusters = separate + [(words, aliases)]
+    matched = {i for i, (_, aliases) in enumerate(clusters) if aliases & signals}
+    used_words = set().union(*(clusters[i][0] for i in matched))
+    used_aliases = set().union(*(clusters[i][1] for i in matched))
+
+    # A compound already present alongside its constituents is redundant when
+    # either constituent earns credit. This only removes duplicate credit; new
+    # spacing matches still require the adjacent whitespace joins above.
+    owner = {word: i for i, (words, _) in enumerate(clusters) for word in words}
+    by_alias = {alias: i for i, (_, aliases) in enumerate(clusters) for alias in aliases}
+    hangul = [word for word in groups if re.fullmatch('[가-힣]{2,}', word)]
+    redundant = set()
+    for a in hangul:
+        for b in hangul:
+            parts = {owner[a], owner[b]}
+            if len(parts) < 2 or not parts & matched:
+                continue
+            for x in groups[a]:
+                for y in groups[b]:
+                    compound = by_alias.get(x + y)
+                    if compound in matched and compound not in parts:
+                        redundant.add(compound)
+    count = len(matched - redundant)
     for joined, words in joins:
         if not used_words & words and joined & signals and not joined & used_aliases:
             count += 1

@@ -32,6 +32,24 @@ class TitleMatchingTests(unittest.TestCase):
         self.assertEqual(match_count(title_features('동영상으로'),feature_terms(title_features('동영상은'))),0)
         self.assertEqual(feature_terms(title_features('1 2 THE 영상')),set())
 
+    def test_redundant_forms_do_not_depend_on_lexical_order_or_beat_plain_titles(self):
+        import itertools
+        import math
+        for seed,plain,redundant,expected in [
+            ('日本の伝統','日本の伝統','日本の伝統 日本 伝統',1),
+            ('日本の鉄道','日本の鉄道','日本の鉄道 日本 鉄道',1),
+            ('우주 여행','우주 여행','우주 여행 우주여행',2),
+            ('우주여행','우주여행','우주 여행 우주여행',1),
+            ('우주 여행','우주 여행','우주여행 여행 우주',2),
+        ]:
+            signals=feature_terms(title_features(seed));features=title_features(redundant)
+            count=match_count(features,signals)
+            self.assertEqual(count,expected,(seed,redundant))
+            plain_features=title_features(plain)
+            self.assertLessEqual(count/math.sqrt(len(features[0])),match_count(plain_features,signals)/math.sqrt(len(plain_features[0])))
+            for order in itertools.permutations(redundant.split()):
+                self.assertEqual(match_count(title_features(' '.join(order)),signals),expected)
+
 
 class RecommendationTests(unittest.TestCase):
     @classmethod

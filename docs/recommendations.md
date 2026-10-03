@@ -34,6 +34,10 @@ Each matching unit contributes +1 for liked, -1 for disliked and -0.5 for
 less-of-this. Divide their sum by the square root of the candidate's original word
 count; aliases do not enlarge that denominator. Repeated seed units count once per
 feedback type, and overlapping candidate aliases cannot multiply the credit.
+Overlap is merged before counting so word ordering does not change deduplication.
+A Korean compound repeated alongside its constituents cannot add another point
+when a constituent already matches. This deduplication only removes redundant
+credit; new spacing matches still require adjacent words separated by whitespace.
 Recent import order breaks equal scores.
 Every fourth available place reserves an unrelated candidate when one exists.
 Missing/known-changed managed files are skipped; playback keeps its existing checks.
