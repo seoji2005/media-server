@@ -32,7 +32,26 @@ compatibility warning remains. Independent review of base `7a8b6eb` to fixed cod
 defects; the reviewer reused the supplied evidence and did not claim native playback.
 No CI, model/API inference, native browser or target-PC acceptance is claimed.
 
-Next authorized stages: missing-original restore and CJK recommendation matching.
+Stage 1 is published at `a414848` (fixed code `9dfadea`, independent review clear).
+
+Stage 2 adds an exact missing-original restore endpoint and separate library-card
+picker/action. Eligibility distinguishes a missing original from a missing rendition.
+The server checks stored size/SHA-256, rehashes the persisted stage, and atomically
+links only that owned copy into an absent target. Existing targets/symlinks are
+rejected; there are no DB/schema writes or original-source links. Lost receipts use
+explicit read-only busy/status confirmation. Success does not start playback,
+conversion or jobs. [User behavior](../README.md#보관과-복구).
+
+`PYTHONPATH=tests .venv/bin/python -m unittest -q test_restore test_app test_import_recovery test_renditions`
+passes 47 tests in 20.607 s (exit 0). Nine restore cases include unchanged full SQLite
+dumps, caption/source/Range bytes, wrong copies, occupied/concurrent targets,
+symlinks, disk/cleanup failure, process exit and actual loopback lost-receipt/restart.
+An initial fixture incorrectly supplied text instead of caption bytes; fixed without
+changing product behavior. `npm test --prefix tests/ui` passes 20 suites (exit 0),
+including picker cancellation and no automatic preparation after restore. Harness
+and diff checks pass. Independent storage-safety review follows the fixed checkpoint.
+
+Next authorized stage: conservative CJK recommendation matching and authored evaluation.
 
 ## Pending worker resume fix
 

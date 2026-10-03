@@ -380,16 +380,26 @@ def create_app(data_dir: Path | None = None, *, codespaces_demo: bool = False) -
 
     @app.post("/api/import")
     async def import_video(request: Request):
+        return await receive_video(request)
+
+    @app.post('/api/library/{item_id}/restore')
+    async def restore_video(item_id: str, request: Request):
+        return await receive_video(request, item_id)
+
+    async def receive_video(request: Request, restore_id=None):
         if request.headers.get("content-type", "").split(";")[0] != "application/octet-stream":
             raise MediaError("binary_upload_required", 415)
         if not store.import_lock.acquire(blocking=False):
             raise MediaError("import_busy", 409)
         stage, output = None, None
         try:
+            original = await run_in_threadpool(store.restore_row, restore_id) if restore_id else None
             length = request.headers.get("content-length")
             if length is not None and (not re.fullmatch(r"\d{1,20}", length) or int(length) <= 0):
                 raise MediaError("empty_media", 422)
             if length:
+                if original and int(length) != original['size']:
+                    raise MediaError('restore_mismatch', 422)
                 store.ensure_space(int(length))
             name = request.headers.get("x-media-filename", "video")
             if len(name) > 3000:
@@ -400,6 +410,8 @@ def create_app(data_dir: Path | None = None, *, codespaces_demo: bool = False) -
             async for incoming in request.stream():
                 for offset in range(0, len(incoming), CHUNK):
                     chunk = incoming[offset:offset + CHUNK]
+                    if original and size + len(chunk) > original['size']:
+                        raise MediaError('restore_mismatch', 422)
                     await run_in_threadpool(store.ensure_space, len(chunk))
                     await run_in_threadpool(output.write, chunk)
                     digest.update(chunk)
@@ -410,6 +422,8 @@ def create_app(data_dir: Path | None = None, *, codespaces_demo: bool = False) -
             await run_in_threadpool(os.fsync, output.fileno())
             output.close()
             output = None
+            if original:
+                return await run_in_threadpool(store.finish_restore, restore_id, stage, digest.hexdigest(), size)
             result = await run_in_threadpool(store.finish_import, stage, digest.hexdigest(), size, title)
             return JSONResponse(result, status_code=200 if result["duplicate"] else 201)
         except ClientDisconnect:

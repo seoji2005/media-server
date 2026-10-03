@@ -475,17 +475,65 @@ class Store:
             raise MediaError("item_not_found", 404)
         return dict(row)
 
-    def file_path(self, row: dict, thumbnail=False) -> Path:
+    def managed_path(self, row: dict, thumbnail=False) -> Path:
         if not ID.fullmatch(row["file_id"]) or row["extension"] not in {"mp4", "webm", "mkv"}:
             raise MediaError("unsafe_storage", 503)
         path = self.root / "files" / row["file_id"] / ("thumbnail.jpg" if thumbnail else "original." + row["extension"])
         no_symlink(path)
+        return path
+
+    def original_missing(self, row: dict) -> bool:
+        try:
+            self.managed_path(row).lstat()
+        except FileNotFoundError:
+            return True
+        return False
+
+    def restore_row(self, item_id: str) -> dict:
+        row = self._row(item_id)
+        if not self.original_missing(row):
+            raise MediaError('restore_not_missing', 409)
+        return row
+
+    def finish_restore(self, item_id: str, stage: Path, digest: str, size: int) -> dict:
+        """Caller holds import_lock. Publish only the exact, missing owned copy."""
+        row = self.restore_row(item_id)
+        if size != row['size'] or digest != row['sha256']:
+            raise MediaError('restore_mismatch', 422)
+        no_symlink(stage)
+        with stage.open('rb') as copied:
+            before = file_signature(copied)
+            checked = hashlib.file_digest(copied, 'sha256').hexdigest()
+            no_symlink(stage)
+            named = stage.stat()
+            if (checked != digest or before[2] != size or file_signature(copied) != before
+                    or (named.st_dev, named.st_ino, named.st_size, named.st_mtime_ns) != before[:4]):
+                raise MediaError('copy_changed', 409)
+            target = self.managed_path(row)
+            target.parent.mkdir(mode=0o700, exist_ok=True)
+            no_symlink(target)
+            try:
+                # Link the verified app-owned stage, never the user's source.
+                # Unlike rename, this cannot replace an occupied destination.
+                os.link(stage, target, follow_symlinks=False)
+            except FileExistsError:
+                raise MediaError('restore_not_missing', 409) from None
+        with self.integrity_lock:
+            self.integrity_cache.pop(row['file_id'], None)
+            self.integrity_failures.discard(row['file_id'])
+        # No DB updates and no rollback of the published original on a later
+        # response/cleanup failure. Normal verified reads still check its bytes.
+        return {'item': self.item(item_id)}
+
+    def file_path(self, row: dict, thumbnail=False) -> Path:
+        path = self.managed_path(row, thumbnail)
         if not path.is_file():
             raise MediaError("managed_file_missing", 410)
         return path
 
     def item(self, item_id: str) -> dict:
         row = self._row(item_id)
+        original_missing = self.original_missing(row)
         unavailable_reason = None
         try:
             if self.file_path(row).stat().st_size != row["size"]:
@@ -499,7 +547,7 @@ class Store:
             if exc.code not in {"managed_file_missing", "managed_file_changed", "rendition_required"}:
                 raise
             unavailable_reason = exc.code
-        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "position_revision", "watched_at", "duration", "size", "width", "height", "sha256", "preparation", "preparation_error", "audio_index")} | {"available": unavailable_reason is None, "unavailable_reason": unavailable_reason, "thumbnail": bool(row["thumbnail"]), "mime": playback['mime'] if unavailable_reason is None else row['mime'], 'duration':playback['duration'] if unavailable_reason is None else row['duration'], 'audio_tracks':json.loads(row['audio_tracks']) if row['audio_tracks'] is not None else None, 'preparation':playback['preparation'] if unavailable_reason is None else row['preparation']}
+        return {k: row[k] for k in ("id", "file_id", "title", "created_at", "position", "position_revision", "watched_at", "duration", "size", "width", "height", "sha256", "preparation", "preparation_error", "audio_index")} | {"available": unavailable_reason is None, "original_missing": original_missing, "unavailable_reason": unavailable_reason, "thumbnail": bool(row["thumbnail"]), "mime": playback['mime'] if unavailable_reason is None else row['mime'], 'duration':playback['duration'] if unavailable_reason is None else row['duration'], 'audio_tracks':json.loads(row['audio_tracks']) if row['audio_tracks'] is not None else None, 'preparation':playback['preparation'] if unavailable_reason is None else row['preparation']}
 
     def playback_row(self, item_id, audio_index=None):
         source = self._row(item_id)

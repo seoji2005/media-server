@@ -2,6 +2,8 @@
 const $ = (id) => document.getElementById(id);
 let sessionToken = "", items = [], filter = "all", activeItem = null, upload = null;
 let importRecoveryVersion=0;
+let restorePickId=null;
+const restoreCommands=new Map();
 let recommendedItems = [], recommendationState = "idle", recommendationError = "", recommendationVersion = 0;
 let preferenceVersion = 0, savedPreference = null;
 const pendingPreferences = new Map();
@@ -23,6 +25,8 @@ $("settings-open").addEventListener("click",()=>{$("settings-dialog").showModal(
 $("settings-close").addEventListener("click",()=>$("settings-dialog").close());
 for(const modal of [dialog,$("settings-dialog")])modal.addEventListener("close",placeSessionRecovery);
 const errors = {
+  restore_mismatch:"처음 보관한 원본과 내용이 다른 파일입니다. 편집·변환하지 않은 동일한 원본을 선택해 주세요.",
+  restore_not_missing:"보관 파일이 이미 있습니다. 덮어쓰지 않았습니다. 보관함 상태를 다시 확인해 주세요.",
   position_changed:"다른 저장으로 시청 위치가 바뀌었습니다. 지금 위치는 이 창에 남아 있습니다. 다시 재생하거나 이동하면 저장을 시도합니다.",
   invalid_title:"제목을 180자 이내로 입력해 주세요. 줄바꿈과 제어 문자는 사용할 수 없습니다.",
   title_changed:"다른 창에서 제목이 바뀌었습니다. 저장된 제목을 불러와 확인해 주세요.",
@@ -161,6 +165,15 @@ function render() {
     const image = card.querySelector("img");
     if (item.thumbnail && item.available) { image.src = `/api/media/${item.id}/thumbnail`; image.addEventListener("error", () => image.hidden = true, {once:true}); } else image.hidden = true;
     const button = card.querySelector("button"); button.setAttribute("aria-label", `${item.title}, ${status.textContent}`); button.addEventListener("click", () => openPlayer(item.id));
+    const restoring=restoreCommands.get(item.id);
+    if(item.original_missing||restoring){
+      const action=document.createElement("button"),note=document.createElement("p"),controls=document.createElement("div");
+      controls.className="restore-controls";note.textContent=restoring?.error||"동일한 원본 파일을 선택해 보관 사본을 복원합니다. 제목·시청 기록·자막은 유지됩니다.";
+      action.type="button";action.className="button button-secondary";action.textContent=restoring?"복원 상태 확인":"원본 사본 복원";
+      action.setAttribute("aria-label",`${item.title} · ${action.textContent}`);action.disabled=!!upload||!!restoring?.pending||!!restoring?.checking;
+      action.addEventListener("click",()=>restoring?confirmRestore(item.id):chooseRestore(item.id));
+      controls.append(note,action);card.querySelector("article").append(controls);
+    }
     grid.append(card);
   }
   const empty = libraryLoaded && !visible.length; $("empty-state").hidden = !empty;
@@ -252,6 +265,27 @@ $("preference-value").addEventListener("change",savePreference);
 $("preference-include").addEventListener("change",savePreference);
 $("preference-retry").addEventListener("click",()=>{if(activeItem)refreshPreference(activeItem);});
 function chooseFile() { if(!connectedLibrary)return toast("보관함에 먼저 연결해 주세요.",true);if(upload) return toast("현재 가져오기가 끝난 뒤 선택해 주세요."); $("file-input").click(); }
+function chooseRestore(id){
+  if(!connectedLibrary||upload||restoreCommands.has(id))return;
+  restorePickId=id;$("restore-input").value="";$("restore-input").click();
+}
+$("restore-input").addEventListener("cancel",()=>{restorePickId=null;$("restore-input").value="";});
+$("restore-input").addEventListener("change",()=>{
+  const id=restorePickId,file=$("restore-input").files[0];restorePickId=null;
+  if(id&&file)importFile(file,id);
+});
+async function confirmRestore(id){
+  const command=restoreCommands.get(id);if(!command||command.pending||command.checking||upload)return;
+  command.checking=true;render();
+  try{
+    const status=await boundedApi(`/api/library/${id}/playback-status`,{},10000,"복원 상태를 확인하지 못했습니다. 다시 확인해 주세요.");
+    if(status.busy===true){command.error="파일 작업이 진행 중입니다. 잠시 후 복원 상태를 다시 확인해 주세요.";return;}
+    if(status.busy!==false||status.item?.id!==id||typeof status.item.original_missing!=="boolean")throw Error("복원 상태를 읽을 수 없습니다.");
+    await refresh(10000);restoreCommands.delete(id);
+    toast(status.item.original_missing?"보관 사본이 아직 없습니다. 동일한 원본을 선택해 복원할 수 있습니다.":"보관 사본이 있습니다. 보관함의 재생 상태를 확인해 주세요.");
+  }catch(e){command.error=e.message;}
+  finally{command.checking=false;render();}
+}
 function showImportRecovery(detail){
   importRecoveryVersion++;
   $("import-recovery-message").textContent=detail+" 원본은 그대로입니다. 서버에서 보관이 끝났을 수도 있습니다. 다시 가져오기 전에 보관함을 확인해 주세요.";
@@ -273,20 +307,28 @@ $("import-check").addEventListener("click",async()=>{
     if(read!==libraryReadVersion)$("import-recovery-message").textContent="더 최근의 보관함 조회가 시작됐습니다. 필요하면 다시 확인해 주세요.";
   }}
 });
-async function importFile(file) {
+async function importFile(file,restoreId=null) {
   if(!connectedLibrary)return toast("보관함에 먼저 연결해 주세요.",true);
   if(upload) return toast("한 번에 한 개의 영상을 가져올 수 있습니다.");
   if(!file || !file.size) return toast(message("empty_media"),true);
+  if(restoreId&&restoreCommands.has(restoreId))return toast("복원 상태를 먼저 확인해 주세요.",true);
+  const restoring=restoreId?{pending:true,checking:false,error:""}:null;
+  if(restoring)restoreCommands.set(restoreId,restoring);
+  const recovery=detail=>{
+    if(restoring){restoring.error=detail+" 저장됐을 수 있으니 복원 상태를 확인해 주세요.";render();}
+    showImportRecovery(detail);
+  };
   const version=++importRecoveryVersion;
   $("import-recovery").hidden=true;$("import-check").disabled=false;
   const xhr = new XMLHttpRequest(); upload = xhr;
   let sent=false;
-  $("upload-status").hidden = false; $("upload-title").textContent = file.name; $("upload-detail").textContent = "원본을 그대로 두고 감상용 사본을 가져오고 있어요";
+  $("upload-status").hidden = false; $("upload-title").textContent = file.name; $("upload-detail").textContent = restoring?"동일한 원본인지 확인해 누락된 보관 사본을 복원합니다. 기존 기록은 유지합니다.":"원본을 그대로 두고 감상용 사본을 가져오고 있어요";
   $("upload-progress").value = 0; $("upload-percent").textContent = "0%"; $("upload-cancel").hidden = false;
   $("upload-cancel").setAttribute("aria-label","가져오기 취소");$("upload-cancel").title="가져오기 취소";
   $("import-top").disabled = true; $("import-empty").disabled = true;
   const importToken=sessionToken;
-  xhr.open("POST","/api/import"); xhr.setRequestHeader("Content-Type","application/octet-stream"); xhr.setRequestHeader("X-Media-Token",importToken); xhr.setRequestHeader("X-Media-Filename",encodeURIComponent(file.name));
+  xhr.open("POST",restoring?`/api/library/${restoreId}/restore`:"/api/import"); xhr.setRequestHeader("Content-Type","application/octet-stream"); xhr.setRequestHeader("X-Media-Token",importToken); xhr.setRequestHeader("X-Media-Filename",encodeURIComponent(file.name));
+  render();
   xhr.upload.addEventListener("progress",e=>{
     if(upload!==xhr||sent||!e.lengthComputable||e.total<=0)return;
     const percent=Math.min(99,Math.floor(e.loaded/e.total*100));
@@ -300,29 +342,33 @@ async function importFile(file) {
   });
   xhr.addEventListener("load",async()=>{
     if(upload!==xhr)return;
-    let result;try{result=JSON.parse(xhr.responseText);}catch{showImportRecovery("앱 응답을 읽을 수 없습니다.");return;}
+    let result;try{result=JSON.parse(xhr.responseText);}catch{recovery("앱 응답을 읽을 수 없습니다.");return;}
     if(xhr.status>=200&&xhr.status<300){
-      if(!result?.item||typeof result.item.id!=="string"||!/^[a-f0-9]{32}$/.test(result.item.id)){showImportRecovery("가져오기 결과를 확인하지 못했습니다.");return;}
-      toast(result.duplicate?"이미 보관함에 있는 영상입니다. 기존 시청 기록을 유지했어요.":"보관함에 영상을 담았습니다.");
+      if(!result?.item||typeof result.item.id!=="string"||!/^[a-f0-9]{32}$/.test(result.item.id)||(restoring&&result.item.id!==restoreId)){recovery("가져오기 결과를 확인하지 못했습니다.");return;}
+      if(restoring)restoreCommands.delete(restoreId);
+      toast(restoring?"원본 보관 사본을 복원했습니다. 제목·시청 기록·자막은 유지했습니다.":result.duplicate?"이미 보관함에 있는 영상입니다. 기존 시청 기록을 유지했어요.":"보관함에 영상을 담았습니다.");
       // A newer upload owns the notice, but cannot suppress this confirmed
       // item's normal preparation after a delayed library read.
-      try{await refresh();if(result.item.unavailable_reason==="rendition_required")await preparePlayback(result.item.id);}
-      catch(e){if(version===importRecoveryVersion)showImportRecovery(e.message);}
+      try{await refresh(restoring?10000:null);if(!restoring&&result.item.unavailable_reason==="rendition_required")await preparePlayback(result.item.id);}
+      catch(e){if(version===importRecoveryVersion)recovery(e.message);}
     }else{
       if(result?.error==="session_required"&&importToken===sessionToken)showSessionRecovery();
-      showImportRecovery(message(result?.error));
+      if(restoring&&["restore_mismatch","restore_not_missing","import_busy","empty_media","incomplete_upload","binary_upload_required"].includes(result?.error)){
+        restoreCommands.delete(restoreId);toast(message(result.error),true);
+      }else recovery(message(result?.error));
     }
   });
-  for(const event of ["error","timeout"])xhr.addEventListener(event,()=>{if(upload===xhr)showImportRecovery("가져오기 응답을 확인하지 못했습니다. 앱 연결을 확인해 주세요.");});
-  xhr.addEventListener("abort",()=>{if(upload===xhr)showImportRecovery(sent?"서버 응답 대기를 중단했습니다.":"가져오기 요청을 중단했습니다.");});
+  for(const event of ["error","timeout"])xhr.addEventListener(event,()=>{if(upload===xhr)recovery("가져오기 응답을 확인하지 못했습니다. 앱 연결을 확인해 주세요.");});
+  xhr.addEventListener("abort",()=>{if(upload===xhr)recovery(sent?"서버 응답 대기를 중단했습니다.":"가져오기 요청을 중단했습니다.");});
   const releaseUpload=()=>{
     if(upload!==xhr)return;
     const hadFocus=document.activeElement===$("upload-cancel");
     upload=null;$("upload-status").hidden=true;$("import-top").disabled=false;$("import-empty").disabled=false;$("file-input").value="";
+    if(restoring)restoring.pending=false;render();
     if(hadFocus)$("import-top").focus();
   };
   xhr.addEventListener("loadend",releaseUpload);
-  try{xhr.send(file);}catch{showImportRecovery("가져오기 요청을 보내지 못했습니다.");releaseUpload();}
+  try{xhr.send(file);}catch{recovery("가져오기 요청을 보내지 못했습니다.");releaseUpload();}
 }
 function playbackRecoveryControls(){
   $("playback-recovery").hidden=!playbackCommands.size;
